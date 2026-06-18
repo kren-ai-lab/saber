@@ -20,7 +20,7 @@ from typing import Sequence
 
 from mlcore.core.specs import AlgorithmSpec
 
-from mlcore.exceptions.registry import (
+from mlcore.exceptions import (
     AlgorithmAlreadyRegisteredError,
     AlgorithmNotFoundError,
 )
@@ -474,6 +474,18 @@ class AlgorithmRegistry:
 
         self._algorithms.pop(spec.name, None)
 
+    def get_runner(
+        self,
+        name: str,
+    ):
+        return self.get(name).runner
+    
+    def get_backend(
+        self,
+        name: str,
+    ):
+        return self.get(name).backend_cls
+
     @property
     def algorithms(self) -> dict[str, AlgorithmSpec]:
         """
@@ -521,3 +533,9 @@ class AlgorithmRegistry:
             f"{self.__class__.__name__}"
             f"(n_algorithms={len(self)})"
         )
+    
+# ============================================================
+# Global registry
+# ============================================================
+
+MODEL_REGISTRY = AlgorithmRegistry()

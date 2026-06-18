@@ -1,85 +1,26 @@
 """
 mlcore.classification.xgboost_models
-=====================================
+====================================
 
-XGBoost based classification models and registry wiring.
-
-This module defines:
-- XGBoost classifier runners
-- AlgorithmSpec definitions
-- automatic registry registration
+XGBoost classification models and registry wiring.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from xgboost import (
+    XGBClassifier,
+    XGBRFClassifier,
+)
 
-import numpy as np
+from mlcore.classification.backend import ClassificationBackend
+from mlcore.classification.runners import make_classifier_runner
 
-from xgboost import XGBClassifier, XGBRFClassifier
-
-from mlcore.core.base import BackendBase
-from mlcore.core.registry import AlgorithmRegistry
+from mlcore.core.registry import MODEL_REGISTRY
 from mlcore.core.specs import AlgorithmSpec
 
 
 # ============================================================
-# Backend
-# ============================================================
-
-class XGBoostBackend(BackendBase):
-    """
-    Backend for XGBoost models.
-    """
-
-    pass  # inherits full state management from BackendBase
-
-
-# ============================================================
-# Runner factory
-# ============================================================
-
-def _make_runner(model_cls: Any):
-    """
-    Create a unified XGBoost runner.
-    """
-
-    def runner(
-        backend: XGBoostBackend,
-        X: np.ndarray,
-        y: np.ndarray,
-        **params: Any,
-    ) -> None:
-
-        model = model_cls(**params)
-
-        model.fit(X, y)
-
-        backend.set_model(model)
-
-        preds = model.predict(X)
-        backend.set_predictions(preds)
-
-        # probability support
-        if hasattr(model, "predict_proba"):
-            try:
-                probs = model.predict_proba(X)
-                backend.set_probabilities(probs)
-            except Exception:
-                pass
-
-    return runner
-
-
-# ============================================================
-# Registry
-# ============================================================
-
-XGB_REGISTRY = AlgorithmRegistry()
-
-
-# ============================================================
-# Registration function
+# Registration
 # ============================================================
 
 def register_xgboost_classification_models() -> None:
@@ -89,27 +30,40 @@ def register_xgboost_classification_models() -> None:
 
     models = [
         ("xgb_classifier", XGBClassifier),
-        ("xgbr_classifier", XGBRFClassifier),
+        ("xgb_rf_classifier", XGBRFClassifier),
     ]
 
-    specs = []
+    specs: list[AlgorithmSpec] = []
 
     for name, model_cls in models:
+
+        try:
+            supports_proba = hasattr(
+                model_cls(),
+                "predict_proba",
+            )
+
+        except Exception:
+            supports_proba = False
 
         spec = AlgorithmSpec(
             backend="xgboost",
             task="classification",
             name=name,
-            runner=_make_runner(model_cls),
-            backend_cls=XGBoostBackend,
-            tags=("classification", "xgboost", "tree"),
-            supports_proba=True,
-            description="XGBoost classifier wrapper",
+            runner=make_classifier_runner(model_cls),
+            backend_cls=ClassificationBackend,
+            tags=(
+                "classification",
+                "xgboost",
+                "tree",
+                "boosting",
+            ),
+            supports_proba=supports_proba,
         )
 
         specs.append(spec)
 
-    XGB_REGISTRY.register_many(specs)
+    MODEL_REGISTRY.register_many(specs)
 
 
 # ============================================================

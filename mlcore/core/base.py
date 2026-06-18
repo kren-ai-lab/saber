@@ -1,6 +1,6 @@
 """
 mlcore.core.base
-=================
+================
 
 Base backend abstraction for all machine learning models.
 
@@ -13,107 +13,225 @@ Backends are responsible ONLY for storing state:
 - probabilities
 - metrics
 - parameters
+- metadata
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 
 
-# ============================================================
-# Backend base class
-# ============================================================
-
 class BackendBase:
     """
-    Base class for all ML backends.
+    Base class for all machine learning backends.
 
-    A backend does NOT execute training logic.
+    Notes
+    -----
+    A backend does NOT perform training.
 
-    Instead, it stores the results produced by a runner:
-    - model
+    Instead, it stores the execution state produced
+    by a runner:
+
+    - trained model
     - predictions
     - probabilities
     - metrics
-    - parameters
+    - hyperparameters
+    - metadata
     """
 
     def __init__(self) -> None:
+        """
+        Initialize backend state.
+        """
+
         self.model: Any = None
-        self.predictions: Optional[np.ndarray] = None
-        self.probabilities: Optional[np.ndarray] = None
 
-        self.metrics: Dict[str, float] = {}
-        self.params: Dict[str, Any] = {}
+        self.predictions: np.ndarray | None = None
+        self.probabilities: np.ndarray | None = None
+
+        self.metrics: dict[str, float] = {}
+        self.params: dict[str, Any] = {}
+
+        self.metadata: dict[str, Any] = {}
 
     # ============================================================
-    # State setters (used by runners)
+    # State setters
     # ============================================================
 
-    def set_model(self, model: Any) -> None:
-        """Store trained model."""
+    def set_model(
+        self,
+        model: Any,
+    ) -> None:
+        """
+        Store trained model.
+        """
+
         self.model = model
 
-    def set_predictions(self, preds: np.ndarray) -> None:
-        """Store predictions."""
-        self.predictions = preds
+    def set_predictions(
+        self,
+        predictions: np.ndarray,
+    ) -> None:
+        """
+        Store predictions.
+        """
 
-    def set_probabilities(self, probs: np.ndarray) -> None:
-        """Store probability outputs (if available)."""
-        self.probabilities = probs
+        self.predictions = predictions
 
-    def set_metrics(self, metrics: Dict[str, float]) -> None:
-        """Store evaluation metrics."""
+    def set_probabilities(
+        self,
+        probabilities: np.ndarray,
+    ) -> None:
+        """
+        Store probability outputs.
+        """
+
+        self.probabilities = probabilities
+
+    def set_metrics(
+        self,
+        metrics: dict[str, float],
+    ) -> None:
+        """
+        Store evaluation metrics.
+        """
+
         self.metrics = dict(metrics)
 
-    def set_params(self, params: Dict[str, Any]) -> None:
-        """Store hyperparameters used in training."""
+    def set_params(
+        self,
+        params: dict[str, Any],
+    ) -> None:
+        """
+        Store training parameters.
+        """
+
         self.params = dict(params)
+
+    def set_metadata(
+        self,
+        metadata: dict[str, Any],
+    ) -> None:
+        """
+        Store metadata.
+        """
+
+        self.metadata = dict(metadata)
+
+    def update_metadata(
+        self,
+        **metadata: Any,
+    ) -> None:
+        """
+        Update metadata dictionary.
+        """
+
+        self.metadata.update(metadata)
 
     # ============================================================
     # Accessors
     # ============================================================
 
     def get_model(self) -> Any:
-        """Return trained model."""
+        """
+        Return trained model.
+        """
+
         return self.model
 
-    def get_predictions(self) -> Optional[np.ndarray]:
-        """Return predictions."""
+    def get_predictions(
+        self,
+    ) -> np.ndarray | None:
+        """
+        Return predictions.
+        """
+
         return self.predictions
 
-    def get_probabilities(self) -> Optional[np.ndarray]:
-        """Return probability outputs."""
+    def get_probabilities(
+        self,
+    ) -> np.ndarray | None:
+        """
+        Return probabilities.
+        """
+
         return self.probabilities
 
-    def get_metrics(self) -> Dict[str, float]:
-        """Return evaluation metrics."""
-        return self.metrics
+    def get_metrics(
+        self,
+    ) -> dict[str, float]:
+        """
+        Return evaluation metrics.
+        """
 
-    def get_params(self) -> Dict[str, Any]:
-        """Return training parameters."""
-        return self.params
+        return dict(self.metrics)
+
+    def get_params(
+        self,
+    ) -> dict[str, Any]:
+        """
+        Return training parameters.
+        """
+
+        return dict(self.params)
+
+    def get_metadata(
+        self,
+    ) -> dict[str, Any]:
+        """
+        Return metadata.
+        """
+
+        return dict(self.metadata)
+
+    # ============================================================
+    # State inspection
+    # ============================================================
+
+    def has_model(self) -> bool:
+        """
+        Check whether a model exists.
+        """
+
+        return self.model is not None
+
+    def has_predictions(self) -> bool:
+        """
+        Check whether predictions exist.
+        """
+
+        return self.predictions is not None
+
+    def has_probabilities(self) -> bool:
+        """
+        Check whether probabilities exist.
+        """
+
+        return self.probabilities is not None
 
     # ============================================================
     # Utility methods
     # ============================================================
 
-    def has_model(self) -> bool:
-        """Check if model exists."""
-        return self.model is not None
-
     def clear(self) -> None:
-        """Reset backend state."""
+        """
+        Reset backend state.
+        """
+
         self.model = None
+
         self.predictions = None
         self.probabilities = None
+
         self.metrics = {}
         self.params = {}
+        self.metadata = {}
 
     # ============================================================
-    # Hooks (future extensibility)
+    # Hooks
     # ============================================================
 
     def post_fit_hook(self) -> None:
@@ -121,32 +239,53 @@ class BackendBase:
         Hook executed after training.
 
         Intended for:
+
         - logging
         - persistence
         - experiment tracking
+        - monitoring
         """
-        pass
+
+        return None
 
     def post_predict_hook(self) -> None:
         """
         Hook executed after prediction.
 
         Intended for:
+
         - logging
         - monitoring
         """
-        pass
+
+        return None
 
     # ============================================================
-    # Representation
+    # Magic methods
     # ============================================================
+
+    def __len__(self) -> int:
+        """
+        Number of stored metrics.
+        """
+
+        return len(self.metrics)
 
     def __repr__(self) -> str:
-        status = "trained" if self.model is not None else "untrained"
+        """
+        Backend representation.
+        """
+
+        status = (
+            "trained"
+            if self.has_model()
+            else "untrained"
+        )
 
         return (
             f"{self.__class__.__name__}("
             f"status={status}, "
-            f"metrics={list(self.metrics.keys())}"
+            f"n_metrics={len(self.metrics)}, "
+            f"n_metadata={len(self.metadata)}"
             f")"
         )
