@@ -17,7 +17,7 @@ from mlcore.classification.runners import make_classifier_runner
 
 from mlcore.core.registry import MODEL_REGISTRY
 from mlcore.core.specs import AlgorithmSpec
-
+from mlcore.classification import search_spaces
 
 # ============================================================
 # Registration
@@ -29,13 +29,13 @@ def register_xgboost_classification_models() -> None:
     """
 
     models = [
-        ("xgb_classifier", XGBClassifier),
-        ("xgb_rf_classifier", XGBRFClassifier),
+        ("xgb_classifier", XGBClassifier, ("classification", "xgboost", "tree", "boosting"), search_spaces.XGB_CLASSIFIER),
+        ("xgb_rf_classifier", XGBRFClassifier, ("classification", "xgboost", "tree", "boosting"), search_spaces.XGB_RF_CLASSIFIER),
     ]
 
     specs: list[AlgorithmSpec] = []
 
-    for name, model_cls in models:
+    for name, model_cls, tags, search_space in models:
 
         try:
             supports_proba = hasattr(
@@ -52,13 +52,9 @@ def register_xgboost_classification_models() -> None:
             name=name,
             runner=make_classifier_runner(model_cls),
             backend_cls=ClassificationBackend,
-            tags=(
-                "classification",
-                "xgboost",
-                "tree",
-                "boosting",
-            ),
+            tags=tags,
             supports_proba=supports_proba,
+            search_space=search_space
         )
 
         specs.append(spec)

@@ -17,7 +17,7 @@ from mlcore.core.specs import AlgorithmSpec
 
 from mlcore.regression.backend import RegressionBackend
 from mlcore.regression.runners import make_regression_runner
-
+from mlcore.regression import search_spaces
 
 def register_xgboost_regression_models() -> None:
     """
@@ -34,6 +34,7 @@ def register_xgboost_regression_models() -> None:
                 "tree",
                 "boosting",
             ),
+            search_spaces.XGB_REGRESSOR,
         ),
         (
             "xgbrf_regressor",
@@ -44,12 +45,13 @@ def register_xgboost_regression_models() -> None:
                 "tree",
                 "random_forest",
             ),
+            search_spaces.XGBRF_REGRESSOR,
         ),
     ]
 
     specs: list[AlgorithmSpec] = []
 
-    for name, model_cls, tags in models:
+    for name, model_cls, tags, search_space in models:
 
         spec = AlgorithmSpec(
             backend="xgboost",
@@ -60,6 +62,7 @@ def register_xgboost_regression_models() -> None:
             ),
             backend_cls=RegressionBackend,
             tags=tags,
+            search_space=search_space
         )
 
         specs.append(spec)

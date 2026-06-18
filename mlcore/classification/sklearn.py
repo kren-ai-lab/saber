@@ -60,6 +60,7 @@ from mlcore.classification.runners import make_classifier_runner
 from mlcore.core.registry import MODEL_REGISTRY
 from mlcore.core.specs import AlgorithmSpec
 
+from mlcore.classification import search_spaces
 
 # ============================================================
 # Registration
@@ -71,36 +72,36 @@ def register_sklearn_classification_models() -> None:
     """
 
     models = [
-        ("logistic_regression", LogisticRegression),
-        ("random_forest", RandomForestClassifier),
-        ("extra_trees", ExtraTreesClassifier),
-        ("gradient_boosting", GradientBoostingClassifier),
-        ("svc", SVC),
-        ("linear_svc", LinearSVC),
-        ("nu_svc", NuSVC),
-        ("knn", KNeighborsClassifier),
-        ("radius_neighbors", RadiusNeighborsClassifier),
-        ("nearest_centroid", NearestCentroid),
-        ("decision_tree", DecisionTreeClassifier),
-        ("extra_tree", ExtraTreeClassifier),
-        ("adaboost", AdaBoostClassifier),
-        ("bagging", BaggingClassifier),
-        ("hist_gradient_boosting", HistGradientBoostingClassifier),
-        ("ridge_classifier", RidgeClassifier),
-        ("sgd_classifier", SGDClassifier),
-        ("lda", LinearDiscriminantAnalysis),
-        ("qda", QuadraticDiscriminantAnalysis),
-        ("gaussian_process", GaussianProcessClassifier),
-        ("gaussian_nb", GaussianNB),
-        ("bernoulli_nb", BernoulliNB),
-        ("categorical_nb", CategoricalNB),
-        ("multinomial_nb", MultinomialNB),
-        ("complement_nb", ComplementNB),
+        ("logistic_regression", LogisticRegression, ("classification", "logistic regression"), search_spaces.LOGISTIC_REGRESSION),
+        ("random_forest", RandomForestClassifier, ("classification", "random forest", "ensseemble", "bagging"), search_spaces.RANDOM_FOREST),
+        ("extra_trees", ExtraTreesClassifier, ("classification", "extra trees", "tree", "bagging"), search_spaces.EXTRA_TREES),
+        ("gradient_boosting", GradientBoostingClassifier, ("classification", "gradient boosting", "tree", "boosting"), search_spaces.GRADIENT_BOOSTING),
+        ("svc", SVC, ("classification", "svc", "SVM"), search_spaces.SVC_SPACE),
+        ("linear_svc", LinearSVC, ("classification", "svc", "Linear SVM"), search_spaces.LINEAR_SVC),
+        ("nu_svc", NuSVC, ("classification", "svc", "Nu SVC"), search_spaces.NU_SVC),
+        ("knn", KNeighborsClassifier, ("classification", "KNN", "distance-based"), search_spaces.KNN),
+        ("radius_neighbors", RadiusNeighborsClassifier, ("classification", "Radius Neighbors", "distance-based"), search_spaces.RADIUS_NEIGHBORS),
+        ("nearest_centroid", NearestCentroid, ("classification", "Nearest centroid", "distance-based"), search_spaces.NEAREST_CENTROID),
+        ("decision_tree", DecisionTreeClassifier, ("classification", "decision tree", "tree"), search_spaces.DECISION_TREE),
+        ("extra_tree", ExtraTreeClassifier, ("classification", "extra-tree", "tree"), search_spaces.EXTRA_TREE),
+        ("adaboost", AdaBoostClassifier, ("classification", "adaboosting", "tree", "boosting"), search_spaces.ADABOOST),
+        ("bagging", BaggingClassifier, ("classification", "bagging", "tree", "bagging-based"), search_spaces.BAGGING),
+        ("hist_gradient_boosting", HistGradientBoostingClassifier, ("classification", "hist-gradient", "tree", "boosting"), search_spaces.HIST_GRADIENT_BOOSTING),
+        ("ridge_classifier", RidgeClassifier, ("classification", "ridge", "linear"), search_spaces.RIDGE_CLASSIFIER),
+        ("sgd_classifier", SGDClassifier, ("classification", "SGD", "linear"), search_spaces.SGD_CLASSIFIER),
+        ("lda", LinearDiscriminantAnalysis, ("classification", "LDA", "linear-based"), search_spaces.LDA),
+        ("qda", QuadraticDiscriminantAnalysis, ("classification", "QDA", "quadratic-based"), search_spaces.QDA),
+        ("gaussian_process", GaussianProcessClassifier, ("classification", "Gaussian Process"), search_spaces.GAUSSIAN_PROCESS),
+        ("gaussian_nb", GaussianNB, ("classification", "Gaussian", "naive bayes"), search_spaces.GAUSSIAN_NB),
+        ("bernoulli_nb", BernoulliNB, ("classification", "Bernoulli", "naive bayes"), search_spaces.BERNOULLI_NB),
+        ("categorical_nb", CategoricalNB, ("classification", "Categorical", "naive bayes"), search_spaces.CATEGORICAL_NB),
+        ("multinomial_nb", MultinomialNB, ("classification", "Multinomial", "naive bayes"), search_spaces.MULTINOMIAL_NB),
+        ("complement_nb", ComplementNB, ("classification", "Complement", "naive bayes"), search_spaces.COMPLEMENT_NB),
     ]
 
     specs: list[AlgorithmSpec] = []
 
-    for name, model_cls in models:
+    for name, model_cls, tags, search_space in models:
 
         try:
             supports_proba = hasattr(
@@ -115,10 +116,11 @@ def register_sklearn_classification_models() -> None:
             backend="sklearn",
             task="classification",
             name=name,
+            tags=tags,
             runner=make_classifier_runner(model_cls),
             backend_cls=ClassificationBackend,
-            tags=("classification", "sklearn"),
             supports_proba=supports_proba,
+            search_space=search_space
         )
 
         specs.append(spec)

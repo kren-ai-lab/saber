@@ -59,7 +59,7 @@ from mlcore.core.specs import AlgorithmSpec
 
 from mlcore.regression.backend import RegressionBackend
 from mlcore.regression.runners import make_regression_runner
-
+from mlcore.regression import search_spaces
 
 def register_sklearn_regression_models() -> None:
     """
@@ -71,144 +71,170 @@ def register_sklearn_regression_models() -> None:
             "linear_regression",
             LinearRegression,
             ("regression", "linear"),
+            search_spaces.LINEAR_REGRESSION,
         ),
         (
             "ridge_regressor",
             Ridge,
             ("regression", "linear", "regularized"),
+            search_spaces.RIDGE_REGRESSOR,
         ),
         (
             "lasso_regressor",
             Lasso,
             ("regression", "linear", "regularized"),
+            search_spaces.LASSO_REGRESSOR,
         ),
         (
             "elastic_net",
             ElasticNet,
             ("regression", "linear", "regularized"),
+            search_spaces.ELASTIC_NET,
         ),
         (
             "bayesian_ridge",
             BayesianRidge,
             ("regression", "linear", "bayesian"),
+            search_spaces.BAYESIAN_RIDGE,
         ),
         (
             "random_forest_regressor",
             RandomForestRegressor,
             ("regression", "tree", "ensemble"),
+            search_spaces.RANDOM_FOREST_REGRESSOR,
         ),
         (
             "extra_trees_regressor",
             ExtraTreesRegressor,
             ("regression", "tree", "ensemble"),
+            search_spaces.EXTRA_TREES_REGRESSOR,
         ),
         (
             "gradient_boosting_regressor",
             GradientBoostingRegressor,
             ("regression", "boosting"),
+            search_spaces.GRADIENT_BOOSTING_REGRESSOR,
         ),
         (
             "hist_gradient_boosting_regressor",
             HistGradientBoostingRegressor,
             ("regression", "boosting"),
+            search_spaces.HIST_GRADIENT_BOOSTING_REGRESSOR,
         ),
         (
             "adaboost_regressor",
             AdaBoostRegressor,
             ("regression", "boosting"),
+            search_spaces.ADABOOST_REGRESSOR,
         ),
         (
             "knn_regressor",
             KNeighborsRegressor,
             ("regression", "neighbors"),
+            search_spaces.KNN_REGRESSOR,
         ),
         (
             "svr",
             SVR,
             ("regression", "svm"),
+            search_spaces.SVR_SPACE,
         ),
         (
             "linear_svr",
             LinearSVR,
             ("regression", "svm"),
+            search_spaces.LINEAR_SVR,
         ),
         (
             "nu_svr",
             NuSVR,
             ("regression", "svm"),
+            search_spaces.NU_SVR,
         ),
         (
             "decision_tree_regressor",
             DecisionTreeRegressor,
             ("regression", "tree"),
+            search_spaces.DECISION_TREE_REGRESSOR,
         ),
         (
             "extra_tree_regressor",
             ExtraTreeRegressor,
             ("regression", "tree"),
+            search_spaces.EXTRA_TREE_REGRESSOR,
         ),
         (
             "gaussian_process_regressor",
             GaussianProcessRegressor,
             ("regression", "gaussian_process"),
+            search_spaces.GAUSSIAN_PROCESS_REGRESSOR,
         ),
         (
             "mlp_regressor",
             MLPRegressor,
             ("regression", "neural_network"),
+            search_spaces.MLP_REGRESSOR,
         ),
         (
             "bagging_regressor",
             BaggingRegressor,
-            ("regression", "enssemble")
+            ("regression", "enssemble"),
+            search_spaces.BAGGING_REGRESSOR,
         ), 
 
         (
             "ard_regression",
             ARDRegression,
             ("regression", "linear method"),
+            search_spaces.ARD_REGRESSION,
         ),
 
         (
             "gamma_regression",
             GammaRegressor,
             ("regression", "linear method"),
+            search_spaces.GAMMA_REGRESSION,
         ),
 
         (
             "huber_regression",
             HuberRegressor,
             ("regression", "linear method"),
+            search_spaces.HUBER_REGRESSION,
         ),
 
         (
             "lars_regressor",
             Lars,
             ("regression", "linear method"),
+            search_spaces.LARS_REGRESSOR,
         ),
 
         (
             "lasso_lars_regressor",
             LassoLars,
             ("regression", "linear method"),
+            search_spaces.LASSO_LARS_REGRESSOR,
         ),
 
         (
             "orthogonal_matching_pursuit",
             OrthogonalMatchingPursuit,
             ("regression", "linear method"),
+            search_spaces.ORTHOGONAL_MATCHING_PURSUIT,
         ),
 
         (
             "radius_neighbors_regressor",
             RadiusNeighborsRegressor,
-            ("regression", "KNN-based")
+            ("regression", "KNN-based"),
+            search_spaces.RADIUS_NEIGHBORS_REGRESSOR,
         )
     ]
 
     specs: list[AlgorithmSpec] = []
 
-    for name, model_cls, tags in models:
+    for name, model_cls, tags, search_space in models:
 
         spec = AlgorithmSpec(
             backend="sklearn",
@@ -219,6 +245,7 @@ def register_sklearn_regression_models() -> None:
             ),
             backend_cls=RegressionBackend,
             tags=tags,
+            search_space=search_space
         )
 
         specs.append(spec)

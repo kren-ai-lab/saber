@@ -14,7 +14,7 @@ from mlcore.classification.runners import make_classifier_runner
 
 from mlcore.core.registry import MODEL_REGISTRY
 from mlcore.core.specs import AlgorithmSpec
-
+from mlcore.classification import search_spaces
 
 # ============================================================
 # Registration
@@ -26,12 +26,12 @@ def register_lightgbm_classification_models() -> None:
     """
 
     models = [
-        ("lgbm_classifier", LGBMClassifier),
+        ("lgbm_classifier", LGBMClassifier, ("classification", "lightgbm", "tree", "boosting"), search_spaces.LGBM_CLASSIFIER),
     ]
 
     specs: list[AlgorithmSpec] = []
 
-    for name, model_cls in models:
+    for name, model_cls, tags, search_space in models:
 
         try:
             supports_proba = hasattr(
@@ -48,13 +48,9 @@ def register_lightgbm_classification_models() -> None:
             name=name,
             runner=make_classifier_runner(model_cls),
             backend_cls=ClassificationBackend,
-            tags=(
-                "classification",
-                "lightgbm",
-                "tree",
-                "boosting",
-            ),
             supports_proba=supports_proba,
+            search_space=search_space,
+            tags=tags
         )
 
         specs.append(spec)

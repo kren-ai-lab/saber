@@ -14,7 +14,7 @@ from mlcore.core.specs import AlgorithmSpec
 
 from mlcore.regression.backend import RegressionBackend
 from mlcore.regression.runners import make_regression_runner
-
+from mlcore.regression import search_spaces
 
 def register_lightgbm_regression_models() -> None:
     """
@@ -31,12 +31,13 @@ def register_lightgbm_regression_models() -> None:
                 "tree",
                 "boosting",
             ),
+            search_spaces.LGBM_REGRESSOR
         ),
     ]
 
     specs: list[AlgorithmSpec] = []
 
-    for name, model_cls, tags in models:
+    for name, model_cls, tags, search_space in models:
 
         spec = AlgorithmSpec(
             backend="lightgbm",
@@ -47,6 +48,7 @@ def register_lightgbm_regression_models() -> None:
             ),
             backend_cls=RegressionBackend,
             tags=tags,
+            search_space=search_space
         )
 
         specs.append(spec)
