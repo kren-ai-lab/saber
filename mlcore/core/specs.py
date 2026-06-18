@@ -158,13 +158,3 @@ def make_spec(
         supports_proba=supports_proba,
         description=description,
     )
-
-
-# ============================================================
-# Export list
-# ============================================================
-
-__all__ = [
-    "AlgorithmSpec",
-    "make_spec",
-]

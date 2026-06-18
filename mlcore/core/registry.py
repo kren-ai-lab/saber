@@ -18,9 +18,9 @@ from typing import Iterator
 from typing import Optional
 from typing import Sequence
 
-from .specs import AlgorithmSpec
+from mlcore.core.specs import AlgorithmSpec
 
-from ..exceptions.registry import (
+from mlcore.exceptions.registry import (
     AlgorithmAlreadyRegisteredError,
     AlgorithmNotFoundError,
 )
