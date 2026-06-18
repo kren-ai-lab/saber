@@ -1,6 +1,6 @@
 """
 mlcore.core.trainer
-====================
+===================
 
 Core training engine for mlcore.
 
@@ -8,25 +8,26 @@ The Trainer orchestrates:
 - algorithm selection from registry
 - execution via AlgorithmSpec runners
 - backend lifecycle management
-- optional validation workflows
+- prediction workflows
+- evaluation workflows
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
-from .registry import AlgorithmRegistry
-from .specs import AlgorithmSpec
+from mlcore.core.registry import AlgorithmRegistry
+from mlcore.core.specs import AlgorithmSpec
 
 
 # ============================================================
 # Training result container
 # ============================================================
 
-@dataclass
+@dataclass(slots=True)
 class TrainResult:
     """
     Container for training outputs.
@@ -36,8 +37,10 @@ class TrainResult:
     backend: Any
     spec: AlgorithmSpec
 
-    metrics: Optional[Dict[str, float]] = None
-    predictions: Optional[np.ndarray] = None
+    metrics: dict[str, float] | None = None
+
+    predictions: np.ndarray | None = None
+    probabilities: np.ndarray | None = None
 
 
 # ============================================================
@@ -46,24 +49,37 @@ class TrainResult:
 
 class Trainer:
     """
-    Core training engine for classical ML models.
+    Core training engine for machine learning models.
 
-    This class is responsible for:
-    - retrieving algorithms from registry
-    - executing training via runners
-    - managing backend state
+    Notes
+    -----
+    The Trainer is responsible for:
+
+    - retrieving algorithms from the registry
+    - instantiating backends
+    - executing runners
+    - generating predictions
+    - returning a standardized TrainResult
     """
 
     def __init__(
         self,
         registry: AlgorithmRegistry,
     ) -> None:
+        """
+        Initialize trainer.
+
+        Parameters
+        ----------
+        registry : AlgorithmRegistry
+            Registry containing available algorithms.
+        """
 
         self.registry = registry
 
-    # --------------------------------------------------------
-    # Main API
-    # --------------------------------------------------------
+    # ============================================================
+    # Training
+    # ============================================================
 
     def fit(
         self,
@@ -71,11 +87,12 @@ class Trainer:
         X: np.ndarray,
         y: np.ndarray,
         *,
-        params: Optional[Dict[str, Any]] = None,
         return_predictions: bool = False,
+        return_probabilities: bool = False,
+        **params: Any,
     ) -> TrainResult:
         """
-        Fit a model using a registered algorithm.
+        Train a registered algorithm.
 
         Parameters
         ----------
@@ -86,55 +103,77 @@ class Trainer:
             Training features.
 
         y : np.ndarray
-            Training labels.
+            Training targets.
 
-        params : dict, optional
-            Hyperparameters passed to runner.
+        return_predictions : bool, default=False
+            Whether to compute predictions after fitting.
 
-        return_predictions : bool
-            Whether to compute training predictions.
+        return_probabilities : bool, default=False
+            Whether to compute probabilities after fitting.
+
+        **params
+            Hyperparameters passed to the model.
 
         Returns
         -------
         TrainResult
+            Training result container.
         """
 
-        spec = self.registry.get(algorithm)
+        spec = self.registry.get(
+            algorithm,
+        )
 
         backend = spec.backend_cls()
 
-        params = params or {}
-
-        # ----------------------------------------------------
-        # Execute runner
-        # ----------------------------------------------------
+        runner_params = {
+            **spec.default_params,
+            **params,
+        }
 
         spec.runner(
             backend,
             X,
             y,
-            **{**spec.default_params, **params},
+            **runner_params,
         )
 
-        model = backend.model if hasattr(backend, "model") else None
+        model = backend.get_model()
 
         predictions = None
+        probabilities = None
 
-        if return_predictions and model is not None:
+        if (
+            return_predictions
+            and model is not None
+            and hasattr(model, "predict")
+        ):
+            predictions = model.predict(X)
 
-            if hasattr(model, "predict"):
-                predictions = model.predict(X)
+        if (
+            return_probabilities
+            and model is not None
+            and hasattr(model, "predict_proba")
+        ):
+            try:
+
+                probabilities = model.predict_proba(X)
+
+            except Exception:
+                probabilities = None
 
         return TrainResult(
             model=model,
             backend=backend,
             spec=spec,
+            metrics=backend.get_metrics(),
             predictions=predictions,
+            probabilities=probabilities,
         )
 
-    # --------------------------------------------------------
-    # Simple evaluation hook (minimal, extensible)
-    # --------------------------------------------------------
+    # ============================================================
+    # Evaluation
+    # ============================================================
 
     def evaluate(
         self,
@@ -142,45 +181,53 @@ class Trainer:
         X_test: np.ndarray,
         y_test: np.ndarray,
         metric_fn: Any,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
-        Evaluate a trained model using a metric function.
+        Evaluate a trained model.
 
         Parameters
         ----------
         result : TrainResult
-            Output from training.
+            Training result.
 
         X_test : np.ndarray
             Test features.
 
         y_test : np.ndarray
-            Test labels.
+            Test targets.
 
         metric_fn : callable
-            Metric function (e.g., accuracy_score).
+            Evaluation metric.
 
         Returns
         -------
-        dict
+        dict[str, float]
+            Metric dictionary.
         """
 
         model = result.model
 
         if model is None:
-            raise ValueError("Model is not available for evaluation.")
+            raise ValueError(
+                "Model is not available for evaluation.",
+            )
 
-        preds = model.predict(X_test)
+        predictions = model.predict(
+            X_test,
+        )
 
-        score = metric_fn(y_test, preds)
+        score = metric_fn(
+            y_test,
+            predictions,
+        )
 
         return {
             "score": float(score),
         }
 
-    # --------------------------------------------------------
-    # Utility
-    # --------------------------------------------------------
+    # ============================================================
+    # Prediction
+    # ============================================================
 
     def predict(
         self,
@@ -188,12 +235,70 @@ class Trainer:
         X: np.ndarray,
     ) -> np.ndarray:
         """
-        Generate predictions from a trained model.
+        Generate predictions.
+
+        Parameters
+        ----------
+        result : TrainResult
+            Training result.
+
+        X : np.ndarray
+            Input features.
+
+        Returns
+        -------
+        np.ndarray
+            Predicted values.
         """
 
         model = result.model
 
         if model is None:
-            raise ValueError("Model is not available.")
+            raise ValueError(
+                "Model is not available.",
+            )
 
-        return model.predict(X)
+        return model.predict(
+            X,
+        )
+
+    def predict_proba(
+        self,
+        result: TrainResult,
+        X: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Generate class probabilities.
+
+        Parameters
+        ----------
+        result : TrainResult
+            Training result.
+
+        X : np.ndarray
+            Input features.
+
+        Returns
+        -------
+        np.ndarray
+            Class probabilities.
+        """
+
+        model = result.model
+
+        if model is None:
+            raise ValueError(
+                "Model is not available.",
+            )
+
+        if not hasattr(
+            model,
+            "predict_proba",
+        ):
+            raise ValueError(
+                "Model does not support probability prediction.",
+            )
+
+        return model.predict_proba(
+            X,
+        )
