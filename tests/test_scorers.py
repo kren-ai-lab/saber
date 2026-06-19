@@ -87,7 +87,7 @@ def test_unknown_scorer_raises() -> None:
         ValueError,
     ):
         get_scorer(
-            "papucho_score",
+            "unknown_score",
         )
 
 

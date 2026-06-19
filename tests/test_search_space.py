@@ -7,8 +7,6 @@ Tests for SearchSpace.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from mlcore.core.search_space import SearchSpace
 
 

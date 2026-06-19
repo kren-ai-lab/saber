@@ -1,8 +1,8 @@
 """
-tests.test_random_optimizer
-===========================
+tests.test_halving_random_optimizer
+===================================
 
-Integration tests for RandomSearchOptimizer.
+Integration tests for HalvingRandomSearchOptimizer.
 """
 
 from __future__ import annotations
@@ -22,8 +22,8 @@ from mlcore.tuning.results import (
     OptimizationResult,
 )
 
-from mlcore.tuning.sklearn.random import (
-    RandomSearchOptimizer,
+from mlcore.tuning.sklearn.halving_random import (
+    HalvingRandomSearchOptimizer,
 )
 
 
@@ -62,7 +62,7 @@ def regression_dataset():
 @pytest.fixture
 def optimizer():
 
-    return RandomSearchOptimizer(
+    return HalvingRandomSearchOptimizer(
         registry=MODEL_REGISTRY,
     )
 
@@ -106,7 +106,7 @@ RF_REG_TEST_SPACE = SearchSpace(
 # Classification
 # ============================================================
 
-def test_random_forest_random_search(
+def test_random_forest_halving_random_search(
     optimizer,
     classification_dataset,
 ) -> None:
@@ -119,7 +119,7 @@ def test_random_forest_random_search(
         y=y,
         metric="accuracy",
         cv=3,
-        n_iter=3,
+        factor=2,
         search_space=RF_TEST_SPACE,
     )
 
@@ -137,7 +137,7 @@ def test_random_forest_random_search(
     ) > 0
 
 
-def test_logistic_regression_random_search(
+def test_logistic_regression_halving_random_search(
     optimizer,
     classification_dataset,
 ) -> None:
@@ -150,7 +150,7 @@ def test_logistic_regression_random_search(
         y=y,
         metric="accuracy",
         cv=3,
-        n_iter=2,
+        factor=2,
         search_space=LOGREG_TEST_SPACE,
     )
 
@@ -163,7 +163,7 @@ def test_logistic_regression_random_search(
 # Regression
 # ============================================================
 
-def test_random_forest_regressor_random_search(
+def test_random_forest_regressor_halving_random_search(
     optimizer,
     regression_dataset,
 ) -> None:
@@ -176,7 +176,7 @@ def test_random_forest_regressor_random_search(
         y=y,
         metric="r2",
         cv=3,
-        n_iter=3,
+        factor=2,
         search_space=RF_REG_TEST_SPACE,
     )
 
@@ -187,7 +187,7 @@ def test_random_forest_regressor_random_search(
     ) > 0
 
 
-def test_ridge_regressor_random_search(
+def test_ridge_regressor_halving_random_search(
     optimizer,
     regression_dataset,
 ) -> None:
@@ -200,7 +200,7 @@ def test_ridge_regressor_random_search(
         y=y,
         metric="r2",
         cv=3,
-        n_iter=2,
+        factor=2,
         search_space=RIDGE_TEST_SPACE,
     )
 
@@ -226,7 +226,7 @@ def test_history_is_created(
         y=y,
         metric="accuracy",
         cv=3,
-        n_iter=3,
+        factor=2,
         search_space=RF_TEST_SPACE,
     )
 
@@ -254,7 +254,7 @@ def test_best_params_are_from_search_space(
         y=y,
         metric="accuracy",
         cv=3,
-        n_iter=3,
+        factor=2,
         search_space=RF_TEST_SPACE,
     )
 
@@ -270,7 +270,7 @@ def test_best_params_are_from_search_space(
 
 
 # ============================================================
-# Study
+# Study Object
 # ============================================================
 
 def test_study_object_is_available(
@@ -286,11 +286,35 @@ def test_study_object_is_available(
         y=y,
         metric="accuracy",
         cv=3,
-        n_iter=3,
+        factor=2,
         search_space=RF_TEST_SPACE,
     )
 
     assert result.has_study()
+
+
+# ============================================================
+# Halving Metadata
+# ============================================================
+
+def test_history_contains_iteration_information(
+    optimizer,
+    classification_dataset,
+) -> None:
+
+    X, y = classification_dataset
+
+    result = optimizer.optimize(
+        algorithm="random_forest",
+        X=X,
+        y=y,
+        metric="accuracy",
+        cv=3,
+        factor=2,
+        search_space=RF_TEST_SPACE,
+    )
+
+    assert "iter" in result.history[0]
 
 
 # ============================================================

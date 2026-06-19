@@ -12,11 +12,6 @@ import pytest
 
 from sklearn.datasets import make_classification
 
-# auto-registration
-import mlcore.classification.lightgbm
-import mlcore.classification.sklearn
-import mlcore.classification.xgboost
-
 from mlcore.core.registry import MODEL_REGISTRY
 
 

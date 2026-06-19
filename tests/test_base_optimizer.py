@@ -7,9 +7,6 @@ Tests for BaseOptimizer.
 
 from __future__ import annotations
 
-import mlcore.classification
-import mlcore.regression
-
 from mlcore.core.registry import MODEL_REGISTRY
 from mlcore.tuning.base import BaseOptimizer
 from mlcore.tuning.results import OptimizationResult

@@ -11,8 +11,6 @@ import pytest
 
 from sklearn.datasets import make_classification
 
-import mlcore.classification
-
 from mlcore.core.registry import MODEL_REGISTRY
 from mlcore.core.trainer import Trainer
 
@@ -240,7 +238,7 @@ def test_unknown_algorithm_raises(
     ):
 
         trainer.fit(
-            algorithm="papucho_forest",
+            algorithm="unknown_algorithm",
             X=X,
             y=y,
         )

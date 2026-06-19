@@ -302,7 +302,7 @@ def test_unknown_algorithm_raises(
         Exception,
     ):
         optimizer.optimize(
-            algorithm="papucho_forest",
+            algorithm="unknown_algorithm",
             X=X,
             y=y,
             metric="accuracy",

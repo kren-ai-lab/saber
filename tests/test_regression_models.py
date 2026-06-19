@@ -12,10 +12,6 @@ import pytest
 
 from sklearn.datasets import make_regression
 
-import mlcore.regression.lightgbm
-import mlcore.regression.sklearn
-import mlcore.regression.xgboost
-
 from mlcore.core.registry import MODEL_REGISTRY
 
 

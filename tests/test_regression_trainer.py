@@ -11,8 +11,6 @@ import pytest
 
 from sklearn.datasets import make_regression
 
-import mlcore.regression
-
 from mlcore.core.registry import MODEL_REGISTRY
 from mlcore.core.trainer import Trainer
 from mlcore.exceptions import AlgorithmNotFoundError
@@ -287,7 +285,7 @@ def test_unknown_regression_algorithm_raises(
         AlgorithmNotFoundError,
     ):
         trainer.fit(
-            algorithm="papucho_regressor",
+            algorithm="unknown_regressor",
             X=X,
             y=y,
         )

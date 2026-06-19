@@ -7,9 +7,6 @@ Tests for search space integration.
 
 from __future__ import annotations
 
-import mlcore.classification
-import mlcore.regression
-
 from mlcore.core.registry import MODEL_REGISTRY
 from mlcore.core.search_space import SearchSpace
 
