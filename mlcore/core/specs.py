@@ -25,7 +25,7 @@ class AlgorithmSpec:
 
     runner: Callable[..., None]
     backend_cls: type
-
+    estimator_cls: type | None = None
     aliases: tuple[str, ...] = field(default_factory=tuple)
     default_params: dict[str, Any] = field(default_factory=dict)
     search_space: SearchSpace | None = None
@@ -91,6 +91,7 @@ def make_spec(
     name: str,
     runner: Callable[..., None],
     backend_cls: type,
+    estimator_cls: type | None = None,
     aliases: tuple[str, ...] | None = None,
     default_params: dict[str, Any] | None = None,
     search_space: SearchSpace | None = None,
@@ -109,6 +110,7 @@ def make_spec(
         name=name,
         runner=runner,
         backend_cls=backend_cls,
+        estimator_cls=estimator_cls,
         aliases=aliases or tuple(),
         default_params=default_params or {},
         search_space=search_space,

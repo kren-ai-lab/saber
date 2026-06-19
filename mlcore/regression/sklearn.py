@@ -234,14 +234,15 @@ def register_sklearn_regression_models() -> None:
 
     specs: list[AlgorithmSpec] = []
 
-    for name, model_cls, tags, search_space in models:
+    for name, model_rgx, tags, search_space in models:
 
         spec = AlgorithmSpec(
             backend="sklearn",
             task="regression",
             name=name,
+            estimator_cls=model_rgx,
             runner=make_regression_runner(
-                model_cls,
+                model_rgx,
             ),
             backend_cls=RegressionBackend,
             tags=tags,

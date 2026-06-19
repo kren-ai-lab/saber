@@ -46,6 +46,7 @@ def register_lightgbm_classification_models() -> None:
             backend="lightgbm",
             task="classification",
             name=name,
+            estimator_cls=model_cls,
             runner=make_classifier_runner(model_cls),
             backend_cls=ClassificationBackend,
             supports_proba=supports_proba,

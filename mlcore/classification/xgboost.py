@@ -50,6 +50,7 @@ def register_xgboost_classification_models() -> None:
             backend="xgboost",
             task="classification",
             name=name,
+            estimator_cls=model_cls,
             runner=make_classifier_runner(model_cls),
             backend_cls=ClassificationBackend,
             tags=tags,
