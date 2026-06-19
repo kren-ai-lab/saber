@@ -12,20 +12,20 @@ from __future__ import annotations
 
 from sklearn.metrics import (
     accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score,
-    matthews_corrcoef,
-    roc_auc_score,
     balanced_accuracy_score,
+    explained_variance_score,
+    f1_score,
+    make_scorer,
+    matthews_corrcoef,
     mean_absolute_error,
     mean_squared_error,
+    root_mean_squared_error,
     median_absolute_error,
+    precision_score,
     r2_score,
-    explained_variance_score,
-    make_scorer,
+    recall_score,
+    roc_auc_score,
 )
-
 
 # ============================================================
 # Classification scorers
@@ -62,7 +62,6 @@ CLASSIFICATION_SCORERS = {
     ),
 }
 
-
 # ============================================================
 # Regression scorers
 # ============================================================
@@ -77,8 +76,7 @@ REGRESSION_SCORERS = {
         greater_is_better=False,
     ),
     "rmse": make_scorer(
-        mean_squared_error,
-        squared=False,
+        root_mean_squared_error,
         greater_is_better=False,
     ),
     "median_ae": make_scorer(
@@ -93,6 +91,16 @@ REGRESSION_SCORERS = {
     ),
 }
 
+# ============================================================
+# Regression loss metrics
+# ============================================================
+
+LOSS_SCORERS = {
+    "mae",
+    "mse",
+    "rmse",
+    "median_ae",
+}
 
 # ============================================================
 # Combined registry
@@ -102,7 +110,6 @@ SCORERS = {
     **CLASSIFICATION_SCORERS,
     **REGRESSION_SCORERS,
 }
-
 
 # ============================================================
 # Public API
@@ -122,7 +129,7 @@ def get_scorer(
     Returns
     -------
     callable
-        Scikit-learn scorer.
+        Scikit-learn compatible scorer.
     """
 
     if name not in SCORERS:
@@ -170,3 +177,51 @@ def is_regression_scorer(
         name
         in REGRESSION_SCORERS
     )
+
+
+def is_loss_scorer(
+    name: str,
+) -> bool:
+    """
+    Check whether scorer represents
+    a loss/error metric.
+
+    Notes
+    -----
+    Loss scorers are internally transformed
+    by sklearn into maximization objectives
+    when ``greater_is_better=False`` is used.
+    """
+
+    return (
+        name
+        in LOSS_SCORERS
+    )
+
+
+def is_gain_scorer(
+    name: str,
+) -> bool:
+    """
+    Check whether scorer represents
+    a metric where larger values are better.
+    """
+
+    return (
+        name
+        in SCORERS
+        and name not in LOSS_SCORERS
+    )
+
+def normalize_score(
+    metric: str,
+    score: float,
+) -> float:
+    """
+    Convert internal optimization score into user-facing score.
+    """
+
+    if is_loss_scorer(metric):
+        return abs(score)
+
+    return score

@@ -19,6 +19,7 @@ from sklearn.metrics import (
     mean_absolute_error,
     mean_absolute_percentage_error,
     mean_squared_error,
+    root_mean_squared_error,
     median_absolute_error,
     r2_score,
 )
@@ -82,8 +83,9 @@ def evaluate_regression(
     )
 
     metrics["rmse"] = float(
-        np.sqrt(
-            metrics["mse"],
+        root_mean_squared_error(
+            y_true,
+            y_pred,
         )
     )
 

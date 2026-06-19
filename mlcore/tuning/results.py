@@ -12,6 +12,10 @@ from typing import Any
 
 from mlcore.core.specs import AlgorithmSpec
 
+from mlcore.tuning.scorers import (
+    is_loss_scorer,
+)
+
 
 # ============================================================
 # Optimization Result
@@ -72,6 +76,35 @@ class OptimizationResult:
     )
 
     study: Any = None
+
+    # --------------------------------------------------------
+    # Display helpers
+    # --------------------------------------------------------
+
+    @property
+    def display_score(
+        self,
+    ) -> float:
+        """
+        User-facing score.
+
+        Loss metrics are internally optimized
+        as negative values by sklearn scorers.
+        This property converts them back to
+        their natural positive representation.
+        """
+
+        if (
+            self.metric is not None
+            and is_loss_scorer(
+                self.metric,
+            )
+        ):
+            return abs(
+                self.best_score,
+            )
+
+        return self.best_score
 
     # --------------------------------------------------------
     # Helpers
@@ -139,6 +172,7 @@ class OptimizationResult:
             "optimizer": self.optimizer,
             "metric": self.metric,
             "best_score": self.best_score,
+            "display_score": self.display_score,
             "best_params": self.best_params,
         }
 
