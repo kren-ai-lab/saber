@@ -13,7 +13,7 @@ from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, cross_vali
 from mlcore.core.registry import AlgorithmRegistry
 from mlcore.core.search_space import SearchSpace
 from mlcore.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
-from mlcore.exceptions import NonFiniteScoreError, OptimizationError, ValidationContractError
+from mlcore.exceptions import DatasetValidationError, NonFiniteScoreError, OptimizationError, ValidationContractError
 from mlcore.preprocessing import PreprocessingConfig, build_model_pipeline
 from mlcore.tuning.results import OptimizationResult
 from mlcore.tuning.scorers import get_scorer
@@ -109,6 +109,16 @@ class TuningEngine:
             evaluation_role=evaluation_role,
             require_complete=require_complete,
         )
+
+        for split_index, (train_index, _) in enumerate(cv):
+            train_ids = tuple(search_dataset.sample_ids[index] for index in train_index)
+            try:
+                search_dataset.subset(train_ids).validate(task=spec.task)
+            except DatasetValidationError as exc:
+                raise ValidationContractError(
+                    f"Training membership for tuning split {split_index} is invalid "
+                    f"for task '{spec.task}': {exc}"
+                ) from exc
 
         space = search_space if search_space is not None else spec.get_search_space()
         if space is None:
@@ -216,14 +226,30 @@ class TuningEngine:
             "error_score": config.error_score,
         }
 
+        try:
+            grid_parameters = (
+                search_space.to_grid(prefix="estimator__")
+                if optimizer in {"grid", "halving_grid"}
+                else None
+            )
+            random_parameters = (
+                search_space.to_random(prefix="estimator__")
+                if optimizer in {"random", "halving_random"}
+                else None
+            )
+        except ValueError as exc:
+            raise ValidationContractError(
+                f"Search space for optimizer '{optimizer}' is incompatible: {exc}"
+            ) from exc
+
         if optimizer == "grid":
             search = GridSearchCV(
-                param_grid=search_space.to_grid(prefix="estimator__"),
+                param_grid=grid_parameters,
                 **common,
             )
         elif optimizer == "random":
             search = RandomizedSearchCV(
-                param_distributions=search_space.to_random(prefix="estimator__"),
+                param_distributions=random_parameters,
                 n_iter=config.n_iter,
                 random_state=config.random_state,
                 **common,
@@ -250,7 +276,7 @@ class TuningEngine:
             }
             if optimizer == "halving_grid":
                 search = HalvingGridSearchCV(
-                    param_grid=search_space.to_grid(prefix="estimator__"),
+                    param_grid=grid_parameters,
                     **halving_common,
                 )
             else:
@@ -261,14 +287,23 @@ class TuningEngine:
                     min_resources = "smallest"
                 halving_common["min_resources"] = min_resources
                 search = HalvingRandomSearchCV(
-                    param_distributions=search_space.to_random(prefix="estimator__"),
+                    param_distributions=random_parameters,
                     random_state=config.random_state,
                     **halving_common,
                 )
         else:
             raise ValidationContractError(f"Unknown tuning optimizer '{optimizer}'.")
 
-        search.fit(dataset.X, dataset.y, **fit_params)
+        try:
+            search.fit(dataset.X, dataset.y, **fit_params)
+        except ValueError as exc:
+            message = str(exc)
+            if "fits failed" in message and "All the" in message:
+                raise OptimizationError(
+                    f"Optimizer '{optimizer}' could not fit any candidate for "
+                    f"algorithm '{spec.name}'. All candidate fits failed."
+                ) from exc
+            raise
         results = search.cv_results_
 
         if optimizer in {"grid", "random"}:

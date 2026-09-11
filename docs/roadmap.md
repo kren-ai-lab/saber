@@ -274,7 +274,7 @@ Persist fitted pipelines and their scientific provenance so future inference can
 
 ## Phase 8 — Public API, YAML, and CLI
 
-**Status:** implemented in the Phase 8 delivery; awaiting repository-side validation.
+**Status:** CLOSED / FROZEN after repository-side validation.
 
 ### Objective
 
@@ -298,69 +298,191 @@ Expose one stable workflow through multiple thin interfaces without duplicating 
 
 ---
 
-## Phase 9 — Documentation, examples, CI, and release engineering
+## Phase 9 — Scientific torture testing and robustness
+
+**Status:** implemented in the Phase 9 delivery; awaiting repository-side validation.
 
 ### Objective
 
-Make the library installable, teachable, testable, and releasable without local repository assumptions.
-
-### Work
-
-- complete README and usage documentation;
-- classification, multiclass, regression, tuning, external-fold, benchmarking, persistence, and CLI examples;
-- notebook smoke tests where practical;
-- Python 3.11–3.13 CI matrix when dependency support permits;
-- core-only and all-extras installation tests;
-- lint/type/build gates;
-- wheel/sdist installation tests;
-- clean-environment import and CLI smoke tests;
-- package metadata and release checklist.
-
-### Exit gates
-
-- wheel and sdist build/install in clean environments;
-- core-only install works without optional packages;
-- all documented quickstarts are executable;
-- CI passes from a clean checkout.
-
----
-
-## Phase 10 — Scientific torture testing and stable freeze
-
-### Objective
-
-Challenge the complete system with realistic and adversarial supervised-learning scenarios before declaring a stable release.
+Challenge the frozen scientific architecture with realistic, adversarial, and cross-layer supervised-learning scenarios before building demos or public documentation around it.
 
 ### Test matrix
 
 - binary and multiclass classification;
 - single-target regression;
-- balanced and highly imbalanced targets;
-- integer and string class labels;
-- small-n and high-dimensional data;
-- missing values and constant features where compatible;
-- dense and supported sparse representations;
-- scikit-learn, XGBoost, and LightGBM providers;
-- holdout, CV, group CV, predefined/external folds;
-- raw and preprocessed workflows;
-- tuned and untuned workflows;
-- benchmark workflows;
-- persistence round trips;
-- Python API/YAML/CLI parity.
+- string, integer, boolean, and continuous-target rejection semantics;
+- small-n and high-dimensional p >> n data;
+- missing values, constant features, outliers, non-negative-feature constraints, and positive-target constraints;
+- broad sklearn estimator-family smoke matrix plus XGBoost and LightGBM provider workflows;
+- explicit/predefined partitions and BioSieve adapter integration;
+- incomplete/repeated held-out coverage and OOF contracts;
+- fold-local preprocessing and protected-test behavior;
+- Grid, Random, Halving Grid, Halving Random, and Optuna tuning;
+- typed search spaces, multi-metric selection, refit=False, partial candidate failure, and total search failure;
+- multi-representation benchmarking, baselines, repeated seeds, tuned/untuned workflows, and failure isolation;
+- model/benchmark persistence, integrity corruption, feature-schema mismatch, and fresh-process inference;
+- Python API, YAML/JSON, and CLI parity.
 
-### Failure matrix
+### Robustness fixes discovered by Phase 9
 
-- invalid metric/task pair;
-- unknown model;
-- unavailable optional provider;
-- overlapping partitions;
-- malformed fold assignments;
-- incompatible feature schema;
-- corrupted artifact;
-- non-finite optimization objective;
-- probability request for unsupported estimator;
-- missing/ambiguous class semantics.
+- continuous targets are rejected at the classification dataset boundary instead of being misclassified as multiclass;
+- classification evaluation uses fitted class semantics rather than only the classes observed in one held-out fold;
+- requested classification metrics must be valid and computable instead of disappearing silently;
+- tuning normalizes incompatible search-space and all-candidate-failure errors into mlcore domain contracts;
+- validation and tuning reject scientifically invalid training memberships, such as single-class classification folds, before estimator fitting/search.
 
-### Stable-release gate
+### Exit gates
 
-A stable release is allowed only after the scientific torture suite, clean-environment packaging gates, documentation workflows, and artifact round-trip tests all pass. Stability is **not** tied to a fixed number of development days.
+- the full pre-Phase-9 suite remains green;
+- all Phase 9 torture tests pass;
+- Phase 9 introduces no additional uncaptured warning classes;
+- compileall passes;
+- no new ML feature path or splitter implementation is introduced;
+- scientific behavior is frozen after Phase 9 except for confirmed bug fixes.
+
+---
+
+## Phase 10 — Notebook demos and result visualization
+
+### Objective
+
+Create polished, executable demonstrations of the frozen scientific workflows while keeping visualization outside the mlcore core package.
+
+### Work
+
+- binary classification demo;
+- multiclass classification demo;
+- regression demo;
+- BioSieve-backed validation demo;
+- hyperparameter optimization demo;
+- multi-representation benchmark demo;
+- persistence/inference demo;
+- end-to-end data-centric benchmark demo;
+- notebook-level result visualization using external plotting libraries.
+
+### Exit gates
+
+- notebooks execute from top to bottom on prepared data;
+- plots are generated from structured mlcore outputs rather than hidden internal state;
+- no visualization dependency is added to the mlcore core.
+
+---
+
+## Phase 11 — CLI 2.0
+
+### Objective
+
+Improve the user-facing command-line experience without introducing another execution engine.
+
+### Work
+
+- clearer command hierarchy and help;
+- polished progress/status output;
+- concise dataset/partition/workflow summaries;
+- readable completion/failure summaries;
+- improved model/artifact discovery commands;
+- strict delegation to the Phase 8 public/config APIs.
+
+### Exit gates
+
+- CLI/API configuration parity remains exact;
+- CLI contains no independent ML, splitting, tuning, or persistence logic;
+- representative workflows are usable without reading Python internals.
+
+---
+
+## Phase 12 — Project cleanup and pruning
+
+### Objective
+
+Remove migration debris, dead code, duplicated tests, stale placeholders, and outdated project material after the scientific behavior is frozen.
+
+### Work
+
+- identify and remove obsolete/duplicated tests while preserving scientific coverage;
+- remove stale roadmap fragments and temporary migration material;
+- review and remove legacy execution compatibility layers when no longer required;
+- remove dead imports, empty modules/directories, stale examples, and unused aliases;
+- ensure the repository tree reflects the final architecture.
+
+### Exit gates
+
+- the reduced suite still passes every Phase 9 scientific contract;
+- no public documented API is removed accidentally;
+- project tree contains no known placeholder or duplicated execution path.
+
+---
+
+## Phase 13 — Full documentation and README
+
+### Objective
+
+Document the frozen product rather than documenting a moving implementation.
+
+### Work
+
+- complete README and quick start;
+- scope and limitations;
+- dataset and feature-schema contracts;
+- BioSieve partition integration;
+- preprocessing, validation, evaluation, tuning, benchmarking, and persistence;
+- Python API;
+- YAML/JSON configuration;
+- CLI 2.0;
+- artifact formats and reproducibility;
+- links to the final notebook demos.
+
+### Exit gates
+
+- documented workflows match executable behavior;
+- no stale legacy API examples remain;
+- README provides a complete first-use path.
+
+---
+
+## Phase 14 — Diego handoff package
+
+### Objective
+
+Prepare a constrained engineering handoff for packaging/distribution hardening and migration of the dataframe/tabular implementation to Polars.
+
+### Diego scope
+
+- packaging and distribution hardening;
+- wheel/sdist and clean-install validation;
+- release metadata/versioning support;
+- dataframe/tabular-layer migration from pandas to Polars where appropriate;
+- performance/memory validation of that migration.
+
+### Frozen areas that must not be redesigned
+
+- supervised task semantics;
+- metric/prediction contracts;
+- BioSieve partition ownership;
+- leakage-safe preprocessing semantics;
+- tuning/benchmark scientific behavior;
+- persistence provenance/integrity contracts;
+- public workflow behavior.
+
+### Handoff package
+
+- current architecture and package map;
+- frozen scientific contracts;
+- supported workflows;
+- dependency map;
+- pandas usage inventory and Polars migration targets;
+- modules/behaviors that must not change;
+- packaging/distribution task list;
+- validation gates required after migration;
+- known warnings and limitations;
+- release-candidate checklist.
+
+### Exit gate
+
+Diego can perform packaging/Polars hardening without needing to infer or redesign the scientific architecture.
+
+---
+
+## Release candidate gate
+
+A release candidate is considered only after Phases 9–14 are complete and the post-handoff validation suite passes against the packaged artifact.

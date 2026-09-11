@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
+from sklearn.utils.multiclass import type_of_target
 
 from mlcore.exceptions import DatasetValidationError
 
@@ -185,12 +186,27 @@ def validate_target_for_task(y: Any, task: str) -> str:
     values = np.asarray(y)
 
     if task == "classification":
-        classes = list(pd.unique(values))
-        if len(classes) < 2:
+        try:
+            target_type = type_of_target(values)
+        except (TypeError, ValueError) as exc:
             raise DatasetValidationError(
-                "Classification datasets must contain at least two target classes."
-            )
-        return "binary" if len(classes) == 2 else "multiclass"
+                "Classification targets must use a supported one-dimensional "
+                "binary or multiclass label representation."
+            ) from exc
+
+        if target_type == "binary":
+            if len(pd.unique(values)) < 2:
+                raise DatasetValidationError(
+                    "Classification datasets must contain at least two target classes."
+                )
+            return "binary"
+        if target_type == "multiclass":
+            return "multiclass"
+
+        raise DatasetValidationError(
+            "Classification targets must be binary or multiclass labels; "
+            f"received target type '{target_type}'."
+        )
 
     if task == "regression":
         try:

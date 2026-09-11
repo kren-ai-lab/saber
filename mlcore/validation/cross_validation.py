@@ -12,7 +12,7 @@ from mlcore.core.registry import AlgorithmRegistry
 from mlcore.datasets import DatasetBundle, PartitionPlan
 from mlcore.datasets.biosieve import BioSievePartitionConfig
 from mlcore.evaluation import evaluate_prediction
-from mlcore.exceptions import ValidationContractError
+from mlcore.exceptions import DatasetValidationError, ValidationContractError
 from mlcore.preprocessing import PreprocessingConfig, build_model_pipeline
 from mlcore.validation.partitioning import (
     EvaluationRole,
@@ -75,6 +75,14 @@ class ValidationEngine:
                 requested=evaluation_role,
                 plan_kind=plan.kind,
             )
+
+            try:
+                resolved.train.validate(task=spec.task)
+            except DatasetValidationError as exc:
+                raise ValidationContractError(
+                    f"Training membership for split '{split.name}' is invalid "
+                    f"for task '{spec.task}': {exc}"
+                ) from exc
 
             estimator = spec.build_estimator(
                 random_state=random_state,
