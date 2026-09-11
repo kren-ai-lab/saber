@@ -7,6 +7,8 @@ Scikit-learn based regression algorithms and registry wiring.
 
 from __future__ import annotations
 
+from sklearn.dummy import DummyRegressor
+
 from sklearn.ensemble import (
     AdaBoostRegressor,
     ExtraTreesRegressor,
@@ -64,12 +66,17 @@ from mlcore.regression import search_spaces
 
 
 _ALIASES: dict[str, tuple[str, ...]] = {
+    "dummy_regressor": ("regression_baseline",),
     "linear_regression": ("ols",),
     "ridge_regressor": ("ridge",),
     "random_forest_regressor": ("rf_regressor",),
     "knn_regressor": ("knn_regression",),
     "svr": ("svm_regressor",),
     "decision_tree_regressor": ("decision_tree_regression",),
+}
+
+_DEFAULT_PARAMS: dict[str, dict[str, object]] = {
+    "dummy_regressor": {"strategy": "mean"},
 }
 
 _SCALING_RECOMMENDED = {
@@ -108,6 +115,12 @@ def register_sklearn_regression_models() -> None:
     """
 
     models = [
+        (
+            "dummy_regressor",
+            DummyRegressor,
+            ("regression", "baseline", "dummy"),
+            None,
+        ),
         (
             "linear_regression",
             LinearRegression,
@@ -286,6 +299,7 @@ def register_sklearn_regression_models() -> None:
             ),
             backend_cls=RegressionBackend,
             aliases=_ALIASES.get(name, tuple()),
+            default_params=_DEFAULT_PARAMS.get(name, {}),
             tags=tags,
             capabilities=capabilities,
             requirements=_requirements_for(name),

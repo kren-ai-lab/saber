@@ -1,0 +1,35 @@
+schema_version: "1.0"
+workflow: tune
+
+dataset:
+  path: data/regression.csv
+  target: target
+  sample_id: sample_id
+
+algorithm: ridge_regressor
+
+partitioning:
+  strategy: random_kfold
+  params:
+    n_splits: 5
+    seed: 42
+
+preprocessing:
+  imputation: auto
+  scaler: auto
+
+tuning:
+  optimizer: grid
+  metrics:
+    - rmse
+    - mae
+  refit_metric: rmse
+  random_state: 42
+
+search_space:
+  alpha:
+    type: categorical
+    values: [0.01, 0.1, 1.0, 10.0]
+
+output:
+  directory: results/regression_tuning

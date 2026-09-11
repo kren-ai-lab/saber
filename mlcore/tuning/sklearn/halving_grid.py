@@ -63,7 +63,7 @@ class HalvingGridSearchOptimizer(BaseOptimizer):
 
         search = HalvingGridSearchCV(
             estimator=estimator,
-            param_grid=search_space.parameters,
+            param_grid=search_space.to_grid(),
             scoring=scorer,
             cv=cv,
             factor=factor,

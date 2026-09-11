@@ -71,21 +71,30 @@ The previous empty `mlcore/models/` duplication is retired. Provider registratio
 
 ### 3. Data and partitions
 
-`mlcore.datasets` will define validated dataset contracts. `mlcore.validation` will define split/validation execution. Partition generation and partition consumption are distinct concerns.
+`mlcore.datasets` defines validated dataset and partition contracts. `mlcore.validation` remains responsible for executing model-validation workflows in Phase 4. Partition generation and partition consumption are distinct concerns.
 
-The target dataset object will preserve at minimum:
+Phase 3 establishes `DatasetBundle` as the canonical supervised data container:
 
 ```text
-X
-y
-sample_ids
-feature_names
-groups
-sample_weight
-metadata
+DatasetBundle
+├── X
+├── y
+├── sample_ids
+├── FeatureSchema / feature_names
+├── groups
+├── sample_weight
+└── metadata
 ```
 
-The target partition object will preserve sample identity and explicit train/validation/test or fold membership. BioSieve interoperability is file/contract based; BioSieve is not a dependency of `mlcore`.
+Feature matrices are numerical and two-dimensional. Missing feature values may be preserved so Phase 4 can impute them inside training folds; infinite feature values are rejected. Targets remain single-output, and classification/regression semantics can be validated explicitly. Sample IDs are unique and stable across subsets.
+
+Dataset fingerprints are deterministic hashes of scientific content (`X`, `y`, sample identity, feature identity, groups, and sample weights); free-form metadata is intentionally excluded. `FeatureSchema` preserves ordered feature identity and dtypes for later inference validation.
+
+`PartitionPlan` contains one or more explicit `PartitionSplit` objects with train/validation/test membership by sample ID. Overlap inside a split, duplicate membership, unknown sample IDs, incomplete coverage (when required), and dataset-fingerprint mismatches fail explicitly. Membership ordering is non-semantic, so resolving a split preserves the original dataset order.
+
+Predefined fold assignments are converted once into explicit memberships. External JSON/CSV/TSV/DataFrame partition tables can be ingested through a normalized interchange contract.
+
+BioSieve is the **canonical partition-generation engine** when a dataset is not already partitioned. `mlcore` does not reimplement random, stratified, group, distance-aware, homology-aware, or k-fold split generation. Instead, the optional `mlcore[biosieve]` adapter converts `DatasetBundle` into a BioSieve-compatible table, executes the requested BioSieve splitter, preserves BioSieve strategy/parameter/statistics provenance, and converts returned memberships into `PartitionPlan`. Already-partitioned datasets bypass BioSieve and are consumed exactly as supplied. Redundancy reduction remains fully outside `mlcore`; BioSieve reduction, if desired, occurs upstream before `DatasetBundle` creation.
 
 ### 4. Preprocessing
 
@@ -98,9 +107,9 @@ The first supported preprocessing scope is intentionally numerical:
 - standard scaling;
 - robust scaling;
 - min-max scaling;
-- user-supplied compatible pipelines.
+- user-supplied compatible transformers/pipelines.
 
-Categorical inference and complex automatic feature engineering are not required for the initial stable core.
+Phase 4 constructs preprocessing together with the estimator inside one scikit-learn `Pipeline` for every explicit split. Imputation/scaling statistics therefore never see held-out data. `auto` preprocessing respects estimator metadata: models with recommended scaling receive standard scaling; non-negative-input models receive min-max scaling; estimators with native missing-value support can bypass automatic imputation. Categorical inference and complex automatic feature engineering remain outside the initial core.
 
 ### 5. Training, validation, tuning, and benchmarking
 
@@ -121,6 +130,47 @@ compatibility. They are not part of the canonical execution path: `Trainer`
 only mirrors fitted state into a legacy backend container, while direct legacy
 runner calls remain supported for existing callers/tests. No new subsystem may
 execute models through the runner/backend path.
+
+Phase 5 adds a partition-driven `TuningEngine`. It consumes the same
+`DatasetBundle`, `PartitionPlan`/BioSieve integration, estimator factory, and
+leakage-safe preprocessing pipeline as validation. Hyperparameter search never
+generates an internal fallback split. In a holdout containing train, validation,
+and final-test memberships, tuning uses train/validation and excludes final test
+from both search and refit unless test evaluation is explicitly requested.
+
+Search spaces are backend-agnostic. Finite lists remain compatible, while typed
+`Categorical`, `Integer`, `Float`, and `LogFloat` domains translate to sklearn
+grid/random/halving representations and Optuna suggestions where mathematically
+applicable. Grid search fails explicitly for continuous domains that are not
+enumerable. Multi-metric search has one explicit `refit_metric`; successive
+halving and Optuna optimize that objective and evaluate the selected candidate
+with any additional requested metrics over the same explicit folds.
+
+Phase 6 adds a `BenchmarkEngine` as a pure orchestration layer over validation
+and tuning. It does not implement a fourth model-execution path. A benchmark
+matrix crosses prepared numerical representations, registered algorithms, named
+partition scenarios, seeds, and untuned/tuned modes. `DummyClassifier` and
+`DummyRegressor` provide deterministic scientific baselines.
+
+Prepared representations are described by `BenchmarkDataset`; mlcore never
+generates those representations. Multiple representations in one comparison
+must contain the same sample IDs and targets. A partition membership generated
+from one benchmark representation can then be rebound to another representation
+without regenerating splits, preserving fair comparisons while maintaining the
+representation-specific dataset fingerprint. Plans from unrelated dataset
+fingerprints are rejected.
+
+Tuned benchmark reporting is conservative: hyperparameters are selected on
+train/validation, the selected parameters are refit on train+validation, and
+performance is reported only on a protected test membership. Reusing ordinary
+CV folds for both tuning and final reporting is intentionally rejected; unbiased
+tuned CV requires nested CV or an external final test.
+
+`BenchmarkResult` preserves individual `ValidationResult`/`OptimizationResult`
+objects and exposes long-form run, aggregate-metric, fold-metric, prediction,
+failure, and tuning-history tables. Deterministic run/configuration identifiers
+link every score to its representation, partition, seed, explicit parameters,
+and held-out sample predictions.
 
 ### 6. Evaluation
 
@@ -166,19 +216,43 @@ Each object owns only data relevant to its stage and can be serialized into down
 
 ### 7. Persistence
 
-Persistence saves fitted estimators/pipelines together with sufficient metadata to validate future inference. Persistence must not contain training logic.
+Persistence saves fitted estimators/pipelines together with sufficient metadata to validate future inference. Persistence contains no training logic and never generates partitions or representations.
+
+Phase 7 defines a versioned directory artifact rather than an opaque single blob. Model artifacts contain a joblib-serialized fitted estimator/pipeline plus human-readable JSON files for the manifest, environment, feature schema, provenance, parameters, metrics, training configuration, and optional explicit `PartitionPlan`. Every artifact file is covered by a SHA-256 checksum manifest before joblib deserialization. Checksum verification establishes integrity, not authenticity; pickle/joblib artifacts must still originate from a trusted source.
+
+The artifact schema version is independent from the mlcore package version. Loading validates schema compatibility, feature-schema fingerprints, required files, checksums, and environment differences. Environment differences are surfaced as warnings by default and can be promoted to hard compatibility errors. Inference through a loaded model revalidates feature identity/order before calling the persisted pipeline and can reconstruct the canonical `PredictionResult`, including class order and positive-class semantics.
+
+Benchmark persistence is table-first: run, metric, held-out prediction, failure, and optimization-history tables are stored as analysis-ready CSV together with benchmark metadata and environment provenance. Serializing the full Python `BenchmarkResult` is optional because fold estimators and backend-specific studies may be large and less portable.
 
 ### 8. Public surfaces
 
-The final public surface will be thin wrappers over shared internal orchestration:
+Phase 8 exposes one thin public surface over the frozen orchestration engines:
 
 ```text
-Python API
-YAML config ──► Python API
-CLI         ──► Python API
+YAML / JSON ──► WorkflowConfig ──► run_config ──┐
+CLI         ──► load_config  ────────────────┐  │
+                                             ▼  ▼
+                                      public Python API
+                                             │
+                           ┌─────────────────┼─────────────────┐
+                           ▼                 ▼                 ▼
+                    ValidationEngine    TuningEngine     BenchmarkEngine
+                           │                                   │
+                           └──────── persistence / prediction ─┘
 ```
 
-CLI and configuration files must not implement a second execution engine.
+The root Python API exposes `train`, `validate`, `evaluate`, `tune`/`optimize`,
+`benchmark`, `predict`, persistence aliases, and config execution. Declarative
+configs use schema version `1.0`; YAML and JSON normalize to the same
+`WorkflowConfig` contract. Relative paths are resolved relative to the config
+file. The CLI only parses arguments, loads/validates configuration, invokes the
+public/config API, and renders outputs; it contains no estimator construction,
+partition generation, preprocessing, tuning, or benchmark logic.
+
+Model discovery and artifact inspection/verification are read-only CLI
+operations over `MODEL_REGISTRY` and Phase 7 persistence contracts. Config-driven
+partition generation continues to use BioSieve exclusively; the public surface
+does not reintroduce sklearn splitters.
 
 ## Public versus internal API
 
@@ -189,7 +263,7 @@ import mlcore
 from mlcore import MODEL_REGISTRY
 ```
 
-Later phases may expose high-level functions such as `train`, `optimize`, `benchmark`, `evaluate`, and `predict` from the package root after their contracts stabilize.
+Phase 8 exposes the stable high-level functions `train`, `validate`, `evaluate`, `tune`/`optimize`, `benchmark`, and `predict` from the package root together with persistence and config helpers.
 
 Modules beginning with `_` are internal. Concrete provider modules, runners, backend state containers, serializers, and implementation helpers are not guaranteed public APIs.
 

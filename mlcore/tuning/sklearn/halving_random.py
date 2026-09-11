@@ -63,7 +63,7 @@ class HalvingRandomSearchOptimizer(BaseOptimizer):
 
         search = HalvingRandomSearchCV(
             estimator=estimator,
-            param_distributions=search_space.parameters,
+            param_distributions=search_space.to_random(),
             scoring=scorer,
             cv=cv,
             factor=factor,

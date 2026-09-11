@@ -7,6 +7,8 @@ Scikit-learn classification models and registry wiring.
 
 from __future__ import annotations
 
+from sklearn.dummy import DummyClassifier
+
 from sklearn.discriminant_analysis import (
     LinearDiscriminantAnalysis,
     QuadraticDiscriminantAnalysis,
@@ -67,12 +69,17 @@ from mlcore.core.specs import AlgorithmSpec
 from mlcore.classification import search_spaces
 
 _ALIASES: dict[str, tuple[str, ...]] = {
+    "dummy_classifier": ("classification_baseline",),
     "logistic_regression": ("logreg", "lr_classifier"),
     "random_forest": ("rf_classifier", "rf_clf"),
     "extra_trees": ("extra_trees_classifier",),
     "svc": ("svm_classifier",),
     "knn": ("knn_classifier",),
     "decision_tree": ("decision_tree_classifier",),
+}
+
+_DEFAULT_PARAMS: dict[str, dict[str, object]] = {
+    "dummy_classifier": {"strategy": "prior"},
 }
 
 _NON_NEGATIVE_X = {
@@ -116,6 +123,7 @@ def register_sklearn_classification_models() -> None:
     """
 
     models = [
+        ("dummy_classifier", DummyClassifier, ("classification", "baseline", "dummy"), None),
         ("logistic_regression", LogisticRegression, ("classification", "logistic_regression"), search_spaces.LOGISTIC_REGRESSION),
         ("random_forest", RandomForestClassifier, ("classification", "random_forest", "ensemble", "bagging"), search_spaces.RANDOM_FOREST),
         ("extra_trees", ExtraTreesClassifier, ("classification", "extra_trees", "tree", "bagging"), search_spaces.EXTRA_TREES),
@@ -158,6 +166,7 @@ def register_sklearn_classification_models() -> None:
             name=name,
             tags=tags,
             aliases=_ALIASES.get(name, tuple()),
+            default_params=_DEFAULT_PARAMS.get(name, {}),
             estimator_cls=model_cls,
             runner=make_classifier_runner(model_cls),
             backend_cls=ClassificationBackend,

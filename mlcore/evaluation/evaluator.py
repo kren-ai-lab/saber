@@ -55,13 +55,8 @@ def evaluate_prediction(
         values = evaluate_regression(
             y_true=y_true,
             y_pred=prediction.predictions,
+            metrics=None if metrics is None else tuple(metrics),
         )
-        if metrics is not None:
-            values = {
-                metric: values[metric]
-                for metric in metrics
-                if metric in values
-            }
 
     return EvaluationResult(
         task=prediction.task,

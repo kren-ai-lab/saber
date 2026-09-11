@@ -145,7 +145,7 @@ class AlgorithmSpec:
 
         return self.search_space
 
-    def get_search_space_parameters(self) -> dict[str, list[Any]]:
+    def get_search_space_parameters(self) -> dict[str, Any]:
         """Return search space parameters as a dictionary."""
 
         if self.search_space is None:

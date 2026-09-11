@@ -14,12 +14,18 @@ from mlcore.core.metrics import (
 )
 from mlcore.core.prediction import PredictionResult
 from mlcore.core.registry import AlgorithmRegistry, MODEL_REGISTRY
+from mlcore.core.search_space import Categorical, Float, Integer, LogFloat, SearchSpace
 from mlcore.core.specs import AlgorithmSpec, make_spec
 from mlcore.core.task import Task, TaskType
 from mlcore.core.trainer import Trainer, TrainResult
 
 __all__ = [
     "AlgorithmRegistry",
+    "SearchSpace",
+    "LogFloat",
+    "Integer",
+    "Float",
+    "Categorical",
     "AlgorithmSpec",
     "BackendBase",
     "EstimatorCapabilities",

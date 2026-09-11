@@ -45,13 +45,7 @@ class ObjectiveBuilder:
     def sample_params(self, trial) -> dict[str, Any]:
         """Sample parameters from the current categorical SearchSpace contract."""
 
-        params: dict[str, Any] = {}
-        for parameter_name, parameter_values in self.search_space.parameters.items():
-            params[parameter_name] = trial.suggest_categorical(
-                parameter_name,
-                parameter_values,
-            )
-        return params
+        return self.search_space.sample_optuna(trial)
 
     def build(self) -> Callable:
         """Build an Optuna objective with task-aware metric validation."""

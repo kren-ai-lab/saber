@@ -58,7 +58,7 @@ class GridSearchOptimizer(BaseOptimizer):
 
         grid = GridSearchCV(
             estimator=estimator,
-            param_grid=search_space.parameters,
+            param_grid=search_space.to_grid(),
             scoring=scorer,
             cv=cv,
             n_jobs=n_jobs,

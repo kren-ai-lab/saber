@@ -97,7 +97,7 @@ class BaseOptimizer(ABC):
     def get_search_space_parameters(
         self,
         algorithm: str,
-    ) -> dict[str, list[Any]]:
+    ) -> dict[str, Any]:
         """
         Retrieve search-space parameters.
         """

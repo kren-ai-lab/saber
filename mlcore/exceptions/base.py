@@ -108,3 +108,77 @@ class NonFiniteScoreError(OptimizationError):
             f"Optimizer '{optimizer}' produced a non-finite score ({score}) "
             f"for algorithm '{algorithm}' and metric '{metric}'."
         )
+
+class DatasetError(MLCoreError, ValueError):
+    """Base exception for dataset contract errors."""
+
+
+class DatasetValidationError(DatasetError):
+    """Raised when a dataset violates structural or semantic contracts."""
+
+
+class FeatureSchemaMismatchError(DatasetError):
+    """Raised when feature identity/order/dtypes do not match a schema."""
+
+
+class PartitionError(MLCoreError, ValueError):
+    """Base exception for partition contract errors."""
+
+
+class PartitionValidationError(PartitionError):
+    """Raised when explicit partition membership is invalid."""
+
+
+class DatasetFingerprintMismatchError(PartitionError):
+    """Raised when a partition artifact targets a different dataset."""
+
+    def __init__(self, *, expected: str, observed: str) -> None:
+        super().__init__(
+            "Partition dataset fingerprint does not match the supplied dataset: "
+            f"expected '{expected}', observed '{observed}'."
+        )
+
+
+class OptionalDependencyError(MLCoreError, ImportError):
+    """Raised when an optional integration dependency is required but absent."""
+
+    def __init__(self, *, dependency: str, extra: str, purpose: str) -> None:
+        super().__init__(
+            f"Optional dependency '{dependency}' is required for {purpose}. "
+            f"Install with: pip install 'mlcore[{extra}]'."
+        )
+
+
+class PartitionIntegrationError(PartitionError):
+    """Raised when an external partition engine cannot be adapted safely."""
+
+
+class PreprocessingContractError(MLCoreError, ValueError):
+    """Raised when preprocessing cannot satisfy estimator/data requirements."""
+
+
+class ValidationContractError(MLCoreError, ValueError):
+    """Raised when a validation workflow violates an explicit contract."""
+
+
+class BenchmarkContractError(MLCoreError, ValueError):
+    """Raised when a benchmark matrix violates a scientific/workflow contract."""
+
+class PersistenceError(MLCoreError, RuntimeError):
+    """Base exception for persistence/artifact failures."""
+
+
+class ArtifactIntegrityError(PersistenceError):
+    """Raised when a persistence artifact is missing, malformed, or corrupted."""
+
+
+class ArtifactCompatibilityError(PersistenceError):
+    """Raised when an artifact schema/environment is incompatible."""
+
+
+class ConfigurationError(MLCoreError, ValueError):
+    """Raised when a declarative workflow configuration is invalid."""
+
+
+class PublicAPIError(MLCoreError, RuntimeError):
+    """Raised at the stable public API boundary for orchestration failures."""

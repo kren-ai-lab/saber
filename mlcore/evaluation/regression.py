@@ -41,94 +41,40 @@ REGRESSION_METRICS = (
 def evaluate_regression(
     y_true: np.ndarray,
     y_pred: np.ndarray,
+    *,
+    metrics: tuple[str, ...] | list[str] | None = None,
 ) -> dict[str, float]:
-    """
-    Evaluate regression predictions.
+    """Evaluate requested regression metrics without computing unused statistics."""
 
-    Parameters
-    ----------
-    y_true : np.ndarray
-        Ground-truth values.
+    requested = REGRESSION_METRICS if metrics is None else tuple(dict.fromkeys(metrics))
+    unknown = set(requested) - set(REGRESSION_METRICS)
+    if unknown:
+        raise ValueError(f"Unknown regression metrics: {sorted(unknown)!r}.")
 
-    y_pred : np.ndarray
-        Predicted values.
+    values: dict[str, float] = {}
 
-    Returns
-    -------
-    dict[str, float]
-        Dictionary containing regression metrics.
-    """
+    if "mae" in requested:
+        values["mae"] = float(mean_absolute_error(y_true, y_pred))
+    if "median_ae" in requested:
+        values["median_ae"] = float(median_absolute_error(y_true, y_pred))
+    if "mse" in requested:
+        values["mse"] = float(mean_squared_error(y_true, y_pred))
+    if "rmse" in requested:
+        values["rmse"] = float(root_mean_squared_error(y_true, y_pred))
+    if "mape" in requested:
+        values["mape"] = float(mean_absolute_percentage_error(y_true, y_pred))
+    if "r2" in requested:
+        values["r2"] = float(r2_score(y_true, y_pred))
+    if "explained_variance" in requested:
+        values["explained_variance"] = float(explained_variance_score(y_true, y_pred))
+    if "pearson" in requested:
+        pearson_value, _ = pearsonr(y_true, y_pred)
+        values["pearson"] = float(pearson_value)
+    if "spearman" in requested:
+        spearman_value, _ = spearmanr(y_true, y_pred)
+        values["spearman"] = float(spearman_value)
 
-    metrics: dict[str, float] = {}
-
-    metrics["mae"] = float(
-        mean_absolute_error(
-            y_true,
-            y_pred,
-        )
-    )
-
-    metrics["median_ae"] = float(
-        median_absolute_error(
-            y_true,
-            y_pred,
-        )
-    )
-
-    metrics["mse"] = float(
-        mean_squared_error(
-            y_true,
-            y_pred,
-        )
-    )
-
-    metrics["rmse"] = float(
-        root_mean_squared_error(
-            y_true,
-            y_pred,
-        )
-    )
-
-    metrics["mape"] = float(
-        mean_absolute_percentage_error(
-            y_true,
-            y_pred,
-        )
-    )
-
-    metrics["r2"] = float(
-        r2_score(
-            y_true,
-            y_pred,
-        )
-    )
-
-    metrics["explained_variance"] = float(
-        explained_variance_score(
-            y_true,
-            y_pred,
-        )
-    )
-
-    pearson_value, _ = pearsonr(
-        y_true,
-        y_pred,
-    )
-
-    metrics["pearson"] = float(
-        pearson_value,
-    )
-
-    spearman_value, _ = spearmanr(
-        y_true,
-        y_pred,
-    )
-
-    metrics["spearman"] = float(
-        spearman_value,
-    )
-
-    return metrics
+    return values
 
 
 def metric_names() -> tuple[str, ...]:

@@ -30,7 +30,7 @@ regression
 
 ## Input contract
 
-The core accepts numerical tabular feature matrices represented by NumPy arrays or pandas DataFrames. Later phases will formalize sample identifiers, feature names, groups, sample weights, partitions, and metadata through dataset contracts.
+The core accepts numerical tabular feature matrices represented by NumPy arrays or pandas DataFrames. `DatasetBundle` formalizes sample identifiers, feature names, groups, sample weights, and metadata, while `PartitionPlan` preserves explicit holdout/fold membership by sample identity.
 
 Upstream libraries remain responsible for representation generation and domain-specific preprocessing.
 
