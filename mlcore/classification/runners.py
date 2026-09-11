@@ -2,7 +2,7 @@
 mlcore.classification.runners
 =============================
 
-Shared runner factories for classification models.
+Legacy runner factories for classification compatibility.
 """
 
 from __future__ import annotations

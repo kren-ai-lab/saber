@@ -39,9 +39,6 @@ from sklearn.neighbors import (
     RadiusNeighborsRegressor
 )
 
-from sklearn.neural_network import (
-    MLPRegressor,
-)
 
 from sklearn.svm import (
     LinearSVR,
@@ -54,12 +51,56 @@ from sklearn.tree import (
     ExtraTreeRegressor,
 )
 
+from mlcore.core.capabilities import (
+    EstimatorRequirements,
+    infer_estimator_capabilities,
+)
 from mlcore.core.registry import MODEL_REGISTRY
 from mlcore.core.specs import AlgorithmSpec
 
 from mlcore.regression.backend import RegressionBackend
 from mlcore.regression.runners import make_regression_runner
 from mlcore.regression import search_spaces
+
+
+_ALIASES: dict[str, tuple[str, ...]] = {
+    "linear_regression": ("ols",),
+    "ridge_regressor": ("ridge",),
+    "random_forest_regressor": ("rf_regressor",),
+    "knn_regressor": ("knn_regression",),
+    "svr": ("svm_regressor",),
+    "decision_tree_regressor": ("decision_tree_regression",),
+}
+
+_SCALING_RECOMMENDED = {
+    "ridge_regressor",
+    "lasso_regressor",
+    "elastic_net",
+    "bayesian_ridge",
+    "knn_regressor",
+    "svr",
+    "linear_svr",
+    "nu_svr",
+    "gaussian_process_regressor",
+    "ard_regression",
+    "huber_regression",
+    "lars_regressor",
+    "lasso_lars_regressor",
+    "orthogonal_matching_pursuit",
+    "radius_neighbors_regressor",
+}
+
+
+def _requirements_for(name: str) -> EstimatorRequirements:
+    return EstimatorRequirements(
+        positive_y=(name == "gamma_regression"),
+        scaling=(
+            "recommended"
+            if name in _SCALING_RECOMMENDED
+            else "not_required"
+        ),
+    )
+
 
 def register_sklearn_regression_models() -> None:
     """
@@ -170,64 +211,58 @@ def register_sklearn_regression_models() -> None:
             search_spaces.GAUSSIAN_PROCESS_REGRESSOR,
         ),
         (
-            "mlp_regressor",
-            MLPRegressor,
-            ("regression", "neural_network"),
-            search_spaces.MLP_REGRESSOR,
-        ),
-        (
             "bagging_regressor",
             BaggingRegressor,
-            ("regression", "enssemble"),
+            ("regression", "ensemble"),
             search_spaces.BAGGING_REGRESSOR,
         ), 
 
         (
             "ard_regression",
             ARDRegression,
-            ("regression", "linear method"),
+            ("regression", "linear"),
             search_spaces.ARD_REGRESSION,
         ),
 
         (
             "gamma_regression",
             GammaRegressor,
-            ("regression", "linear method"),
+            ("regression", "linear"),
             search_spaces.GAMMA_REGRESSION,
         ),
 
         (
             "huber_regression",
             HuberRegressor,
-            ("regression", "linear method"),
+            ("regression", "linear"),
             search_spaces.HUBER_REGRESSION,
         ),
 
         (
             "lars_regressor",
             Lars,
-            ("regression", "linear method"),
+            ("regression", "linear"),
             search_spaces.LARS_REGRESSOR,
         ),
 
         (
             "lasso_lars_regressor",
             LassoLars,
-            ("regression", "linear method"),
+            ("regression", "linear"),
             search_spaces.LASSO_LARS_REGRESSOR,
         ),
 
         (
             "orthogonal_matching_pursuit",
             OrthogonalMatchingPursuit,
-            ("regression", "linear method"),
+            ("regression", "linear"),
             search_spaces.ORTHOGONAL_MATCHING_PURSUIT,
         ),
 
         (
             "radius_neighbors_regressor",
             RadiusNeighborsRegressor,
-            ("regression", "KNN-based"),
+            ("regression", "knn"),
             search_spaces.RADIUS_NEIGHBORS_REGRESSOR,
         )
     ]
@@ -235,6 +270,11 @@ def register_sklearn_regression_models() -> None:
     specs: list[AlgorithmSpec] = []
 
     for name, model_rgx, tags, search_space in models:
+
+        capabilities = infer_estimator_capabilities(
+            model_rgx,
+            native_missing_values=(name == "hist_gradient_boosting_regressor"),
+        )
 
         spec = AlgorithmSpec(
             backend="sklearn",
@@ -245,8 +285,12 @@ def register_sklearn_regression_models() -> None:
                 model_rgx,
             ),
             backend_cls=RegressionBackend,
+            aliases=_ALIASES.get(name, tuple()),
             tags=tags,
-            search_space=search_space
+            capabilities=capabilities,
+            requirements=_requirements_for(name),
+            supports_cv=True,
+            search_space=search_space,
         )
 
         specs.append(spec)

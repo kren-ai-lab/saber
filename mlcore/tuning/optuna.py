@@ -7,23 +7,19 @@ Optuna-based hyperparameter optimization.
 
 from __future__ import annotations
 
-from typing import Any
-
+import numpy as np
 import optuna
+from optuna.trial import TrialState
 
+from mlcore.exceptions import NonFiniteScoreError
+from mlcore.tuning._validation import ensure_finite_score
 from mlcore.tuning.base import BaseOptimizer
-from mlcore.tuning.objective import (
-    ObjectiveBuilder,
-)
-from mlcore.tuning.results import (
-    OptimizationResult,
-)
+from mlcore.tuning.objective import ObjectiveBuilder
+from mlcore.tuning.results import OptimizationResult
 
 
 class OptunaOptimizer(BaseOptimizer):
-    """
-    Hyperparameter optimization using Optuna.
-    """
+    """Hyperparameter optimization using Optuna."""
 
     def optimize(
         self,
@@ -41,81 +37,32 @@ class OptunaOptimizer(BaseOptimizer):
         direction: str | None = None,
         sampler=None,
         pruner=None,
+        random_state: int | None = None,
     ) -> OptimizationResult:
-        """
-        Optimize hyperparameters using Optuna.
+        spec = self.get_spec(algorithm)
 
-        Parameters
-        ----------
-        algorithm : str
-            Registered algorithm.
-
-        X :
-            Feature matrix.
-
-        y :
-            Target vector.
-
-        metric : str
-            Optimization metric.
-
-        cv : int, default=5
-            Number of folds.
-
-        n_trials : int, default=50
-            Number of Optuna trials.
-
-        timeout : float | None
-            Maximum optimization time in seconds.
-
-        n_jobs : int, default=-1
-            Parallel jobs used during CV.
-
-        search_space : SearchSpace | None
-            Custom search space.
-
-        study_name : str | None
-            Optuna study name.
-
-        direction : str | None
-            Optimization direction.
-
-        sampler :
-            Optional Optuna sampler.
-
-        pruner :
-            Optional Optuna pruner.
-        """
-
-        spec = self.get_spec(
-            algorithm,
-        )
-
-        if spec.estimator_cls is None:
-
+        if not spec.has_estimator_factory():
             raise ValueError(
-                f"Algorithm '{algorithm}' "
-                "does not define estimator_cls."
+                f"Algorithm '{algorithm}' does not define an estimator factory."
             )
 
         if search_space is None:
-
-            search_space = (
-                spec.get_search_space()
-            )
-
+            search_space = spec.get_search_space()
         if search_space is None:
-
             raise ValueError(
-                f"No search space defined for "
-                f"algorithm '{algorithm}'."
+                f"No search space defined for algorithm '{algorithm}'."
             )
+        if len(search_space) == 0:
+            raise ValueError(f"Search space for '{algorithm}' is empty.")
 
+        # Every mlcore scorer is transformed to a maximization objective.
         if direction is None:
-
-            # All scorers returned by get_scorer()
-            # are converted into maximization objectives.
             direction = "maximize"
+        if direction != "maximize":
+            raise ValueError(
+                "mlcore scorer objectives must use direction='maximize'. "
+                "Loss metrics are already negated by the scorer contract."
+            )
 
         builder = ObjectiveBuilder(
             spec=spec,
@@ -125,9 +72,12 @@ class OptunaOptimizer(BaseOptimizer):
             X=X,
             y=y,
             n_jobs=n_jobs,
+            random_state=random_state,
         )
-
         objective = builder.build()
+
+        if sampler is None and random_state is not None:
+            sampler = optuna.samplers.TPESampler(seed=random_state)
 
         study = optuna.create_study(
             study_name=study_name,
@@ -140,43 +90,51 @@ class OptunaOptimizer(BaseOptimizer):
             objective,
             n_trials=n_trials,
             timeout=timeout,
+            catch=(NonFiniteScoreError,),
         )
 
-        best_params = dict(
-            study.best_params
-        )
-
-        best_model = (
-            spec.estimator_cls(
-                **best_params
+        completed = [
+            trial
+            for trial in study.trials
+            if (
+                trial.state == TrialState.COMPLETE
+                and trial.value is not None
+                and np.isfinite(float(trial.value))
             )
-        )
+        ]
+        if not completed:
+            raise NonFiniteScoreError(
+                algorithm=algorithm,
+                metric=metric,
+                optimizer="optuna",
+                score=float("nan"),
+            )
 
-        best_model.fit(
-            X,
-            y,
+        best_trial = max(completed, key=lambda trial: float(trial.value))
+        best_score = ensure_finite_score(
+            float(best_trial.value),
+            algorithm=algorithm,
+            metric=metric,
+            optimizer="optuna",
         )
+        best_params = dict(best_trial.params)
+
+        best_model = spec.build_estimator(
+            random_state=random_state,
+            **best_params,
+        )
+        best_model.fit(X, y)
 
         history = []
-
         for trial in study.trials:
-
-            if trial.value is None:
-
-                continue
-
             history.append(
                 {
                     "trial": trial.number,
-                    "score": float(
-                        trial.value
+                    "score": (
+                        None if trial.value is None else float(trial.value)
                     ),
-                    "params": dict(
-                        trial.params
-                    ),
-                    "state": str(
-                        trial.state
-                    ),
+                    "params": dict(trial.params),
+                    "state": str(trial.state),
                 }
             )
 
@@ -184,12 +142,11 @@ class OptunaOptimizer(BaseOptimizer):
             algorithm=algorithm,
             optimizer="optuna",
             metric=metric,
-            best_score=float(
-                study.best_value
-            ),
+            best_score=best_score,
             best_params=best_params,
             best_model=best_model,
             spec=spec,
             history=history,
             study=study,
+            refit=True,
         )

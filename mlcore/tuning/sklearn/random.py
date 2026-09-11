@@ -11,16 +11,17 @@ from typing import Any
 
 from sklearn.model_selection import RandomizedSearchCV
 
+from mlcore.tuning._validation import (
+    best_estimator_or_none,
+    ensure_finite_score,
+)
 from mlcore.tuning.base import BaseOptimizer
 from mlcore.tuning.results import OptimizationResult
 from mlcore.tuning.scorers import get_scorer
 
 
 class RandomSearchOptimizer(BaseOptimizer):
-    """
-    Randomized hyperparameter optimization using
-    sklearn.model_selection.RandomizedSearchCV.
-    """
+    """Randomized hyperparameter optimization using RandomizedSearchCV."""
 
     def optimize(
         self,
@@ -37,76 +38,24 @@ class RandomSearchOptimizer(BaseOptimizer):
         search_space=None,
         **fit_params: Any,
     ) -> OptimizationResult:
-        """
-        Execute randomized search.
+        spec = self.get_spec(algorithm)
 
-        Parameters
-        ----------
-        algorithm : str
-            Registered algorithm.
-
-        X :
-            Training features.
-
-        y :
-            Training targets.
-
-        metric : str
-            Optimization metric.
-
-        cv : int, default=5
-            Number of CV folds.
-
-        n_iter : int, default=20
-            Number of parameter combinations sampled.
-
-        n_jobs : int, default=-1
-            Number of parallel jobs.
-
-        refit : bool, default=True
-            Refit best estimator.
-
-        random_state : int | None
-            Random seed.
-
-        search_space : SearchSpace | None
-            Optional custom search space.
-        """
-
-        spec = self.get_spec(
-            algorithm,
-        )
-
-        if spec.estimator_cls is None:
-
+        if not spec.has_estimator_factory():
             raise ValueError(
-                f"Algorithm '{algorithm}' "
-                "does not define estimator_cls."
+                f"Algorithm '{algorithm}' does not define an estimator factory."
             )
 
         if search_space is None:
-
             search_space = spec.get_search_space()
-
         if search_space is None:
-
             raise ValueError(
-                f"No search space defined for "
-                f"algorithm '{algorithm}'."
+                f"No search space defined for algorithm '{algorithm}'."
             )
-
         if len(search_space) == 0:
+            raise ValueError(f"Search space for '{algorithm}' is empty.")
 
-            raise ValueError(
-                f"Search space for '{algorithm}' "
-                "is empty."
-            )
-
-        scorer = get_scorer(
-            metric,
-        )
-
-        estimator = spec.estimator_cls()
+        scorer = get_scorer(metric, task=spec.task, y=y)
+        estimator = spec.build_estimator(random_state=random_state)
 
         search = RandomizedSearchCV(
             estimator=estimator,
@@ -119,33 +68,24 @@ class RandomSearchOptimizer(BaseOptimizer):
             random_state=random_state,
             return_train_score=True,
         )
+        search.fit(X, y, **fit_params)
 
-        search.fit(
-            X,
-            y,
-            **fit_params,
+        best_score = ensure_finite_score(
+            search.best_score_,
+            algorithm=algorithm,
+            metric=metric,
+            optimizer="random_search",
         )
 
-        history: list[dict[str, Any]] = []
-
         results = search.cv_results_
-
-        for idx in range(
-            len(results["params"])
-        ):
-
+        history: list[dict[str, Any]] = []
+        for idx in range(len(results["params"])):
             history.append(
                 {
                     "params": results["params"][idx],
-                    "mean_test_score": float(
-                        results["mean_test_score"][idx]
-                    ),
-                    "std_test_score": float(
-                        results["std_test_score"][idx]
-                    ),
-                    "rank_test_score": int(
-                        results["rank_test_score"][idx]
-                    ),
+                    "mean_test_score": float(results["mean_test_score"][idx]),
+                    "std_test_score": float(results["std_test_score"][idx]),
+                    "rank_test_score": int(results["rank_test_score"][idx]),
                 }
             )
 
@@ -153,14 +93,11 @@ class RandomSearchOptimizer(BaseOptimizer):
             algorithm=algorithm,
             optimizer="random_search",
             metric=metric,
-            best_score=float(
-                search.best_score_
-            ),
-            best_params=dict(
-                search.best_params_
-            ),
-            best_model=search.best_estimator_,
+            best_score=best_score,
+            best_params=dict(search.best_params_),
+            best_model=best_estimator_or_none(search, refit=refit),
             spec=spec,
             history=history,
             study=search,
+            refit=refit,
         )

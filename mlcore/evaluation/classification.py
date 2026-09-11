@@ -2,22 +2,14 @@
 mlcore.evaluation.classification
 ================================
 
-Classification evaluation utilities.
-
-This module provides:
-- Binary classification metrics
-- Multiclass classification metrics
-- Unified evaluation interface
+Classification evaluation utilities with explicit binary class semantics.
 """
 
 from __future__ import annotations
 
-from typing import Callable
-from typing import Optional
-from typing import Sequence
+from typing import Any, Callable, Optional, Sequence
 
 import numpy as np
-
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
@@ -33,34 +25,99 @@ from sklearn.metrics import (
 )
 
 
+def _resolve_binary_classes(
+    y_true: np.ndarray,
+    *,
+    y_pred: np.ndarray | None = None,
+    classes: np.ndarray | Sequence[Any] | None = None,
+    positive_class: Any | None = None,
+) -> tuple[np.ndarray, Any, Any]:
+    """Resolve binary class order and positive/negative labels deterministically."""
+
+    y_true = np.asarray(y_true)
+
+    if classes is None:
+        if y_pred is None:
+            resolved = np.unique(y_true)
+        else:
+            resolved = np.unique(
+                np.concatenate([y_true, np.asarray(y_pred)])
+            )
+    else:
+        resolved = np.asarray(classes)
+
+    if resolved.ndim != 1 or resolved.size != 2:
+        raise ValueError(
+            "Binary classification requires exactly two ordered classes."
+        )
+
+    if positive_class is None:
+        positive_class = resolved[-1]
+
+    matches = np.flatnonzero(resolved == positive_class)
+    if matches.size != 1:
+        raise ValueError(
+            f"positive_class {positive_class!r} is not present in classes."
+        )
+
+    positive_index = int(matches[0])
+    negative_index = 1 - positive_index
+    negative_class = resolved[negative_index]
+
+    return resolved, positive_class, negative_class
+
+
+def _positive_probability_vector(
+    y_proba: np.ndarray,
+    *,
+    classes: np.ndarray,
+    positive_class: Any,
+) -> np.ndarray:
+    """Normalize binary probabilities to the positive-class one-dimensional form."""
+
+    probabilities = np.asarray(y_proba)
+
+    if probabilities.ndim == 1:
+        return probabilities
+
+    if probabilities.ndim != 2 or probabilities.shape[1] != 2:
+        raise ValueError(
+            "Binary probabilities must have shape (n_samples,) or (n_samples, 2)."
+        )
+
+    matches = np.flatnonzero(classes == positive_class)
+    if matches.size != 1:
+        raise ValueError(
+            f"positive_class {positive_class!r} is not present in classes."
+        )
+
+    return probabilities[:, int(matches[0])]
+
+
 def specificity_score(
     y_true: np.ndarray,
     y_pred: np.ndarray,
+    *,
+    positive_class: Any | None = None,
+    classes: np.ndarray | Sequence[Any] | None = None,
 ) -> float:
-    """
-    Compute binary classification specificity.
+    """Compute binary specificity for an explicit positive class."""
 
-    Parameters
-    ----------
-    y_true : np.ndarray
-        Ground-truth labels.
+    resolved, positive_class, negative_class = _resolve_binary_classes(
+        y_true,
+        y_pred=y_pred,
+        classes=classes,
+        positive_class=positive_class,
+    )
 
-    y_pred : np.ndarray
-        Predicted labels.
-
-    Returns
-    -------
-    float
-        Specificity score.
-    """
-
-    tn, fp, _, _ = confusion_matrix(
+    matrix = confusion_matrix(
         y_true,
         y_pred,
-    ).ravel()
+        labels=[negative_class, positive_class],
+    )
 
+    tn, fp, _, _ = matrix.ravel()
     denominator = tn + fp
-
     if denominator == 0:
         return 0.0
 
@@ -70,30 +127,26 @@ def specificity_score(
 def sensitivity_score(
     y_true: np.ndarray,
     y_pred: np.ndarray,
+    *,
+    positive_class: Any | None = None,
+    classes: np.ndarray | Sequence[Any] | None = None,
 ) -> float:
-    """
-    Compute binary classification sensitivity.
+    """Compute binary sensitivity/recall for an explicit positive class."""
 
-    Parameters
-    ----------
-    y_true : np.ndarray
-        Ground-truth labels.
-
-    y_pred : np.ndarray
-        Predicted labels.
-
-    Returns
-    -------
-    float
-        Sensitivity score.
-    """
+    _, positive_class, _ = _resolve_binary_classes(
+        y_true,
+        y_pred=y_pred,
+        classes=classes,
+        positive_class=positive_class,
+    )
 
     return float(
         recall_score(
             y_true,
             y_pred,
+            pos_label=positive_class,
             zero_division=0,
-        ),
+        )
     )
 
 
@@ -101,109 +154,122 @@ def evaluate_binary_classification(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     y_proba: Optional[np.ndarray] = None,
+    y_score: Optional[np.ndarray] = None,
+    *,
+    classes: np.ndarray | Sequence[Any] | None = None,
+    positive_class: Any | None = None,
 ) -> dict[str, float]:
-    """
-    Evaluate binary classification predictions.
+    """Evaluate binary predictions with explicit class/probability semantics."""
 
-    Parameters
-    ----------
-    y_true : np.ndarray
-        Ground-truth labels.
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
 
-    y_pred : np.ndarray
-        Predicted labels.
-
-    y_proba : np.ndarray, optional
-        Positive-class probabilities.
-
-    Returns
-    -------
-    dict[str, float]
-        Evaluation metrics.
-    """
+    resolved_classes, positive_class, _ = _resolve_binary_classes(
+        y_true,
+        y_pred=y_pred,
+        classes=classes,
+        positive_class=positive_class,
+    )
 
     results = {
-        "accuracy": float(
-            accuracy_score(
-                y_true,
-                y_pred,
-            ),
-        ),
-        "balanced_accuracy": float(
-            balanced_accuracy_score(
-                y_true,
-                y_pred,
-            ),
-        ),
+        "accuracy": float(accuracy_score(y_true, y_pred)),
+        "balanced_accuracy": float(balanced_accuracy_score(y_true, y_pred)),
         "precision": float(
             precision_score(
                 y_true,
                 y_pred,
+                pos_label=positive_class,
                 zero_division=0,
-            ),
+            )
         ),
         "recall": float(
             recall_score(
                 y_true,
                 y_pred,
+                pos_label=positive_class,
                 zero_division=0,
-            ),
+            )
         ),
         "sensitivity": float(
             sensitivity_score(
                 y_true,
                 y_pred,
-            ),
+                positive_class=positive_class,
+                classes=resolved_classes,
+            )
         ),
         "specificity": float(
             specificity_score(
                 y_true,
                 y_pred,
-            ),
+                positive_class=positive_class,
+                classes=resolved_classes,
+            )
         ),
         "f1": float(
             f1_score(
                 y_true,
                 y_pred,
+                pos_label=positive_class,
                 zero_division=0,
-            ),
+            )
         ),
-        "mcc": float(
-            matthews_corrcoef(
-                y_true,
-                y_pred,
-            ),
-        ),
+        "mcc": float(matthews_corrcoef(y_true, y_pred)),
     }
 
+    y_true_binary = (y_true == positive_class).astype(int)
+
+    ranking_score = None
+    positive_proba = None
+
     if y_proba is not None:
+        positive_proba = _positive_probability_vector(
+            y_proba,
+            classes=resolved_classes,
+            positive_class=positive_class,
+        )
+        if positive_proba.shape[0] != y_true.shape[0]:
+            raise ValueError(
+                "Probability rows must match y_true length."
+            )
+        ranking_score = positive_proba
 
+    elif y_score is not None:
+        ranking_score = np.asarray(y_score)
+        if ranking_score.ndim != 1:
+            raise ValueError(
+                "Binary decision scores must be one-dimensional."
+            )
+        if ranking_score.shape[0] != y_true.shape[0]:
+            raise ValueError(
+                "Decision-score rows must match y_true length."
+            )
+
+    if ranking_score is not None:
         results["roc_auc"] = float(
-            roc_auc_score(
-                y_true,
-                y_proba,
-            ),
+            roc_auc_score(y_true_binary, ranking_score)
+        )
+        results["pr_auc"] = float(
+            average_precision_score(y_true_binary, ranking_score)
         )
 
-        results["pr_auc"] = float(
-            average_precision_score(
-                y_true,
-                y_proba,
-            ),
+    if positive_proba is not None:
+        positive_index = int(
+            np.flatnonzero(resolved_classes == positive_class)[0]
         )
+        probability_matrix = np.empty((y_true.shape[0], 2), dtype=float)
+        probability_matrix[:, positive_index] = positive_proba
+        probability_matrix[:, 1 - positive_index] = 1.0 - positive_proba
 
         results["log_loss"] = float(
             log_loss(
                 y_true,
-                y_proba,
-            ),
+                probability_matrix,
+                labels=list(resolved_classes),
+            )
         )
-
         results["brier_score"] = float(
-            brier_score_loss(
-                y_true,
-                y_proba,
-            ),
+            brier_score_loss(y_true_binary, positive_proba)
         )
 
     return results
@@ -213,127 +279,74 @@ def evaluate_multiclass_classification(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     y_proba: Optional[np.ndarray] = None,
+    *,
+    classes: np.ndarray | Sequence[Any] | None = None,
 ) -> dict[str, float]:
-    """
-    Evaluate multiclass classification predictions.
+    """Evaluate multiclass classification predictions."""
 
-    Parameters
-    ----------
-    y_true : np.ndarray
-        Ground-truth labels.
-
-    y_pred : np.ndarray
-        Predicted labels.
-
-    y_proba : np.ndarray, optional
-        Class probabilities.
-
-    Returns
-    -------
-    dict[str, float]
-        Evaluation metrics.
-    """
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
 
     results = {
-        "accuracy": float(
-            accuracy_score(
-                y_true,
-                y_pred,
-            ),
-        ),
-        "balanced_accuracy": float(
-            balanced_accuracy_score(
-                y_true,
-                y_pred,
-            ),
-        ),
+        "accuracy": float(accuracy_score(y_true, y_pred)),
+        "balanced_accuracy": float(balanced_accuracy_score(y_true, y_pred)),
         "precision_macro": float(
-            precision_score(
-                y_true,
-                y_pred,
-                average="macro",
-                zero_division=0,
-            ),
+            precision_score(y_true, y_pred, average="macro", zero_division=0)
         ),
         "precision_micro": float(
-            precision_score(
-                y_true,
-                y_pred,
-                average="micro",
-                zero_division=0,
-            ),
+            precision_score(y_true, y_pred, average="micro", zero_division=0)
         ),
         "precision_weighted": float(
-            precision_score(
-                y_true,
-                y_pred,
-                average="weighted",
-                zero_division=0,
-            ),
+            precision_score(y_true, y_pred, average="weighted", zero_division=0)
         ),
         "recall_macro": float(
-            recall_score(
-                y_true,
-                y_pred,
-                average="macro",
-                zero_division=0,
-            ),
+            recall_score(y_true, y_pred, average="macro", zero_division=0)
         ),
         "recall_micro": float(
-            recall_score(
-                y_true,
-                y_pred,
-                average="micro",
-                zero_division=0,
-            ),
+            recall_score(y_true, y_pred, average="micro", zero_division=0)
         ),
         "recall_weighted": float(
-            recall_score(
-                y_true,
-                y_pred,
-                average="weighted",
-                zero_division=0,
-            ),
+            recall_score(y_true, y_pred, average="weighted", zero_division=0)
         ),
         "f1_macro": float(
-            f1_score(
-                y_true,
-                y_pred,
-                average="macro",
-                zero_division=0,
-            ),
+            f1_score(y_true, y_pred, average="macro", zero_division=0)
         ),
         "f1_micro": float(
-            f1_score(
-                y_true,
-                y_pred,
-                average="micro",
-                zero_division=0,
-            ),
+            f1_score(y_true, y_pred, average="micro", zero_division=0)
         ),
         "f1_weighted": float(
-            f1_score(
-                y_true,
-                y_pred,
-                average="weighted",
-                zero_division=0,
-            ),
+            f1_score(y_true, y_pred, average="weighted", zero_division=0)
         ),
-        "mcc": float(
-            matthews_corrcoef(
-                y_true,
-                y_pred,
-            ),
-        ),
+        "mcc": float(matthews_corrcoef(y_true, y_pred)),
     }
 
     if y_proba is not None:
+        probabilities = np.asarray(y_proba)
+        if probabilities.ndim != 2:
+            raise ValueError(
+                "Multiclass probabilities must be a two-dimensional matrix."
+            )
+        if probabilities.shape[0] != y_true.shape[0]:
+            raise ValueError(
+                "Probability rows must match y_true length."
+            )
+
+        resolved_classes = (
+            np.asarray(classes)
+            if classes is not None
+            else np.unique(y_true)
+        )
+        if probabilities.shape[1] != resolved_classes.size:
+            raise ValueError(
+                "Probability columns must match the number of classes."
+            )
 
         results["log_loss"] = float(
             log_loss(
                 y_true,
-                y_proba,
-            ),
+                probabilities,
+                labels=list(resolved_classes),
+            )
         )
 
     return results
@@ -344,46 +357,31 @@ def evaluate_classification(
     y_pred: np.ndarray,
     y_proba: Optional[np.ndarray] = None,
     metrics: Optional[Sequence[str]] = None,
+    *,
+    y_score: Optional[np.ndarray] = None,
+    classes: np.ndarray | Sequence[Any] | None = None,
+    positive_class: Any | None = None,
 ) -> dict[str, float]:
-    """
-    Unified classification evaluation.
+    """Unified classification evaluation."""
 
-    Parameters
-    ----------
-    y_true : np.ndarray
-        Ground-truth labels.
-
-    y_pred : np.ndarray
-        Predicted labels.
-
-    y_proba : np.ndarray, optional
-        Predicted probabilities.
-
-    metrics : Sequence[str], optional
-        Subset of metrics to return.
-
-    Returns
-    -------
-    dict[str, float]
-        Evaluation metrics.
-    """
-
+    y_true = np.asarray(y_true)
     n_classes = np.unique(y_true).shape[0]
 
     if n_classes == 2:
-
         results = evaluate_binary_classification(
             y_true=y_true,
             y_pred=y_pred,
             y_proba=y_proba,
+            y_score=y_score,
+            classes=classes,
+            positive_class=positive_class,
         )
-
     else:
-
         results = evaluate_multiclass_classification(
             y_true=y_true,
             y_pred=y_pred,
             y_proba=y_proba,
+            classes=classes,
         )
 
     if metrics is None:

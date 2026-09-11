@@ -235,3 +235,28 @@ def test_metric_outputs_are_numeric() -> None:
             value,
             float,
         )
+
+def test_binary_probability_matrix_uses_explicit_positive_class() -> None:
+    y_true = np.array(["active", "inactive", "active", "inactive"])
+    y_pred = np.array(["active", "inactive", "active", "inactive"])
+    classes = np.array(["active", "inactive"])
+    probabilities = np.array(
+        [
+            [0.9, 0.1],
+            [0.2, 0.8],
+            [0.8, 0.2],
+            [0.1, 0.9],
+        ]
+    )
+
+    results = evaluate_binary_classification(
+        y_true=y_true,
+        y_pred=y_pred,
+        y_proba=probabilities,
+        classes=classes,
+        positive_class="active",
+    )
+
+    assert results["roc_auc"] == 1.0
+    assert results["pr_auc"] == 1.0
+    assert results["brier_score"] < 0.1

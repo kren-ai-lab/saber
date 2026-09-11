@@ -3,6 +3,13 @@ from mlcore.exceptions.base import (
     RegistryError,
     AlgorithmAlreadyRegisteredError,
     AlgorithmNotFoundError,
+    MetricError,
+    MetricNotFoundError,
+    MetricTaskMismatchError,
+    MetricProblemTypeError,
+    PredictionContractError,
+    OptimizationError,
+    NonFiniteScoreError,
 )
 
 __all__ = [
@@ -10,4 +17,11 @@ __all__ = [
     "RegistryError",
     "AlgorithmAlreadyRegisteredError",
     "AlgorithmNotFoundError",
+    "MetricError",
+    "MetricNotFoundError",
+    "MetricTaskMismatchError",
+    "MetricProblemTypeError",
+    "PredictionContractError",
+    "OptimizationError",
+    "NonFiniteScoreError",
 ]

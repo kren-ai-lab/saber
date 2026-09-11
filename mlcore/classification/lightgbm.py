@@ -12,9 +12,16 @@ from lightgbm import LGBMClassifier
 from mlcore.classification.backend import ClassificationBackend
 from mlcore.classification.runners import make_classifier_runner
 
+from mlcore.core.capabilities import (
+    EstimatorRequirements,
+    infer_estimator_capabilities,
+)
 from mlcore.core.registry import MODEL_REGISTRY
 from mlcore.core.specs import AlgorithmSpec
 from mlcore.classification import search_spaces
+
+_ALIASES: dict[str, tuple[str, ...]] = {"lgbm_classifier": ("lightgbm_classifier",)}
+
 
 # ============================================================
 # Registration
@@ -33,15 +40,6 @@ def register_lightgbm_classification_models() -> None:
 
     for name, model_cls, tags, search_space in models:
 
-        try:
-            supports_proba = hasattr(
-                model_cls(),
-                "predict_proba",
-            )
-
-        except Exception:
-            supports_proba = False
-
         spec = AlgorithmSpec(
             backend="lightgbm",
             task="classification",
@@ -49,9 +47,15 @@ def register_lightgbm_classification_models() -> None:
             estimator_cls=model_cls,
             runner=make_classifier_runner(model_cls),
             backend_cls=ClassificationBackend,
-            supports_proba=supports_proba,
+            aliases=_ALIASES.get(name, tuple()),
+            capabilities=infer_estimator_capabilities(
+                model_cls,
+                native_missing_values=True,
+            ),
+            requirements=EstimatorRequirements(scaling="not_required"),
+            supports_cv=True,
             search_space=search_space,
-            tags=tags
+            tags=tags,
         )
 
         specs.append(spec)

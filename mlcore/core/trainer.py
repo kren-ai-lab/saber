@@ -4,82 +4,43 @@ mlcore.core.trainer
 
 Core training engine for mlcore.
 
-The Trainer orchestrates:
-- algorithm selection from registry
-- execution via AlgorithmSpec runners
-- backend lifecycle management
-- prediction workflows
-- evaluation workflows
+All estimator construction is delegated to ``AlgorithmSpec.build_estimator``.
+Legacy backend objects are populated only as compatibility state containers;
+they no longer execute model fitting.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 
+from mlcore.core.prediction import PredictionResult
 from mlcore.core.registry import AlgorithmRegistry
 from mlcore.core.specs import AlgorithmSpec
 
 
-# ============================================================
-# Training result container
-# ============================================================
-
 @dataclass(slots=True)
 class TrainResult:
-    """
-    Container for training outputs.
-    """
+    """Container for direct-training outputs."""
 
     model: Any
-    backend: Any
+    backend: Any | None
     spec: AlgorithmSpec
 
     metrics: dict[str, float] | None = None
-
     predictions: np.ndarray | None = None
     probabilities: np.ndarray | None = None
+    parameters: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-
-# ============================================================
-# Trainer
-# ============================================================
 
 class Trainer:
-    """
-    Core training engine for machine learning models.
+    """Core training engine using the canonical estimator factory."""
 
-    Notes
-    -----
-    The Trainer is responsible for:
-
-    - retrieving algorithms from the registry
-    - instantiating backends
-    - executing runners
-    - generating predictions
-    - returning a standardized TrainResult
-    """
-
-    def __init__(
-        self,
-        registry: AlgorithmRegistry,
-    ) -> None:
-        """
-        Initialize trainer.
-
-        Parameters
-        ----------
-        registry : AlgorithmRegistry
-            Registry containing available algorithms.
-        """
-
+    def __init__(self, registry: AlgorithmRegistry) -> None:
         self.registry = registry
-
-    # ============================================================
-    # Training
-    # ============================================================
 
     def fit(
         self,
@@ -89,91 +50,64 @@ class Trainer:
         *,
         return_predictions: bool = False,
         return_probabilities: bool = False,
+        random_state: int | None = None,
         **params: Any,
     ) -> TrainResult:
-        """
-        Train a registered algorithm.
+        """Train a registered algorithm through the unified construction path."""
 
-        Parameters
-        ----------
-        algorithm : str
-            Algorithm name or alias.
+        spec = self.registry.get(algorithm)
 
-        X : np.ndarray
-            Training features.
-
-        y : np.ndarray
-            Training targets.
-
-        return_predictions : bool, default=False
-            Whether to compute predictions after fitting.
-
-        return_probabilities : bool, default=False
-            Whether to compute probabilities after fitting.
-
-        **params
-            Hyperparameters passed to the model.
-
-        Returns
-        -------
-        TrainResult
-            Training result container.
-        """
-
-        spec = self.registry.get(
-            algorithm,
-        )
-
-        backend = spec.backend_cls()
-
-        runner_params = {
-            **spec.default_params,
+        model = spec.build_estimator(
+            random_state=random_state,
             **params,
-        }
-
-        spec.runner(
-            backend,
-            X,
-            y,
-            **runner_params,
         )
 
-        model = backend.get_model()
+        model.fit(X, y)
 
-        predictions = None
-        probabilities = None
+        all_predictions = None
+        if hasattr(model, "predict"):
+            all_predictions = model.predict(X)
 
-        if (
-            return_predictions
-            and model is not None
-            and hasattr(model, "predict")
-        ):
-            predictions = model.predict(X)
-
-        if (
-            return_probabilities
-            and model is not None
-            and hasattr(model, "predict_proba")
-        ):
+        all_probabilities = None
+        if spec.capabilities.predict_proba and hasattr(model, "predict_proba"):
             try:
-
-                probabilities = model.predict_proba(X)
-
+                all_probabilities = model.predict_proba(X)
             except Exception:
-                probabilities = None
+                all_probabilities = None
+
+        resolved_params = _get_model_params(model)
+        metadata = _get_model_metadata(
+            model=model,
+            spec=spec,
+        )
+
+        backend = _populate_legacy_backend(
+            spec=spec,
+            model=model,
+            params=resolved_params,
+            predictions=all_predictions,
+            probabilities=all_probabilities,
+            metadata=metadata,
+        )
+
+        metrics = None
+        if backend is not None and hasattr(backend, "get_metrics"):
+            metrics = backend.get_metrics()
 
         return TrainResult(
             model=model,
             backend=backend,
             spec=spec,
-            metrics=backend.get_metrics(),
-            predictions=predictions,
-            probabilities=probabilities,
+            metrics=metrics,
+            predictions=(
+                all_predictions if return_predictions else None
+            ),
+            probabilities=(
+                all_probabilities if return_probabilities else None
+            ),
+            parameters=resolved_params,
+            metadata=metadata,
         )
-
-    # ============================================================
-    # Evaluation
-    # ============================================================
 
     def evaluate(
         self,
@@ -182,123 +116,163 @@ class Trainer:
         y_test: np.ndarray,
         metric_fn: Any,
     ) -> dict[str, float]:
-        """
-        Evaluate a trained model.
-
-        Parameters
-        ----------
-        result : TrainResult
-            Training result.
-
-        X_test : np.ndarray
-            Test features.
-
-        y_test : np.ndarray
-            Test targets.
-
-        metric_fn : callable
-            Evaluation metric.
-
-        Returns
-        -------
-        dict[str, float]
-            Metric dictionary.
-        """
+        """Evaluate a trained model with a prediction-based metric."""
 
         model = result.model
 
         if model is None:
-            raise ValueError(
-                "Model is not available for evaluation.",
-            )
+            raise ValueError("Model is not available for evaluation.")
 
-        predictions = model.predict(
-            X_test,
-        )
+        predictions = model.predict(X_test)
+        score = metric_fn(y_test, predictions)
 
-        score = metric_fn(
-            y_test,
-            predictions,
-        )
-
-        return {
-            "score": float(score),
-        }
-
-    # ============================================================
-    # Prediction
-    # ============================================================
+        return {"score": float(score)}
 
     def predict(
         self,
         result: TrainResult,
         X: np.ndarray,
     ) -> np.ndarray:
-        """
-        Generate predictions.
-
-        Parameters
-        ----------
-        result : TrainResult
-            Training result.
-
-        X : np.ndarray
-            Input features.
-
-        Returns
-        -------
-        np.ndarray
-            Predicted values.
-        """
+        """Generate predictions."""
 
         model = result.model
 
         if model is None:
-            raise ValueError(
-                "Model is not available.",
-            )
+            raise ValueError("Model is not available.")
 
-        return model.predict(
-            X,
-        )
+        return model.predict(X)
 
     def predict_proba(
         self,
         result: TrainResult,
         X: np.ndarray,
     ) -> np.ndarray:
-        """
-        Generate class probabilities.
-
-        Parameters
-        ----------
-        result : TrainResult
-            Training result.
-
-        X : np.ndarray
-            Input features.
-
-        Returns
-        -------
-        np.ndarray
-            Class probabilities.
-        """
+        """Generate class probabilities."""
 
         model = result.model
 
         if model is None:
+            raise ValueError("Model is not available.")
+
+        if not result.spec.capabilities.predict_proba:
             raise ValueError(
-                "Model is not available.",
+                "Model does not support probability prediction."
             )
 
-        if not hasattr(
-            model,
-            "predict_proba",
+        return model.predict_proba(X)
+
+    def predict_result(
+        self,
+        result: TrainResult,
+        X: np.ndarray,
+        *,
+        positive_class: Any | None = None,
+    ) -> PredictionResult:
+        """Generate structured predictions with explicit response semantics."""
+
+        model = result.model
+        if model is None:
+            raise ValueError("Model is not available.")
+
+        predictions = np.asarray(model.predict(X))
+
+        probabilities = None
+        if (
+            result.spec.task == "classification"
+            and result.spec.capabilities.predict_proba
+            and hasattr(model, "predict_proba")
         ):
-            raise ValueError(
-                "Model does not support probability prediction.",
-            )
+            probabilities = np.asarray(model.predict_proba(X))
 
-        return model.predict_proba(
-            X,
+        decision_scores = None
+        if (
+            result.spec.task == "classification"
+            and result.spec.capabilities.decision_function
+            and hasattr(model, "decision_function")
+        ):
+            decision_scores = np.asarray(model.decision_function(X))
+
+        classes = None
+        if result.spec.task == "classification" and hasattr(model, "classes_"):
+            classes = np.asarray(model.classes_)
+
+        return PredictionResult(
+            task=result.spec.task,
+            predictions=predictions,
+            probabilities=probabilities,
+            decision_scores=decision_scores,
+            classes=classes,
+            positive_class=positive_class,
+            metadata={
+                "algorithm": result.spec.name,
+                "provider": result.spec.provider,
+            },
         )
+
+
+def _get_model_params(model: Any) -> dict[str, Any]:
+    get_params = getattr(model, "get_params", None)
+    if not callable(get_params):
+        return {}
+
+    try:
+        return dict(get_params(deep=False))
+    except TypeError:
+        return dict(get_params())
+
+
+def _get_model_metadata(
+    *,
+    model: Any,
+    spec: AlgorithmSpec,
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "algorithm": spec.name,
+        "provider": spec.provider,
+        "task": spec.task,
+    }
+
+    if hasattr(model, "classes_"):
+        metadata["classes"] = model.classes_
+
+    if hasattr(model, "n_features_in_"):
+        metadata["n_features"] = model.n_features_in_
+
+    return metadata
+
+
+def _populate_legacy_backend(
+    *,
+    spec: AlgorithmSpec,
+    model: Any,
+    params: dict[str, Any],
+    predictions: np.ndarray | None,
+    probabilities: np.ndarray | None,
+    metadata: dict[str, Any],
+):
+    """Populate the legacy backend container without using it for execution."""
+
+    if spec.backend_cls is None:
+        return None
+
+    backend = spec.backend_cls()
+
+    if hasattr(backend, "set_model"):
+        backend.set_model(model)
+
+    if hasattr(backend, "set_params"):
+        backend.set_params(params)
+
+    if predictions is not None and hasattr(backend, "set_predictions"):
+        backend.set_predictions(predictions)
+
+    if probabilities is not None and hasattr(backend, "set_probabilities"):
+        backend.set_probabilities(probabilities)
+
+    if metadata and hasattr(backend, "set_metadata"):
+        backend.set_metadata(metadata)
+
+    if hasattr(backend, "post_fit_hook"):
+        backend.post_fit_hook()
+
+    return backend

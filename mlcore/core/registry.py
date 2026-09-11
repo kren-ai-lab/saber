@@ -376,30 +376,49 @@ class AlgorithmRegistry:
         return spec.aliases
 
     def to_dict(self) -> dict[str, Any]:
-        """
-        Export registry metadata.
+        """Export registry metadata for all registered algorithms."""
 
-        Returns
-        -------
-        dict[str, Any]
-        """
+        return {
+            name: spec.metadata()
+            for name, spec in self._algorithms.items()
+        }
 
-        output: dict[str, Any] = {}
+    def describe(
+        self,
+        name: str,
+    ) -> dict[str, Any]:
+        """Return metadata for one algorithm or alias."""
 
-        for name, spec in self._algorithms.items():
+        return self.get(name).metadata()
 
-            output[name] = {
-                "backend": spec.backend,
-                "task": spec.task,
-                "aliases": spec.aliases,
-                "tags": spec.tags,
-                "supports_cv": spec.supports_cv,
-                "supports_proba": spec.supports_proba,
-                "default_params": spec.default_params,
-                "search_space": spec.search_space,
-            }
+    def get_factory(
+        self,
+        name: str,
+    ):
+        """Return the canonical estimator factory for an algorithm."""
 
-        return output
+        spec = self.get(name)
+
+        if spec.estimator_factory is None:
+            raise ValueError(
+                f"Algorithm '{spec.name}' does not define an estimator factory."
+            )
+
+        return spec.estimator_factory
+
+    def build_estimator(
+        self,
+        name: str,
+        *,
+        random_state: int | None = None,
+        **params: Any,
+    ):
+        """Construct an estimator through the registry's canonical path."""
+
+        return self.get(name).build_estimator(
+            random_state=random_state,
+            **params,
+        )
 
     def summary(self) -> dict[str, Any]:
         """
@@ -421,10 +440,16 @@ class AlgorithmRegistry:
         return {
             "n_algorithms": self.count(),
             "n_aliases": len(self._aliases),
+            "n_with_estimator_factory": sum(
+                spec.has_estimator_factory()
+                for spec in self._algorithms.values()
+            ),
             "tasks": dict(by_task),
             "backends": dict(by_backend),
+            "providers": dict(by_backend),
             "available_tasks": sorted(self.tasks()),
             "available_backends": sorted(self.backends()),
+            "available_providers": sorted(self.backends()),
             "available_tags": sorted(self.tags()),
         }
 
@@ -478,12 +503,16 @@ class AlgorithmRegistry:
         self,
         name: str,
     ):
+        """Return the legacy runner compatibility field."""
+
         return self.get(name).runner
-    
+
     def get_backend(
         self,
         name: str,
     ):
+        """Return the legacy backend compatibility class."""
+
         return self.get(name).backend_cls
 
     @property

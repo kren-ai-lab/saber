@@ -7,7 +7,9 @@ Base backend abstraction for all machine learning models.
 This module defines the execution state contract for all
 algorithm backends used in mlcore.
 
-Backends are responsible ONLY for storing state:
+Backends are legacy compatibility state containers. Canonical estimator
+construction and fitting are handled by the Phase 1 estimator factory path.
+Backends store:
 - trained model
 - predictions
 - probabilities
@@ -29,10 +31,10 @@ class BackendBase:
 
     Notes
     -----
-    A backend does NOT perform training.
+    A backend does NOT perform canonical training.
 
-    Instead, it stores the execution state produced
-    by a runner:
+    It stores execution state mirrored by the Trainer or produced by legacy
+    runner compatibility calls:
 
     - trained model
     - predictions

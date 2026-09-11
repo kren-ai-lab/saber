@@ -32,7 +32,6 @@ class BaseOptimizer(ABC):
     - HalvingGridSearchOptimizer
     - HalvingRandomSearchOptimizer
     - OptunaOptimizer
-    - TPOTOptimizer
     """
 
     def __init__(

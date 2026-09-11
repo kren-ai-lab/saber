@@ -9,12 +9,19 @@ from __future__ import annotations
 
 from lightgbm import LGBMRegressor
 
+from mlcore.core.capabilities import (
+    EstimatorRequirements,
+    infer_estimator_capabilities,
+)
 from mlcore.core.registry import MODEL_REGISTRY
 from mlcore.core.specs import AlgorithmSpec
 
 from mlcore.regression.backend import RegressionBackend
 from mlcore.regression.runners import make_regression_runner
 from mlcore.regression import search_spaces
+
+_ALIASES: dict[str, tuple[str, ...]] = {"lgbm_regressor": ("lightgbm_regressor",)}
+
 
 def register_lightgbm_regression_models() -> None:
     """
@@ -48,8 +55,15 @@ def register_lightgbm_regression_models() -> None:
                 model_rgx,
             ),
             backend_cls=RegressionBackend,
+            aliases=_ALIASES.get(name, tuple()),
             tags=tags,
-            search_space=search_space
+            capabilities=infer_estimator_capabilities(
+                model_rgx,
+                native_missing_values=True,
+            ),
+            requirements=EstimatorRequirements(scaling="not_required"),
+            supports_cv=True,
+            search_space=search_space,
         )
 
         specs.append(spec)

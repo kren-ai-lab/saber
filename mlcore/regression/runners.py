@@ -2,7 +2,7 @@
 mlcore.regression.runners
 =========================
 
-Shared runner factories for regression models.
+Legacy runner factories for regression compatibility.
 """
 
 from __future__ import annotations

@@ -36,7 +36,7 @@ class Task:
     This class is optional and used mainly for:
     - validation
     - readability
-    - future pipeline orchestration (DL / PU / contrastive)
+    - supervised classification/regression pipeline orchestration
     """
 
     name: TaskType

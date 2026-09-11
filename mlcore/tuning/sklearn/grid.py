@@ -11,15 +11,17 @@ from typing import Any
 
 from sklearn.model_selection import GridSearchCV
 
+from mlcore.tuning._validation import (
+    best_estimator_or_none,
+    ensure_finite_score,
+)
 from mlcore.tuning.base import BaseOptimizer
 from mlcore.tuning.results import OptimizationResult
 from mlcore.tuning.scorers import get_scorer
 
 
 class GridSearchOptimizer(BaseOptimizer):
-    """
-    Exhaustive hyperparameter optimization using GridSearchCV.
-    """
+    """Exhaustive hyperparameter optimization using GridSearchCV."""
 
     def optimize(
         self,
@@ -31,76 +33,28 @@ class GridSearchOptimizer(BaseOptimizer):
         cv: int = 5,
         n_jobs: int = -1,
         refit: bool = True,
+        random_state: int | None = None,
         search_space=None,
         **fit_params: Any,
     ) -> OptimizationResult:
-        """
-        Execute exhaustive grid search.
+        spec = self.get_spec(algorithm)
 
-        Parameters
-        ----------
-        algorithm : str
-            Registered algorithm name.
-
-        X :
-            Training features.
-
-        y :
-            Training targets.
-
-        metric : str
-            Optimization metric.
-
-        cv : int, default=5
-            Number of cross-validation folds.
-
-        n_jobs : int, default=-1
-            Number of parallel jobs.
-
-        refit : bool, default=True
-            Whether to refit the best model.
-
-        search_space : SearchSpace | None
-            Optional custom search space.
-
-        **fit_params
-            Additional parameters passed to fit().
-        """
-
-        spec = self.get_spec(
-            algorithm,
-        )
-
-        if spec.estimator_cls is None:
-
+        if not spec.has_estimator_factory():
             raise ValueError(
-                f"Algorithm '{algorithm}' "
-                "does not define an estimator_cls."
+                f"Algorithm '{algorithm}' does not define an estimator factory."
             )
 
         if search_space is None:
-
             search_space = spec.get_search_space()
-
         if search_space is None:
-
             raise ValueError(
-                f"No search space defined for "
-                f"algorithm '{algorithm}'."
+                f"No search space defined for algorithm '{algorithm}'."
             )
-
         if len(search_space) == 0:
+            raise ValueError(f"Search space for '{algorithm}' is empty.")
 
-            raise ValueError(
-                f"Search space for '{algorithm}' "
-                "is empty."
-            )
-
-        scorer = get_scorer(
-            metric,
-        )
-
-        estimator = spec.estimator_cls()
+        scorer = get_scorer(metric, task=spec.task, y=y)
+        estimator = spec.build_estimator(random_state=random_state)
 
         grid = GridSearchCV(
             estimator=estimator,
@@ -111,35 +65,24 @@ class GridSearchOptimizer(BaseOptimizer):
             refit=refit,
             return_train_score=True,
         )
+        grid.fit(X, y, **fit_params)
 
-        grid.fit(
-            X,
-            y,
-            **fit_params,
+        best_score = ensure_finite_score(
+            grid.best_score_,
+            algorithm=algorithm,
+            metric=metric,
+            optimizer="grid_search",
         )
 
-        history: list[dict[str, Any]] = []
-
         results = grid.cv_results_
-
-        for idx in range(
-            len(
-                results["params"]
-            )
-        ):
-
+        history: list[dict[str, Any]] = []
+        for idx in range(len(results["params"])):
             history.append(
                 {
                     "params": results["params"][idx],
-                    "mean_test_score": float(
-                        results["mean_test_score"][idx]
-                    ),
-                    "std_test_score": float(
-                        results["std_test_score"][idx]
-                    ),
-                    "rank_test_score": int(
-                        results["rank_test_score"][idx]
-                    ),
+                    "mean_test_score": float(results["mean_test_score"][idx]),
+                    "std_test_score": float(results["std_test_score"][idx]),
+                    "rank_test_score": int(results["rank_test_score"][idx]),
                 }
             )
 
@@ -147,14 +90,11 @@ class GridSearchOptimizer(BaseOptimizer):
             algorithm=algorithm,
             optimizer="grid_search",
             metric=metric,
-            best_score=float(
-                grid.best_score_
-            ),
-            best_params=dict(
-                grid.best_params_
-            ),
-            best_model=grid.best_estimator_,
+            best_score=best_score,
+            best_params=dict(grid.best_params_),
+            best_model=best_estimator_or_none(grid, refit=refit),
             spec=spec,
             history=history,
             study=grid,
+            refit=refit,
         )

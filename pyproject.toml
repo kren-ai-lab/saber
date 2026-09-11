@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "mlcore"
 dynamic = ["version"]
 
-description = "Classical machine learning framework for classification, regression, evaluation, tuning, and benchmarking."
+description = "Domain-agnostic classical supervised machine learning for classification, regression, tuning, and benchmarking."
 
 readme = "README.md"
 
@@ -20,18 +20,19 @@ authors = [
 
 keywords = [
     "machine-learning",
+    "supervised-learning",
+    "tabular-data",
     "classification",
     "regression",
     "benchmarking",
     "optuna",
-    "tpot",
     "xgboost",
     "lightgbm",
-    "bioinformatics",
+    "reproducibility",
 ]
 
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -40,6 +41,7 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
@@ -50,14 +52,26 @@ dependencies = [
     "scipy>=1.10,<2.0",
     "joblib>=1.3,<2.0",
     "rich>=13.0,<16.0",
-    "dataclasses>=0.6",
-    "lightgbm>=4.0,<5.0",
-    "xgboost>=2.0,<4.0",
-    "optuna>=4.0,<5.0",
-    "tpot>=1.0,<2.0",
 ]
 
 [project.optional-dependencies]
+xgboost = [
+    "xgboost>=2.0,<4.0",
+]
+
+lightgbm = [
+    "lightgbm>=4.0,<5.0",
+]
+
+optuna = [
+    "optuna>=4.0,<5.0",
+]
+
+all = [
+    "xgboost>=2.0,<4.0",
+    "lightgbm>=4.0,<5.0",
+    "optuna>=4.0,<5.0",
+]
 
 dev = [
     "pytest~=9.0.2",
@@ -66,11 +80,17 @@ dev = [
     "taskipy~=1.14.0",
     "pyrefly>=0.60.0",
     "ty>=0.0.30",
+    "xgboost>=2.0,<4.0",
+    "lightgbm>=4.0,<5.0",
+    "optuna>=4.0,<5.0",
 ]
 
 tests = [
     "pytest~=9.0.2",
     "pytest-cov~=7.1.0",
+    "xgboost>=2.0,<4.0",
+    "lightgbm>=4.0,<5.0",
+    "optuna>=4.0,<5.0",
 ]
 
 [project.urls]
@@ -90,7 +110,7 @@ include = [
 
 [tool.ruff]
 line-length = 110
-target-version = "py312"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["ALL"]

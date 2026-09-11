@@ -15,9 +15,16 @@ from xgboost import (
 from mlcore.classification.backend import ClassificationBackend
 from mlcore.classification.runners import make_classifier_runner
 
+from mlcore.core.capabilities import (
+    EstimatorRequirements,
+    infer_estimator_capabilities,
+)
 from mlcore.core.registry import MODEL_REGISTRY
 from mlcore.core.specs import AlgorithmSpec
 from mlcore.classification import search_spaces
+
+_ALIASES: dict[str, tuple[str, ...]] = {"xgb_classifier": ("xgboost_classifier",), "xgb_rf_classifier": ("xgboost_rf_classifier",)}
+
 
 # ============================================================
 # Registration
@@ -37,15 +44,6 @@ def register_xgboost_classification_models() -> None:
 
     for name, model_cls, tags, search_space in models:
 
-        try:
-            supports_proba = hasattr(
-                model_cls(),
-                "predict_proba",
-            )
-
-        except Exception:
-            supports_proba = False
-
         spec = AlgorithmSpec(
             backend="xgboost",
             task="classification",
@@ -53,9 +51,15 @@ def register_xgboost_classification_models() -> None:
             estimator_cls=model_cls,
             runner=make_classifier_runner(model_cls),
             backend_cls=ClassificationBackend,
+            aliases=_ALIASES.get(name, tuple()),
             tags=tags,
-            supports_proba=supports_proba,
-            search_space=search_space
+            capabilities=infer_estimator_capabilities(
+                model_cls,
+                native_missing_values=True,
+            ),
+            requirements=EstimatorRequirements(scaling="not_required"),
+            supports_cv=True,
+            search_space=search_space,
         )
 
         specs.append(spec)
