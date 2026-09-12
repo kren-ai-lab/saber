@@ -318,12 +318,15 @@ def evaluate_multiclass_classification(
     all_metrics = (
         "accuracy",
         "balanced_accuracy",
+        "precision",
         "precision_macro",
         "precision_micro",
         "precision_weighted",
+        "recall",
         "recall_macro",
         "recall_micro",
         "recall_weighted",
+        "f1",
         "f1_macro",
         "f1_micro",
         "f1_weighted",
@@ -342,6 +345,21 @@ def evaluate_multiclass_classification(
         results["accuracy"] = float(accuracy_score(y_true, y_pred))
     if "balanced_accuracy" in requested_set:
         results["balanced_accuracy"] = float(balanced_accuracy_score(y_true, y_pred))
+    # Canonical MetricSpec names use weighted averaging for multiclass
+    # precision/recall/F1. Explicit *_macro/*_micro/*_weighted names remain
+    # available for the lower-level evaluator.
+    if "precision" in requested_set:
+        results["precision"] = float(
+            precision_score(y_true, y_pred, average="weighted", zero_division=0)
+        )
+    if "recall" in requested_set:
+        results["recall"] = float(
+            recall_score(y_true, y_pred, average="weighted", zero_division=0)
+        )
+    if "f1" in requested_set:
+        results["f1"] = float(
+            f1_score(y_true, y_pred, average="weighted", zero_division=0)
+        )
     for average in ("macro", "micro", "weighted"):
         key = f"precision_{average}"
         if key in requested_set:

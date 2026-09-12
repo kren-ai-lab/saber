@@ -300,7 +300,7 @@ Expose one stable workflow through multiple thin interfaces without duplicating 
 
 ## Phase 9 — Scientific torture testing and robustness
 
-**Status:** implemented in the Phase 9 delivery; awaiting repository-side validation.
+**Status:** CLOSED / SCIENTIFICALLY FROZEN after repository-side validation.
 
 ### Objective
 
@@ -342,29 +342,65 @@ Challenge the frozen scientific architecture with realistic, adversarial, and cr
 
 ---
 
-## Phase 10 — Notebook demos and result visualization
+## Phase 10 — Executable notebook demos and demo-driven robustness
+
+**Status:** expanded implementation complete; awaiting repository-side validation.
 
 ### Objective
 
-Create polished, executable demonstrations of the frozen scientific workflows while keeping visualization outside the mlcore core package.
+Exercise the scientifically frozen workflows through realistic, executable notebooks that double as user demos and integration gates. Visualization and reporting stay outside the mlcore core package. Confirmed bugs discovered by demos may still be fixed, but Phase 10 does not introduce a parallel ML execution engine.
 
-### Work
+### Advanced demo inventory
 
-- binary classification demo;
-- multiclass classification demo;
-- regression demo;
-- BioSieve-backed validation demo;
-- hyperparameter optimization demo;
-- multi-representation benchmark demo;
-- persistence/inference demo;
-- end-to-end data-centric benchmark demo;
-- notebook-level result visualization using external plotting libraries.
+Thirteen executable notebooks now cover:
+
+- imbalanced binary classification with sample weights, twelve evaluation metrics, OOF ranking/calibration diagnostics, threshold sensitivity, and sample-level error audit;
+- multiclass classification with canonical weighted metrics plus explicit macro/micro metrics, class-level reports, probabilities, and fold stability;
+- representation × model × seed benchmark with dummy baseline, rankings, stability, runtime, and prediction provenance;
+- regression with missing values, fold-safe imputation/scaling, seven regression metrics, residual structure, target-stratified errors, and worst-sample audit;
+- protected-test grid optimization with multi-metric search, candidate ranking, and untuned/tuned final comparison;
+- typed Optuna optimization with continuous/log search spaces, convergence and trial diagnostics;
+- Grid vs Random vs Optuna comparison on identical memberships and search domain;
+- live BioSieve validation when installed, including partition provenance, fold balance, size, and metric diagnostics;
+- comparison of externally prepared balanced and group-blocked partition regimes without reimplementing split generation inside mlcore;
+- multi-representation × multi-partition × algorithm × seed benchmark matrix with scenario-specific rankings;
+- benchmark reporting with leaderboard, stability, runtime, sample-level error audit, and portable CSV/Markdown outputs;
+- model persistence, checksum/manifest inspection, strict feature-schema inference, reload, structured prediction, and post-load evaluation;
+- end-to-end data-centric study combining prepared representations, hyperparameter tuning, untuned/tuned models, repeated seeds, and a protected final test.
+
+### Demo execution modes
+
+- normal notebook execution uses the fuller datasets, seeds, candidate counts, and Optuna trials;
+- the test suite sets `MLCORE_DEMO_TEST=1` to reduce compute while exercising the same workflow graph;
+- both modes are executed with a headless matplotlib backend and warnings treated as errors during validation.
+
+### Demo-driven gates
+
+- all thirteen notebooks execute from top to bottom in clean subprocesses;
+- all thirteen notebooks were additionally executed successfully in full normal mode;
+- every demo contains explicit runtime assertions (`DEMO_CHECKS`);
+- notebook contracts require substantive markdown/code content rather than minimal smoke examples;
+- notebooks contain no legacy Trainer/optimizer execution path;
+- notebooks do not reintroduce sklearn split-generation logic owned by BioSieve;
+- plotting/reporting consumes public structured mlcore outputs;
+- notebooks are stored without execution outputs/counts;
+- no plotting/reporting dependency is added to the mlcore core requirements.
+
+### Confirmed robustness fixes discovered by Phase 10
+
+- canonical multiclass `precision`, `recall`, and `f1` evaluate with the weighted semantics already promised by `MetricSpec`, while explicit `*_macro`, `*_micro`, and `*_weighted` metrics remain available;
+- benchmark matrices that mix `untuned` and `tuned` modes on a train/validation/protected-test holdout now report baseline, untuned, and tuned runs on the **same protected final test**. Untuned/baseline models are refit on train+validation before final test evaluation, preventing mixed validation/test scores in one leaderboard;
+- notebook inference examples explicitly honor persisted feature-schema names/order instead of bypassing the artifact contract;
+- SVC demos no longer request deprecated `probability=True`; ranking metrics use `decision_function` unless explicit calibration is scientifically required.
 
 ### Exit gates
 
-- notebooks execute from top to bottom on prepared data;
-- plots are generated from structured mlcore outputs rather than hidden internal state;
-- no visualization dependency is added to the mlcore core.
+- the complete pre-Phase-10 scientific suite remains green;
+- the expanded suite totals 484 effective tests (471 non-notebook tests + 13 clean-subprocess notebook executions) with only the 14 pre-existing warning instances;
+- all notebook contract, advanced-content, regression, and subprocess-execution tests pass;
+- all thirteen notebooks execute successfully in smoke and full normal modes and generate figures/reports;
+- compileall passes;
+- Phase 10 introduces no core visualization framework, split-generation fallback, or alternate execution engine.
 
 ---
 

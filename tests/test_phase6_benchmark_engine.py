@@ -355,3 +355,37 @@ def test_tuned_benchmark_exports_annotated_optimization_history() -> None:
     assert set(history["algorithm"]) == {"logistic_regression"}
     assert set(history["mode"]) == {"tuned"}
     assert "param__C" in history.columns
+
+
+def test_mixed_tuned_and_untuned_holdout_use_same_protected_test() -> None:
+    dataset = _classification_dataset()
+    plan = _safe_holdout(dataset)
+    result = BenchmarkEngine(MODEL_REGISTRY).run(
+        datasets=BenchmarkDataset("roxy", dataset, representation="roxy"),
+        algorithms=("logistic_regression",),
+        config=BenchmarkConfig(
+            metrics=("accuracy", "mcc"),
+            seeds=(42,),
+            modes=("untuned", "tuned"),
+            include_baselines=True,
+            tuning=TuningConfig(
+                optimizer="grid",
+                metrics=("accuracy",),
+                refit_metric="accuracy",
+                n_jobs=1,
+            ),
+        ),
+        partitions=plan,
+        search_spaces={
+            "logistic_regression": SearchSpace("lr", {"C": [0.1, 1.0]}),
+        },
+    )
+
+    assert not result.failures
+    assert {run.mode for run in result.successes} == {"baseline", "untuned", "tuned"}
+    expected_test = set(dataset.sample_ids[50:])
+    for run in result.successes:
+        fold = run.validation.folds[0]
+        assert fold.evaluation_role == "test"
+        assert set(fold.evaluation_ids) == expected_test
+        assert len(fold.train_ids) == 50

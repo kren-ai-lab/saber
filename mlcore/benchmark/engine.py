@@ -213,13 +213,28 @@ class BenchmarkEngine:
                 dataset_spec.dataset.validate(task=task)
 
             if mode in {"untuned", "baseline"}:
+                # When tuned and untuned modes are compared in the same
+                # holdout benchmark, every reported score must come from the
+                # same protected final test.  Otherwise ``auto`` would score
+                # untuned runs on validation while tuned runs report test,
+                # producing an apples-to-oranges leaderboard.  Refit the
+                # untuned/baseline model on train+validation and evaluate the
+                # protected test, matching the final tuned evaluation path.
+                mixed_with_tuned = "tuned" in config.modes
+                if mixed_with_tuned and _has_protected_test(bound_plan):
+                    evaluation_plan = _protected_test_plan(bound_plan, dataset_spec.dataset)
+                    evaluation_role = "test"
+                else:
+                    evaluation_plan = bound_plan
+                    evaluation_role = config.evaluation_role
+
                 validation = self.validation_engine.run(
                     dataset=dataset_spec.dataset,
                     algorithm=algorithm,
-                    partition_plan=bound_plan,
+                    partition_plan=evaluation_plan,
                     preprocessing=preprocessing,
                     metrics=config.metrics,
-                    evaluation_role=config.evaluation_role,
+                    evaluation_role=evaluation_role,
                     positive_class=positive_class,
                     random_state=seed,
                     return_estimators=config.return_estimators,
@@ -501,6 +516,15 @@ def _bind_partition_plan(
     rebound.validate_against(dataset, require_complete=require_complete)
     return rebound
 
+
+
+def _has_protected_test(plan: PartitionPlan) -> bool:
+    """Whether a plan is the holdout shape required for final test reporting."""
+
+    if plan.kind != "holdout" or len(plan.splits) != 1:
+        return False
+    split = plan.splits[0]
+    return bool(split.validation_ids and split.test_ids)
 
 def _protected_test_plan(plan: PartitionPlan, dataset: DatasetBundle) -> PartitionPlan:
     """Create a final train+validation → test plan for unbiased tuned reporting."""
