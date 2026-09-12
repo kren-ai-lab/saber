@@ -344,7 +344,7 @@ Challenge the frozen scientific architecture with realistic, adversarial, and cr
 
 ## Phase 10 — Executable notebook demos and demo-driven robustness
 
-**Status:** expanded implementation complete; awaiting repository-side validation.
+**Status: CLOSED / FROZEN.**
 
 ### Objective
 
@@ -406,24 +406,31 @@ Thirteen executable notebooks now cover:
 
 ## Phase 11 — CLI 2.0
 
+**Status: implemented; awaiting repository-side validation.**
+
 ### Objective
 
 Improve the user-facing command-line experience without introducing another execution engine.
 
 ### Work
 
-- clearer command hierarchy and help;
-- polished progress/status output;
-- concise dataset/partition/workflow summaries;
-- readable completion/failure summaries;
-- improved model/artifact discovery commands;
-- strict delegation to the Phase 8 public/config APIs.
+- richer command hierarchy, examples, and contextual help;
+- human-oriented execution plans, progress/status output, completion panels, metric tables, and output-path summaries;
+- machine-oriented `--json`, quiet, no-progress, and dry-run modes for workflow commands;
+- `models search`, capability/requirement-aware model tables, and richer model detail views;
+- improved artifact inspection/verification and config inspection;
+- `mlcore doctor` for runtime and optional-provider availability;
+- strict delegation to `WorkflowConfig`, `run_config`, registry, and persistence APIs.
 
 ### Exit gates
 
 - CLI/API configuration parity remains exact;
-- CLI contains no independent ML, splitting, tuning, or persistence logic;
-- representative workflows are usable without reading Python internals.
+- CLI contains no independent ML, splitting, tuning, benchmark, or persistence engine;
+- dry-run validates without executing or creating workflow outputs;
+- JSON mode remains machine-readable and decoration-free;
+- representative train/validate/tune/benchmark/predict, model discovery, artifact, config, and doctor commands are covered by subprocess/in-process tests;
+- CLI failures preserve the Phase 8 exit-code contract;
+- the pre-Phase-11 scientific and notebook suites remain green.
 
 ---
 

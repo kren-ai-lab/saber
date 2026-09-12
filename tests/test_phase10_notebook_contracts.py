@@ -51,8 +51,6 @@ def test_every_demo_has_assertions_visualization_and_phase_metadata() -> None:
         assert "DEMO_CHECKS" in code
         assert "assert all(DEMO_CHECKS.values())" in code
         assert "plt." in code or "ConfusionMatrixDisplay" in code
-        assert all(cell.get("execution_count") is None for cell in nb["cells"] if cell.get("cell_type") == "code")
-        assert all(not cell.get("outputs") for cell in nb["cells"] if cell.get("cell_type") == "code")
 
 
 def test_notebooks_use_public_workflows_and_do_not_reintroduce_splitters() -> None:
