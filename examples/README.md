@@ -31,3 +31,23 @@ These notebooks are **advanced executable demonstrations**, not screenshots. The
 
 ### Test mode
 The test suite sets `MLCORE_DEMO_TEST=1` to reduce dataset sizes/trial counts while exercising the same workflows. Running notebooks normally uses the fuller demonstration settings.
+
+
+## Recommended learning paths
+
+**First validation workflow**
+
+1. `classification/01_binary_classification.ipynb`
+2. `validation/01_biosieve_validation.ipynb`
+3. `tuning/01_hyperparameter_optimization.ipynb`
+4. `persistence/01_model_persistence.ipynb`
+
+**Data-centric benchmarking**
+
+1. `validation/02_partition_strategy_comparison.ipynb`
+2. `classification/03_model_comparison.ipynb`
+3. `benchmark/01_multi_representation_multi_partition.ipynb`
+4. `reporting/01_benchmark_reporting.ipynb`
+5. `end_to_end/01_data_centric_benchmark.ipynb`
+
+For conceptual documentation, start at [`../docs/index.md`](../docs/index.md).

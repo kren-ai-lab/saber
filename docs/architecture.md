@@ -1,4 +1,7 @@
-# mlcore Architecture
+# Architecture
+
+> See also: [documentation index](index.md) · [scope](scope.md) · [API reference](api_reference.md)
+
 
 ## Status
 
@@ -65,7 +68,7 @@ mlcore/regression/xgboost.py
 mlcore/regression/lightgbm.py
 ```
 
-The previous empty `mlcore/models/` duplication is retired. Provider registration belongs beside the task-specific estimator definitions until a future migration has a concrete need for another layout.
+Provider registration belongs beside the task-specific estimator definitions in the task-specific provider modules.
 
 `scikit-learn` is mandatory. XGBoost and LightGBM are optional providers and must not prevent a core-only import.
 
@@ -100,7 +103,7 @@ BioSieve is the **canonical partition-generation engine** when a dataset is not 
 
 Preprocessing is based on scikit-learn compatible transformers and pipelines. Fitted transforms used for model selection must live inside the fold-specific pipeline.
 
-The first supported preprocessing scope is intentionally numerical:
+Preprocessing scope is intentionally numerical:
 
 - passthrough;
 - simple imputation;
@@ -109,7 +112,7 @@ The first supported preprocessing scope is intentionally numerical:
 - min-max scaling;
 - user-supplied compatible transformers/pipelines.
 
-Validation and tuning construct preprocessing together with the estimator inside one scikit-learn `Pipeline` for every explicit split. Imputation/scaling statistics therefore never see held-out data. `auto` preprocessing respects estimator metadata: models with recommended scaling receive standard scaling; non-negative-input models receive min-max scaling; estimators with native missing-value support can bypass automatic imputation. Categorical inference and complex automatic feature engineering remain outside the initial core.
+Validation and tuning construct preprocessing together with the estimator inside one scikit-learn `Pipeline` for every explicit split. Imputation/scaling statistics therefore never see held-out data. `auto` preprocessing respects estimator metadata: models with recommended scaling receive standard scaling; non-negative-input models receive min-max scaling; estimators with native missing-value support can bypass automatic imputation. Categorical inference and complex automatic feature engineering are outside the core scope.
 
 ### 5. Training, validation, tuning, and benchmarking
 
@@ -248,7 +251,7 @@ does not reintroduce sklearn splitters.
 
 ## Public versus internal API
 
-The long-term public API is intentionally small:
+The public API is intentionally small:
 
 ```python
 import mlcore

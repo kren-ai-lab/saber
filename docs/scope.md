@@ -80,6 +80,7 @@ scipy
 scikit-learn
 joblib
 rich
+pyyaml
 ```
 
 Optional providers/features are installed explicitly:
@@ -88,6 +89,7 @@ Optional providers/features are installed explicitly:
 mlcore[xgboost]
 mlcore[lightgbm]
 mlcore[optuna]
+mlcore[biosieve]
 mlcore[all]
 ```
 
