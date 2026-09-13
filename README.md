@@ -2,13 +2,13 @@
 
 `mlcore` is a domain-agnostic framework for **classical supervised machine learning** on numerical tabular representations.
 
-The project is currently in **Alpha** while its execution, validation, benchmarking, persistence, and public API contracts are being consolidated.
+The project is currently in **Alpha** while release documentation and packaging are finalized.
 
 ## Scope
 
 Supported targets are binary classification, multiclass classification, and single-target regression. The library deliberately excludes deep learning, representation learning, AutoML, domain-specific feature generation, and web/application layers.
 
-See [`docs/scope.md`](docs/scope.md) for the formal scope contract and [`docs/architecture.md`](docs/architecture.md) for the architecture freeze.
+See [`docs/scope.md`](docs/scope.md) for the formal scope contract and [`docs/architecture.md`](docs/architecture.md) for the current architecture.
 
 ## Installation model
 
@@ -32,9 +32,3 @@ Development installation:
 ```bash
 pip install -e '.[dev]'
 ```
-
-## Current implemented kernel
-
-The existing codebase already contains the model registry, classical classification/regression estimators, a training engine, evaluation metrics, and Grid/Random/Halving/Optuna optimization foundations. The phased roadmap defines the work required to turn this kernel into a reproducible scientific library.
-
-See [`docs/roadmap.md`](docs/roadmap.md).

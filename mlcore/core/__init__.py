@@ -1,4 +1,5 @@
-from mlcore.core.base import BackendBase
+"""Stable core contracts for mlcore."""
+
 from mlcore.core.capabilities import (
     EstimatorCapabilities,
     EstimatorRequirements,
@@ -14,34 +15,30 @@ from mlcore.core.metrics import (
 )
 from mlcore.core.prediction import PredictionResult
 from mlcore.core.registry import AlgorithmRegistry, MODEL_REGISTRY
+from mlcore.core.results import TrainResult
 from mlcore.core.search_space import Categorical, Float, Integer, LogFloat, SearchSpace
-from mlcore.core.specs import AlgorithmSpec, make_spec
-from mlcore.core.task import Task, TaskType
-from mlcore.core.trainer import Trainer, TrainResult
+from mlcore.core.specs import AlgorithmSpec
+from mlcore.core.task import TaskType
 
 __all__ = [
     "AlgorithmRegistry",
-    "SearchSpace",
-    "LogFloat",
-    "Integer",
-    "Float",
-    "Categorical",
     "AlgorithmSpec",
-    "BackendBase",
+    "Categorical",
     "EstimatorCapabilities",
     "EstimatorFactory",
     "EstimatorRequirements",
+    "Float",
+    "Integer",
+    "LogFloat",
     "METRIC_SPECS",
+    "MODEL_REGISTRY",
     "MetricSpec",
     "PredictionResult",
-    "Task",
+    "SearchSpace",
     "TaskType",
     "TrainResult",
-    "Trainer",
     "get_metric_spec",
     "infer_estimator_capabilities",
     "list_metric_specs",
-    "make_spec",
-    "MODEL_REGISTRY",
     "validate_metric",
 ]

@@ -1,6 +1,6 @@
 # mlcore executable examples
 
-These notebooks are **advanced executable demonstrations**, not screenshots. They are executed in clean subprocesses by the Phase 10 test suite. Plotting/reporting stays outside the `mlcore` core.
+These notebooks are **advanced executable demonstrations**, not screenshots. They are executed in clean subprocesses by the notebook integration suite. Plotting/reporting stays outside the `mlcore` core.
 
 ## Classification
 - `classification/01_binary_classification.ipynb` — imbalanced binary validation, sample weights, extended metrics, OOF threshold diagnostics and error audit.

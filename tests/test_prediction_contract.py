@@ -4,9 +4,9 @@ import numpy as np
 import pytest
 from sklearn.datasets import make_classification
 
-from mlcore import MODEL_REGISTRY
+import mlcore
 from mlcore.core.prediction import PredictionResult
-from mlcore.core.trainer import Trainer
+from mlcore.datasets import DatasetBundle
 from mlcore.evaluation import evaluate_prediction
 from mlcore.exceptions import PredictionContractError
 
@@ -15,20 +15,11 @@ def test_binary_prediction_result_extracts_positive_probability() -> None:
     result = PredictionResult(
         task="classification",
         predictions=np.array(["neg", "pos", "pos"]),
-        probabilities=np.array(
-            [
-                [0.8, 0.2],
-                [0.2, 0.8],
-                [0.1, 0.9],
-            ]
-        ),
+        probabilities=np.array([[0.8, 0.2], [0.2, 0.8], [0.1, 0.9]]),
         classes=np.array(["neg", "pos"]),
         positive_class="pos",
     )
-    np.testing.assert_allclose(
-        result.positive_probabilities(),
-        np.array([0.2, 0.8, 0.9]),
-    )
+    np.testing.assert_allclose(result.positive_probabilities(), np.array([0.2, 0.8, 0.9]))
 
 
 def test_binary_positive_class_defaults_to_estimator_class_order() -> None:
@@ -50,16 +41,16 @@ def test_probability_matrix_requires_explicit_class_order() -> None:
         )
 
 
-def test_trainer_predict_result_is_directly_evaluable() -> None:
-    X, y = make_classification(
-        n_samples=120,
-        n_features=8,
-        random_state=42,
-    )
-    trainer = Trainer(MODEL_REGISTRY)
-    trained = trainer.fit("logistic_regression", X, y, random_state=42)
-    prediction = trainer.predict_result(trained, X)
-    evaluation = evaluate_prediction(y, prediction)
+def _dataset(seed: int) -> DatasetBundle:
+    X, y = make_classification(n_samples=120, n_features=8, random_state=seed)
+    return DatasetBundle(X=X, y=y, sample_ids=[f"s{i}" for i in range(len(y))])
+
+
+def test_public_prediction_result_is_directly_evaluable() -> None:
+    dataset = _dataset(42)
+    trained = mlcore.train(dataset=dataset, algorithm="logistic_regression", random_state=42)
+    prediction = mlcore.predict(trained, dataset=dataset)
+    evaluation = evaluate_prediction(dataset.y, prediction)
 
     assert prediction.classes is not None
     assert prediction.probabilities is not None
@@ -69,15 +60,10 @@ def test_trainer_predict_result_is_directly_evaluable() -> None:
 
 
 def test_decision_function_only_classifier_is_directly_evaluable() -> None:
-    X, y = make_classification(
-        n_samples=120,
-        n_features=8,
-        random_state=7,
-    )
-    trainer = Trainer(MODEL_REGISTRY)
-    trained = trainer.fit("linear_svc", X, y, random_state=7)
-    prediction = trainer.predict_result(trained, X)
-    evaluation = evaluate_prediction(y, prediction)
+    dataset = _dataset(7)
+    trained = mlcore.train(dataset=dataset, algorithm="linear_svc", random_state=7)
+    prediction = mlcore.predict(trained, dataset=dataset)
+    evaluation = evaluate_prediction(dataset.y, prediction)
 
     assert prediction.probabilities is None
     assert prediction.decision_scores is not None

@@ -217,7 +217,7 @@ def _models_command(args: Any, console: Console) -> int:
             render_model(console, metadata)
         return EXIT_OK
 
-    specs = MODEL_REGISTRY.filter(task=args.task, backend=args.provider)
+    specs = MODEL_REGISTRY.filter(task=args.task, provider=args.provider)
     if args.tag:
         specs = [spec for spec in specs if args.tag in spec.tags]
     if args.models_command == "search":

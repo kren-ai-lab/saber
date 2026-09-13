@@ -1,6 +1,6 @@
 # mlcore Usage
 
-Phase 8 exposes the same workflow through Python, YAML/JSON, and the CLI. The CLI/config layers are thin adapters over the public Python API; they do not implement separate model-training logic.
+mlcore exposes the same workflow through Python, YAML/JSON, and the CLI. The CLI/config layers are thin adapters over the public Python API; they do not implement separate model-training logic.
 
 ## Python API
 
@@ -128,7 +128,7 @@ Exit-code policy:
 
 ## Dataset files
 
-The Phase 8 declarative loader consumes prepared numerical CSV/TSV/TXT tables. Configure identity/target columns explicitly when present:
+The declarative loader consumes prepared numerical CSV/TSV/TXT tables. Configure identity/target columns explicitly when present:
 
 ```yaml
 dataset:

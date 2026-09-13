@@ -1,238 +1,58 @@
-"""
-tests.test_specs
-================
-
-Unit tests for AlgorithmSpec.
-"""
+"""Tests for the canonical AlgorithmSpec contract."""
 
 from __future__ import annotations
 
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+
+from mlcore.core.capabilities import EstimatorRequirements
+from mlcore.core.search_space import SearchSpace
 from mlcore.core.specs import AlgorithmSpec
 
 
-# ============================================================
-# Fixtures
-# ============================================================
-
-def dummy_runner(*args, **kwargs) -> None:
-    """Dummy runner."""
-    return None
-
-
-class DummyBackend:
-    """Dummy backend."""
-    pass
-
-
-# ============================================================
-# Tests
-# ============================================================
-
-def test_algorithm_spec_creation() -> None:
-    """
-    AlgorithmSpec should be instantiated correctly.
-    """
-
+def test_algorithm_spec_builds_factory_and_metadata() -> None:
     spec = AlgorithmSpec(
-        backend="sklearn",
+        provider="sklearn",
         task="classification",
-        name="random_forest",
-        runner=dummy_runner,
-        backend_cls=DummyBackend,
-    )
-
-    assert spec.backend == "sklearn"
-    assert spec.task == "classification"
-    assert spec.name == "random_forest"
-
-    assert spec.runner is dummy_runner
-    assert spec.backend_cls is DummyBackend
-
-
-def test_algorithm_spec_default_aliases() -> None:
-    """
-    Aliases should default to an empty tuple.
-    """
-
-    spec = AlgorithmSpec(
-        backend="sklearn",
-        task="classification",
-        name="random_forest",
-        runner=dummy_runner,
-        backend_cls=DummyBackend,
-    )
-
-    assert isinstance(
-        spec.aliases,
-        tuple,
-    )
-
-    assert len(spec.aliases) == 0
-
-
-def test_algorithm_spec_custom_aliases() -> None:
-    """
-    Custom aliases should be stored.
-    """
-
-    spec = AlgorithmSpec(
-        backend="sklearn",
-        task="classification",
-        name="random_forest",
-        runner=dummy_runner,
-        backend_cls=DummyBackend,
-        aliases=(
-            "rf",
-            "randomforest",
-        ),
-    )
-
-    assert spec.aliases == (
-        "rf",
-        "randomforest",
-    )
-
-
-def test_algorithm_spec_default_tags() -> None:
-    """
-    Tags should default to an empty tuple.
-    """
-
-    spec = AlgorithmSpec(
-        backend="sklearn",
-        task="classification",
-        name="random_forest",
-        runner=dummy_runner,
-        backend_cls=DummyBackend,
-    )
-
-    assert isinstance(
-        spec.tags,
-        tuple,
-    )
-
-
-def test_algorithm_spec_custom_tags() -> None:
-    """
-    Tags should be stored.
-    """
-
-    spec = AlgorithmSpec(
-        backend="sklearn",
-        task="classification",
-        name="random_forest",
-        runner=dummy_runner,
-        backend_cls=DummyBackend,
-        tags=(
-            "classification",
-            "tree",
-        ),
-    )
-
-    assert spec.tags == (
-        "classification",
-        "tree",
-    )
-
-
-def test_algorithm_spec_default_flags() -> None:
-    """
-    Capability flags should have expected defaults.
-    """
-
-    spec = AlgorithmSpec(
-        backend="sklearn",
-        task="classification",
-        name="random_forest",
-        runner=dummy_runner,
-        backend_cls=DummyBackend,
-    )
-
-    assert spec.supports_cv is False
-    assert spec.supports_proba is False
-
-
-def test_algorithm_spec_custom_flags() -> None:
-    """
-    Capability flags should be configurable.
-    """
-
-    spec = AlgorithmSpec(
-        backend="sklearn",
-        task="classification",
-        name="random_forest",
-        runner=dummy_runner,
-        backend_cls=DummyBackend,
+        name="logistic_regression",
+        estimator_cls=LogisticRegression,
+        aliases=("logreg",),
+        tags=("classification", "linear"),
+        default_params={"max_iter": 250},
+        search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
+        requirements=EstimatorRequirements(scaling="recommended"),
         supports_cv=True,
-        supports_proba=True,
     )
 
-    assert spec.supports_cv is True
-    assert spec.supports_proba is True
+    estimator = spec.build_estimator(random_state=17, C=2.0)
+    metadata = spec.metadata()
+
+    assert estimator.C == 2.0
+    assert estimator.max_iter == 250
+    assert estimator.random_state == 17
+    assert spec.matches_name("logreg")
+    assert spec.has_tag("linear")
+    assert spec.has_estimator_factory()
+    assert spec.get_search_space() is spec.search_space
+    assert metadata["provider"] == "sklearn"
+    assert metadata["capabilities"]["predict_proba"] is True
+    assert metadata["requirements"]["scaling"] == "recommended"
+    assert "backend" not in metadata
 
 
-def test_algorithm_spec_default_params() -> None:
-    """
-    Default params should be stored.
-    """
+def test_explicit_factory_class_mismatch_is_rejected() -> None:
+    from mlcore.core.estimator import EstimatorFactory
 
-    params = {
-        "n_estimators": 100,
-        "max_depth": 10,
-    }
-
-    spec = AlgorithmSpec(
-        backend="sklearn",
-        task="classification",
-        name="random_forest",
-        runner=dummy_runner,
-        backend_cls=DummyBackend,
-        default_params=params,
-    )
-
-    assert spec.default_params == params
-
-
-def test_algorithm_spec_search_space() -> None:
-    """
-    Search space should be stored.
-    """
-
-    search_space = {
-        "n_estimators": [
-            100,
-            200,
-            500,
-        ],
-    }
-
-    spec = AlgorithmSpec(
-        backend="sklearn",
-        task="classification",
-        name="random_forest",
-        runner=dummy_runner,
-        backend_cls=DummyBackend,
-        search_space=search_space,
-    )
-
-    assert spec.search_space == search_space
-
-
-def test_algorithm_spec_repr() -> None:
-    """
-    __repr__ should contain useful information.
-    """
-
-    spec = AlgorithmSpec(
-        backend="sklearn",
-        task="classification",
-        name="random_forest",
-        runner=dummy_runner,
-        backend_cls=DummyBackend,
-    )
-
-    representation = repr(spec)
-
-    assert "random_forest" in representation
-    assert "classification" in representation
-    assert "sklearn" in representation
+    factory = EstimatorFactory(RandomForestClassifier)
+    try:
+        AlgorithmSpec(
+            provider="sklearn",
+            task="classification",
+            name="bad",
+            estimator_cls=LogisticRegression,
+            estimator_factory=factory,
+        )
+    except ValueError as exc:
+        assert "same estimator class" in str(exc)
+    else:
+        raise AssertionError("AlgorithmSpec accepted mismatched estimator construction.")

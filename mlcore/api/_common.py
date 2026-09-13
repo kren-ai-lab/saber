@@ -9,7 +9,7 @@ import numpy as np
 
 from mlcore.core.prediction import PredictionResult
 from mlcore.core.registry import MODEL_REGISTRY, AlgorithmRegistry
-from mlcore.core.trainer import TrainResult
+from mlcore.core.results import TrainResult
 from mlcore.datasets import DatasetBundle
 from mlcore.exceptions import ValidationContractError
 from mlcore.preprocessing import PreprocessingConfig, build_model_pipeline
@@ -57,7 +57,6 @@ def fit_dataset(
 
     return TrainResult(
         model=pipeline,
-        backend=None,
         spec=spec,
         parameters=estimator_params,
         metadata={

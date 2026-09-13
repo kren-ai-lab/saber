@@ -60,8 +60,6 @@ from mlcore.core.capabilities import (
 from mlcore.core.registry import MODEL_REGISTRY
 from mlcore.core.specs import AlgorithmSpec
 
-from mlcore.regression.backend import RegressionBackend
-from mlcore.regression.runners import make_regression_runner
 from mlcore.regression import search_spaces
 
 
@@ -290,14 +288,10 @@ def register_sklearn_regression_models() -> None:
         )
 
         spec = AlgorithmSpec(
-            backend="sklearn",
+            provider="sklearn",
             task="regression",
             name=name,
             estimator_cls=model_rgx,
-            runner=make_regression_runner(
-                model_rgx,
-            ),
-            backend_cls=RegressionBackend,
             aliases=_ALIASES.get(name, tuple()),
             default_params=_DEFAULT_PARAMS.get(name, {}),
             tags=tags,

@@ -41,7 +41,7 @@ importlib.util.find_spec = core_only_find_spec
 
 import mlcore
 
-assert mlcore.MODEL_REGISTRY.backends() == {"sklearn"}
+assert mlcore.MODEL_REGISTRY.providers() == {"sklearn"}
 assert "xgb_classifier" not in mlcore.MODEL_REGISTRY
 assert "lgbm_classifier" not in mlcore.MODEL_REGISTRY
 '''

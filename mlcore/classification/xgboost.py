@@ -12,8 +12,6 @@ from xgboost import (
     XGBRFClassifier,
 )
 
-from mlcore.classification.backend import ClassificationBackend
-from mlcore.classification.runners import make_classifier_runner
 
 from mlcore.core.capabilities import (
     EstimatorRequirements,
@@ -45,12 +43,10 @@ def register_xgboost_classification_models() -> None:
     for name, model_cls, tags, search_space in models:
 
         spec = AlgorithmSpec(
-            backend="xgboost",
+            provider="xgboost",
             task="classification",
             name=name,
             estimator_cls=model_cls,
-            runner=make_classifier_runner(model_cls),
-            backend_cls=ClassificationBackend,
             aliases=_ALIASES.get(name, tuple()),
             tags=tags,
             capabilities=infer_estimator_capabilities(

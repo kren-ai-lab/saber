@@ -263,7 +263,7 @@ class TuningEngine:
             single_common["scoring"] = scorers[refit_metric]
             single_common["refit"] = config.refit
 
-            from mlcore.tuning.sklearn import _experimental  # noqa: F401
+            from sklearn.experimental import enable_halving_search_cv  # noqa: F401
             from sklearn.model_selection import HalvingGridSearchCV, HalvingRandomSearchCV
 
             halving_common = {

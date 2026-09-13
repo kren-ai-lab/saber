@@ -56,8 +56,6 @@ from sklearn.tree import (
     ExtraTreeClassifier,
 )
 
-from mlcore.classification.backend import ClassificationBackend
-from mlcore.classification.runners import make_classifier_runner
 
 from mlcore.core.capabilities import (
     EstimatorRequirements,
@@ -161,15 +159,13 @@ def register_sklearn_classification_models() -> None:
         )
 
         spec = AlgorithmSpec(
-            backend="sklearn",
+            provider="sklearn",
             task="classification",
             name=name,
             tags=tags,
             aliases=_ALIASES.get(name, tuple()),
             default_params=_DEFAULT_PARAMS.get(name, {}),
             estimator_cls=model_cls,
-            runner=make_classifier_runner(model_cls),
-            backend_cls=ClassificationBackend,
             capabilities=capabilities,
             requirements=_requirements_for(name),
             supports_cv=True,

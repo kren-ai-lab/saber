@@ -185,7 +185,7 @@ class AlgorithmRegistry:
         self,
         *,
         task: Optional[str] = None,
-        backend: Optional[str] = None,
+        provider: Optional[str] = None,
         tags: Optional[Sequence[str]] = None,
     ) -> list[AlgorithmSpec]:
         """
@@ -196,8 +196,8 @@ class AlgorithmRegistry:
         task : str, optional
             Task type.
 
-        backend : str, optional
-            Backend identifier.
+        provider : str, optional
+            Provider identifier.
 
         tags : Sequence[str], optional
             Required tags.
@@ -218,8 +218,8 @@ class AlgorithmRegistry:
                 continue
 
             if (
-                backend is not None
-                and spec.backend != backend
+                provider is not None
+                and spec.provider != provider
             ):
                 continue
 
@@ -245,17 +245,13 @@ class AlgorithmRegistry:
 
         return self.filter(task=task)
 
-    def get_by_backend(
+    def get_by_provider(
         self,
-        backend: str,
+        provider: str,
     ) -> list[AlgorithmSpec]:
-        """
-        Retrieve algorithms by backend.
-        """
+        """Retrieve algorithms by provider."""
 
-        return self.filter(
-            backend=backend
-        )
+        return self.filter(provider=provider)
 
     def get_by_tag(
         self,
@@ -273,7 +269,7 @@ class AlgorithmRegistry:
         self,
         *,
         task: Optional[str] = None,
-        backend: Optional[str] = None,
+        provider: Optional[str] = None,
     ) -> list[str]:
         """
         List algorithm names.
@@ -283,8 +279,8 @@ class AlgorithmRegistry:
         task : str, optional
             Task filter.
 
-        backend : str, optional
-            Backend filter.
+        provider : str, optional
+            Provider filter.
 
         Returns
         -------
@@ -295,7 +291,7 @@ class AlgorithmRegistry:
             spec.name
             for spec in self.filter(
                 task=task,
-                backend=backend,
+                provider=provider,
             )
         )
 
@@ -324,19 +320,10 @@ class AlgorithmRegistry:
             for spec in self._algorithms.values()
         }
 
-    def backends(self) -> set[str]:
-        """
-        Return registered backends.
+    def providers(self) -> set[str]:
+        """Return registered estimator providers."""
 
-        Returns
-        -------
-        set[str]
-        """
-
-        return {
-            spec.backend
-            for spec in self._algorithms.values()
-        }
+        return {spec.provider for spec in self._algorithms.values()}
 
     def tags(self) -> set[str]:
         """
@@ -430,12 +417,12 @@ class AlgorithmRegistry:
         """
 
         by_task = defaultdict(int)
-        by_backend = defaultdict(int)
+        by_provider = defaultdict(int)
 
         for spec in self._algorithms.values():
 
             by_task[spec.task] += 1
-            by_backend[spec.backend] += 1
+            by_provider[spec.provider] += 1
 
         return {
             "n_algorithms": self.count(),
@@ -445,11 +432,9 @@ class AlgorithmRegistry:
                 for spec in self._algorithms.values()
             ),
             "tasks": dict(by_task),
-            "backends": dict(by_backend),
-            "providers": dict(by_backend),
+            "providers": dict(by_provider),
             "available_tasks": sorted(self.tasks()),
-            "available_backends": sorted(self.backends()),
-            "available_providers": sorted(self.backends()),
+            "available_providers": sorted(self.providers()),
             "available_tags": sorted(self.tags()),
         }
 
@@ -498,22 +483,6 @@ class AlgorithmRegistry:
             self._aliases.pop(alias, None)
 
         self._algorithms.pop(spec.name, None)
-
-    def get_runner(
-        self,
-        name: str,
-    ):
-        """Return the legacy runner compatibility field."""
-
-        return self.get(name).runner
-
-    def get_backend(
-        self,
-        name: str,
-    ):
-        """Return the legacy backend compatibility class."""
-
-        return self.get(name).backend_cls
 
     @property
     def algorithms(self) -> dict[str, AlgorithmSpec]:

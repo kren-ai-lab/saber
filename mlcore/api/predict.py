@@ -7,7 +7,7 @@ from typing import Any, Sequence
 
 from mlcore.api._common import prediction_from_model
 from mlcore.core.prediction import PredictionResult
-from mlcore.core.trainer import TrainResult
+from mlcore.core.results import TrainResult
 from mlcore.datasets import DatasetBundle
 from mlcore.persistence import LoadedModelArtifact, load_model_artifact
 

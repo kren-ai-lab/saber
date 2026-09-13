@@ -2,7 +2,7 @@
 
 ## Status
 
-This document is the **Phase 0 architecture freeze**. It defines the target boundaries that later implementation phases must follow. Existing code may temporarily retain legacy runner/backend objects until the Core Engine migration is completed, but new functionality must not deepen those legacy abstractions.
+This document defines the current architecture and stable subsystem boundaries of `mlcore`.
 
 ## Architectural target
 
@@ -71,9 +71,9 @@ The previous empty `mlcore/models/` duplication is retired. Provider registratio
 
 ### 3. Data and partitions
 
-`mlcore.datasets` defines validated dataset and partition contracts. `mlcore.validation` remains responsible for executing model-validation workflows in Phase 4. Partition generation and partition consumption are distinct concerns.
+`mlcore.datasets` defines validated dataset and partition contracts. `mlcore.validation` executes model-validation workflows. Partition generation and partition consumption are distinct concerns.
 
-Phase 3 establishes `DatasetBundle` as the canonical supervised data container:
+`DatasetBundle` is the canonical supervised data container:
 
 ```text
 DatasetBundle
@@ -86,7 +86,7 @@ DatasetBundle
 └── metadata
 ```
 
-Feature matrices are numerical and two-dimensional. Missing feature values may be preserved so Phase 4 can impute them inside training folds; infinite feature values are rejected. Targets remain single-output, and classification/regression semantics can be validated explicitly. Sample IDs are unique and stable across subsets.
+Feature matrices are numerical and two-dimensional. Missing feature values may be preserved so validation/tuning can impute them inside training folds; infinite feature values are rejected. Targets remain single-output, and classification/regression semantics can be validated explicitly. Sample IDs are unique and stable across subsets.
 
 Dataset fingerprints are deterministic hashes of scientific content (`X`, `y`, sample identity, feature identity, groups, and sample weights); free-form metadata is intentionally excluded. `FeatureSchema` preserves ordered feature identity and dtypes for later inference validation.
 
@@ -98,7 +98,7 @@ BioSieve is the **canonical partition-generation engine** when a dataset is not 
 
 ### 4. Preprocessing
 
-Preprocessing is based on scikit-learn compatible transformers and pipelines. Phase 1+ implementations must guarantee that fitted transforms used for model selection live inside the fold-specific pipeline.
+Preprocessing is based on scikit-learn compatible transformers and pipelines. Fitted transforms used for model selection must live inside the fold-specific pipeline.
 
 The first supported preprocessing scope is intentionally numerical:
 
@@ -109,29 +109,21 @@ The first supported preprocessing scope is intentionally numerical:
 - min-max scaling;
 - user-supplied compatible transformers/pipelines.
 
-Phase 4 constructs preprocessing together with the estimator inside one scikit-learn `Pipeline` for every explicit split. Imputation/scaling statistics therefore never see held-out data. `auto` preprocessing respects estimator metadata: models with recommended scaling receive standard scaling; non-negative-input models receive min-max scaling; estimators with native missing-value support can bypass automatic imputation. Categorical inference and complex automatic feature engineering remain outside the initial core.
+Validation and tuning construct preprocessing together with the estimator inside one scikit-learn `Pipeline` for every explicit split. Imputation/scaling statistics therefore never see held-out data. `auto` preprocessing respects estimator metadata: models with recommended scaling receive standard scaling; non-negative-input models receive min-max scaling; estimators with native missing-value support can bypass automatic imputation. Categorical inference and complex automatic feature engineering remain outside the initial core.
 
 ### 5. Training, validation, tuning, and benchmarking
 
 These are orchestration layers over the same estimator-construction contract.
 
-Phase 1 establishes one canonical construction path:
+There is one canonical estimator-construction path:
 
 ```text
 AlgorithmSpec -> EstimatorFactory -> estimator/pipeline
 ```
 
-`Trainer`, Grid Search, Random Search, Halving Search, and Optuna all construct
-estimators through `AlgorithmSpec.build_estimator()`. Default parameters and
-explicit random-state propagation are therefore resolved by the same factory.
+Final training, validation, tuning, and benchmarking all construct estimators through `AlgorithmSpec.build_estimator()`. Default parameters and explicit random-state propagation are therefore resolved by the same factory.
 
-The historical fields `runner` and `backend_cls` remain temporarily for source
-compatibility. They are not part of the canonical execution path: `Trainer`
-only mirrors fitted state into a legacy backend container, while direct legacy
-runner calls remain supported for existing callers/tests. No new subsystem may
-execute models through the runner/backend path.
-
-Phase 5 adds a partition-driven `TuningEngine`. It consumes the same
+`TuningEngine` is partition-driven. It consumes the same
 `DatasetBundle`, `PartitionPlan`/BioSieve integration, estimator factory, and
 leakage-safe preprocessing pipeline as validation. Hyperparameter search never
 generates an internal fallback split. In a holdout containing train, validation,
@@ -146,7 +138,7 @@ enumerable. Multi-metric search has one explicit `refit_metric`; successive
 halving and Optuna optimize that objective and evaluate the selected candidate
 with any additional requested metrics over the same explicit folds.
 
-Phase 6 adds a `BenchmarkEngine` as a pure orchestration layer over validation
+`BenchmarkEngine` is a pure orchestration layer over validation
 and tuning. It does not implement a fourth model-execution path. A benchmark
 matrix crosses prepared numerical representations, registered algorithms, named
 partition scenarios, seeds, and untuned/tuned modes. `DummyClassifier` and
@@ -176,7 +168,7 @@ and held-out sample predictions.
 
 Evaluation consumes structured prediction outputs rather than guessing probability semantics. Binary positive-class identity and multiclass class ordering are explicit.
 
-Phase 2 establishes two canonical semantic contracts:
+Evaluation uses two canonical semantic contracts:
 
 ```text
 MetricSpec
@@ -197,7 +189,7 @@ PredictionResult
 
 Loss metrics retain their natural user-facing value while scikit-learn scorer objects transform them into maximization objectives internally. Metric/task and binary/multiclass compatibility is validated before optimization. ROC-AUC uses the supported `response_method` scorer API rather than deprecated probability flags.
 
-For binary classifiers, a two-column `predict_proba` output is never interpreted by column position alone. The probability column is resolved through the estimator's explicit `classes_` order and `positive_class`. `Trainer.predict_result()` therefore produces an object that can be passed directly to the evaluation layer without manual `[:, 1]` extraction.
+For binary classifiers, a two-column `predict_proba` output is never interpreted by column position alone. The probability column is resolved through the estimator's explicit `classes_` order and `positive_class`. The public prediction path therefore produces a `PredictionResult` that can be passed directly to the evaluation layer without manual `[:, 1]` extraction.
 
 Optimization results reject non-finite best scores. Search backends preserve best parameters/history when `refit=False` while correctly reporting that no fitted best model is available.
 
@@ -218,7 +210,7 @@ Each object owns only data relevant to its stage and can be serialized into down
 
 Persistence saves fitted estimators/pipelines together with sufficient metadata to validate future inference. Persistence contains no training logic and never generates partitions or representations.
 
-Phase 7 defines a versioned directory artifact rather than an opaque single blob. Model artifacts contain a joblib-serialized fitted estimator/pipeline plus human-readable JSON files for the manifest, environment, feature schema, provenance, parameters, metrics, training configuration, and optional explicit `PartitionPlan`. Every artifact file is covered by a SHA-256 checksum manifest before joblib deserialization. Checksum verification establishes integrity, not authenticity; pickle/joblib artifacts must still originate from a trusted source.
+Persistence uses a versioned directory artifact rather than an opaque single blob. Model artifacts contain a joblib-serialized fitted estimator/pipeline plus human-readable JSON files for the manifest, environment, feature schema, provenance, parameters, metrics, training configuration, and optional explicit `PartitionPlan`. Every artifact file is covered by a SHA-256 checksum manifest before joblib deserialization. Checksum verification establishes integrity, not authenticity; pickle/joblib artifacts must still originate from a trusted source.
 
 The artifact schema version is independent from the mlcore package version. Loading validates schema compatibility, feature-schema fingerprints, required files, checksums, and environment differences. Environment differences are surfaced as warnings by default and can be promoted to hard compatibility errors. Inference through a loaded model revalidates feature identity/order before calling the persisted pipeline and can reconstruct the canonical `PredictionResult`, including class order and positive-class semantics.
 
@@ -226,7 +218,7 @@ Benchmark persistence is table-first: run, metric, held-out prediction, failure,
 
 ### 8. Public surfaces
 
-Phase 8 exposes one thin public surface over the frozen orchestration engines:
+The package exposes one thin public surface over the orchestration engines:
 
 ```text
 YAML / JSON ──► WorkflowConfig ──► run_config ──┐
@@ -250,7 +242,7 @@ public/config API, and renders outputs; it contains no estimator construction,
 partition generation, preprocessing, tuning, or benchmark logic.
 
 Model discovery and artifact inspection/verification are read-only CLI
-operations over `MODEL_REGISTRY` and Phase 7 persistence contracts. Config-driven
+operations over `MODEL_REGISTRY` and persistence contracts. Config-driven
 partition generation continues to use BioSieve exclusively; the public surface
 does not reintroduce sklearn splitters.
 
@@ -263,13 +255,13 @@ import mlcore
 from mlcore import MODEL_REGISTRY
 ```
 
-Phase 8 exposes the stable high-level functions `train`, `validate`, `evaluate`, `tune`/`optimize`, `benchmark`, and `predict` from the package root together with persistence and config helpers.
+The stable high-level functions `train`, `validate`, `evaluate`, `tune`/`optimize`, `benchmark`, and `predict` are exposed from the package root together with persistence and config helpers.
 
-Modules beginning with `_` are internal. Concrete provider modules, runners, backend state containers, serializers, and implementation helpers are not guaranteed public APIs.
+Modules beginning with `_` are internal. Concrete provider modules, serializers, and implementation helpers are not guaranteed public APIs.
 
 ## AlgorithmSpec contract
 
-Phase 1 migrated `AlgorithmSpec` to a provider-neutral construction contract containing:
+`AlgorithmSpec` is a provider-neutral construction contract containing:
 
 ```text
 name
@@ -285,7 +277,7 @@ capabilities
 requirements
 ```
 
-Capabilities/requirements describe behavior instead of requiring orchestration layers to probe fitted estimators. Phase 1 records:
+Capabilities/requirements describe behavior instead of requiring orchestration layers to probe fitted estimators:
 
 ```text
 predict_proba
@@ -298,7 +290,6 @@ scaling recommendation
 ```
 
 Additional capabilities can be added when they have reliable provider-level semantics.
-The fields `runner` and `backend_cls` are legacy compatibility fields scheduled for removal only after downstream code no longer depends on them.
 
 ## Dependency boundaries
 

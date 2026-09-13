@@ -8,7 +8,7 @@ from typing import Any
 
 from mlcore.api._common import prediction_from_model
 from mlcore.core.registry import MODEL_REGISTRY, AlgorithmRegistry
-from mlcore.core.trainer import TrainResult
+from mlcore.core.results import TrainResult
 from mlcore.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
 from mlcore.evaluation import EvaluationResult, evaluate_prediction
 from mlcore.persistence import LoadedModelArtifact, load_model_artifact

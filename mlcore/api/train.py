@@ -8,7 +8,7 @@ from typing import Any
 
 from mlcore.api._common import fit_dataset
 from mlcore.core.registry import MODEL_REGISTRY, AlgorithmRegistry
-from mlcore.core.trainer import TrainResult
+from mlcore.core.results import TrainResult
 from mlcore.datasets import DatasetBundle, PartitionPlan
 from mlcore.persistence import save_model_artifact
 from mlcore.preprocessing import PreprocessingConfig

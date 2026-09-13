@@ -20,7 +20,7 @@ def validate_feature_matrix(
 ) -> tuple[int, int]:
     """Validate a numerical two-dimensional feature matrix.
 
-    Missing values are allowed by default so Phase 4 preprocessing can impute
+    Missing values are allowed by default so leakage-safe preprocessing can impute
     them inside each training fold. Infinite values are always rejected.
     """
 

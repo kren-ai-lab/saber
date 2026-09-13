@@ -1,314 +1,95 @@
-"""
-tests.test_registry
-===================
-
-Unit tests for AlgorithmRegistry.
-"""
+"""Tests for the canonical algorithm registry."""
 
 from __future__ import annotations
 
 import pytest
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 
 from mlcore.core.registry import AlgorithmRegistry
 from mlcore.core.specs import AlgorithmSpec
-
-from mlcore.exceptions import (
-    AlgorithmAlreadyRegisteredError,
-    AlgorithmNotFoundError,
-)
+from mlcore.exceptions import AlgorithmAlreadyRegisteredError, AlgorithmNotFoundError
 
 
-# ============================================================
-# Fixtures
-# ============================================================
-
-def dummy_runner(*args, **kwargs) -> None:
-    """Dummy runner."""
-    return None
-
-
-class DummyBackend:
-    """Dummy backend."""
-    pass
-
-
-@pytest.fixture
-def registry() -> AlgorithmRegistry:
-    """
-    Fresh registry for each test.
-    """
-
-    return AlgorithmRegistry()
-
-
-@pytest.fixture
-def random_forest_spec() -> AlgorithmSpec:
-    """
-    Example AlgorithmSpec.
-    """
-
+def _spec(name: str = "random_forest", aliases: tuple[str, ...] = ("rf",)) -> AlgorithmSpec:
+    estimator = RandomForestClassifier if name == "random_forest" else LogisticRegression
     return AlgorithmSpec(
-        backend="sklearn",
+        provider="sklearn",
         task="classification",
-        name="random_forest",
-        runner=dummy_runner,
-        backend_cls=DummyBackend,
-        aliases=("rf",),
-        tags=("classification", "tree"),
+        name=name,
+        estimator_cls=estimator,
+        aliases=aliases,
+        tags=("classification", "tree" if name == "random_forest" else "linear"),
+        supports_cv=True,
     )
 
 
-# ============================================================
-# Registration
-# ============================================================
-
-def test_register_algorithm(
-    registry: AlgorithmRegistry,
-    random_forest_spec: AlgorithmSpec,
-) -> None:
-
-    registry.register(random_forest_spec)
+def test_register_get_alias_and_exists() -> None:
+    registry = AlgorithmRegistry()
+    registry.register(_spec())
 
     assert registry.count() == 1
-
-
-def test_register_duplicate_algorithm_raises(
-    registry: AlgorithmRegistry,
-    random_forest_spec: AlgorithmSpec,
-) -> None:
-
-    registry.register(random_forest_spec)
-
-    with pytest.raises(
-        AlgorithmAlreadyRegisteredError,
-    ):
-        registry.register(random_forest_spec)
-
-
-def test_register_many(
-    registry: AlgorithmRegistry,
-) -> None:
-
-    specs = [
-        AlgorithmSpec(
-            backend="sklearn",
-            task="classification",
-            name="rf",
-            runner=dummy_runner,
-            backend_cls=DummyBackend,
-        ),
-        AlgorithmSpec(
-            backend="sklearn",
-            task="classification",
-            name="svm",
-            runner=dummy_runner,
-            backend_cls=DummyBackend,
-        ),
-    ]
-
-    registry.register_many(specs)
-
-    assert registry.count() == 2
-
-
-# ============================================================
-# Retrieval
-# ============================================================
-
-def test_get_algorithm(
-    registry: AlgorithmRegistry,
-    random_forest_spec: AlgorithmSpec,
-) -> None:
-
-    registry.register(random_forest_spec)
-
-    spec = registry.get("random_forest")
-
-    assert spec.name == "random_forest"
-
-
-def test_get_algorithm_by_alias(
-    registry: AlgorithmRegistry,
-    random_forest_spec: AlgorithmSpec,
-) -> None:
-
-    registry.register(random_forest_spec)
-
-    spec = registry.get("rf")
-
-    assert spec.name == "random_forest"
-
-
-def test_get_missing_algorithm_raises(
-    registry: AlgorithmRegistry,
-) -> None:
-
-    with pytest.raises(
-        AlgorithmNotFoundError,
-    ):
-        registry.get("does_not_exist")
-
-
-# ============================================================
-# Exists
-# ============================================================
-
-def test_exists(
-    registry: AlgorithmRegistry,
-    random_forest_spec: AlgorithmSpec,
-) -> None:
-
-    registry.register(random_forest_spec)
-
-    assert registry.exists("random_forest")
+    assert registry.get("random_forest").name == "random_forest"
+    assert registry.get("rf").name == "random_forest"
     assert registry.exists("rf")
-
-    assert not registry.exists(
-        "foobar"
-    )
+    assert not registry.exists("missing")
 
 
-# ============================================================
-# Remove
-# ============================================================
+def test_duplicate_names_and_aliases_are_rejected() -> None:
+    registry = AlgorithmRegistry()
+    registry.register(_spec())
 
-def test_remove_algorithm(
-    registry: AlgorithmRegistry,
-    random_forest_spec: AlgorithmSpec,
-) -> None:
+    with pytest.raises(AlgorithmAlreadyRegisteredError):
+        registry.register(_spec())
+    with pytest.raises(AlgorithmAlreadyRegisteredError):
+        registry.register(_spec("logistic_regression", aliases=("rf",)))
 
-    registry.register(random_forest_spec)
 
-    registry.remove(
+def test_filtering_uses_provider_task_and_tags() -> None:
+    registry = AlgorithmRegistry()
+    registry.register_many([_spec(), _spec("logistic_regression", aliases=("logreg",))])
+
+    assert {spec.name for spec in registry.filter(task="classification")} == {
         "random_forest",
-    )
-
-    assert registry.count() == 0
-
-
-def test_remove_missing_algorithm_raises(
-    registry: AlgorithmRegistry,
-) -> None:
-
-    with pytest.raises(
-        AlgorithmNotFoundError,
-    ):
-        registry.remove(
-            "foobar",
-        )
+        "logistic_regression",
+    }
+    assert {spec.name for spec in registry.filter(provider="sklearn")} == {
+        "random_forest",
+        "logistic_regression",
+    }
+    assert [spec.name for spec in registry.filter(tags=("tree",))] == ["random_forest"]
+    assert registry.get_by_provider("sklearn") == registry.filter(provider="sklearn")
+    assert registry.providers() == {"sklearn"}
 
 
-# ============================================================
-# Filtering
-# ============================================================
+def test_registry_metadata_factory_and_summary() -> None:
+    registry = AlgorithmRegistry()
+    registry.register(_spec())
 
-def test_filter_by_task(
-    registry: AlgorithmRegistry,
-    random_forest_spec: AlgorithmSpec,
-) -> None:
-
-    registry.register(random_forest_spec)
-
-    results = registry.filter(
-        task="classification",
-    )
-
-    assert len(results) == 1
-
-
-def test_filter_by_backend(
-    registry: AlgorithmRegistry,
-    random_forest_spec: AlgorithmSpec,
-) -> None:
-
-    registry.register(random_forest_spec)
-
-    results = registry.filter(
-        backend="sklearn",
-    )
-
-    assert len(results) == 1
-
-
-def test_filter_by_tag(
-    registry: AlgorithmRegistry,
-    random_forest_spec: AlgorithmSpec,
-) -> None:
-
-    registry.register(random_forest_spec)
-
-    results = registry.filter(
-        tags=["tree"],
-    )
-
-    assert len(results) == 1
-
-
-# ============================================================
-# Metadata
-# ============================================================
-
-def test_list_algorithms(
-    registry: AlgorithmRegistry,
-    random_forest_spec: AlgorithmSpec,
-) -> None:
-
-    registry.register(random_forest_spec)
-
-    names = registry.list()
-
-    assert "random_forest" in names
-
-
-def test_tasks(
-    registry: AlgorithmRegistry,
-    random_forest_spec: AlgorithmSpec,
-) -> None:
-
-    registry.register(random_forest_spec)
-
-    assert (
-        "classification"
-        in registry.tasks()
-    )
-
-
-def test_backends(
-    registry: AlgorithmRegistry,
-    random_forest_spec: AlgorithmSpec,
-) -> None:
-
-    registry.register(random_forest_spec)
-
-    assert (
-        "sklearn"
-        in registry.backends()
-    )
-
-
-def test_summary(
-    registry: AlgorithmRegistry,
-    random_forest_spec: AlgorithmSpec,
-) -> None:
-
-    registry.register(random_forest_spec)
-
+    metadata = registry.describe("rf")
+    estimator = registry.build_estimator("rf", random_state=23, n_estimators=5)
     summary = registry.summary()
 
-    assert summary["n_algorithms"] == 1
+    assert metadata["provider"] == "sklearn"
+    assert metadata["has_estimator_factory"] is True
+    assert estimator.random_state == 23
+    assert estimator.n_estimators == 5
+    assert summary["providers"] == {"sklearn": 1}
+    assert summary["available_providers"] == ["sklearn"]
+    assert "backends" not in summary
 
 
-# ============================================================
-# Maintenance
-# ============================================================
+def test_remove_clear_and_missing_errors() -> None:
+    registry = AlgorithmRegistry()
+    registry.register(_spec())
 
-def test_clear(
-    registry: AlgorithmRegistry,
-    random_forest_spec: AlgorithmSpec,
-) -> None:
-
-    registry.register(random_forest_spec)
-
-    registry.clear()
-
+    registry.remove("rf")
     assert registry.count() == 0
+    with pytest.raises(AlgorithmNotFoundError):
+        registry.get("rf")
+    with pytest.raises(AlgorithmNotFoundError):
+        registry.remove("rf")
+
+    registry.register(_spec())
+    registry.clear()
+    assert len(registry) == 0

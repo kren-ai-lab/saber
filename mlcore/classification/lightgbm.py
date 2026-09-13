@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from lightgbm import LGBMClassifier
 
-from mlcore.classification.backend import ClassificationBackend
-from mlcore.classification.runners import make_classifier_runner
 
 from mlcore.core.capabilities import (
     EstimatorRequirements,
@@ -41,12 +39,10 @@ def register_lightgbm_classification_models() -> None:
     for name, model_cls, tags, search_space in models:
 
         spec = AlgorithmSpec(
-            backend="lightgbm",
+            provider="lightgbm",
             task="classification",
             name=name,
             estimator_cls=model_cls,
-            runner=make_classifier_runner(model_cls),
-            backend_cls=ClassificationBackend,
             aliases=_ALIASES.get(name, tuple()),
             capabilities=infer_estimator_capabilities(
                 model_cls,
