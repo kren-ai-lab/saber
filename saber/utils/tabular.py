@@ -56,21 +56,24 @@ def as_frame(X: Any) -> Any:
         raise DatasetValidationError("DataFrame feature names must be unique.")
     try:
         return pl.from_pandas(X)
-    except ImportError as exc:
-        # A pandas extension dtype (e.g. "Int64", "boolean", "category") is not a
-        # plain numpy dtype; duck-typing this way needs no pandas import here.
-        extension_columns = [str(column) for column in X.columns if not isinstance(X[column].dtype, np.dtype)]
-        if extension_columns:
-            raise DatasetValidationError(
-                "pandas extension dtypes (e.g. 'Int64') need pyarrow to convert; "
-                "pass a Polars DataFrame or a NumPy array instead."
-            ) from exc
-        non_numeric = [
-            str(column) for column in X.columns if X[column].dtype.kind not in {"b", "i", "u", "f"}
-        ]
-        raise DatasetValidationError(
-            "X must contain only numerical features. Non-numerical columns: " + ", ".join(non_numeric)
-        ) from exc
+    except ImportError:
+        # No pyarrow: convert column by column without it and without importing
+        # pandas. Non-numeric columns (e.g. plain strings) are then rejected by
+        # the normal validate_feature_matrix path, with its usual message.
+        return pl.DataFrame(_pandas_columns_without_pyarrow(X))
+
+
+def _pandas_columns_without_pyarrow(X: Any) -> dict[str, Any]:
+    columns: dict[str, Any] = {}
+    for column in X.columns:
+        series = X[column]
+        if isinstance(series.dtype, np.dtype):
+            columns[str(column)] = series.to_numpy()
+        else:
+            # A pandas extension dtype (e.g. "Int64", "boolean", "string") is not a
+            # plain numpy dtype; duck-typing this way needs no pandas import here.
+            columns[str(column)] = series.astype(object).where(series.notna(), None).tolist()
+    return columns
 
 
 def to_numpy(X: Any) -> np.ndarray:

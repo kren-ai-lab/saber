@@ -116,7 +116,14 @@ def test_csv_partition_loader(tmp_path):
     assert plan.get_split("split_0").test_ids == ("c",)
 
 
-def test_membership_table_polars_and_pandas_give_same_plan():
+def test_membership_table_polars_and_pandas_give_same_plan(monkeypatch):
+    # Force the no-pyarrow fallback so this covers it regardless of whether
+    # pyarrow happens to be installed in the environment running the suite.
+    def _raise(*_args, **_kwargs):
+        raise ImportError("forced: pyarrow not installed")
+
+    monkeypatch.setattr(pl, "from_pandas", _raise)
+
     rows = {
         "sample_id": ["a", "b", "c", "d"],
         "role": ["train", "train", "val", "test"],

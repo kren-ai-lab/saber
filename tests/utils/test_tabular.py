@@ -1,12 +1,20 @@
-import importlib.util
-
 import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
 
+from saber.datasets.validation import validate_feature_matrix
 from saber.exceptions import DatasetValidationError
 from saber.utils.tabular import as_frame, canonical_dtype, missing_mask, read_table, records_frame, to_numpy
+
+
+def _force_no_pyarrow(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make ``pl.from_pandas`` fail as it would with no pyarrow installed."""
+
+    def _raise(*_args: object, **_kwargs: object) -> None:
+        raise ImportError("forced: pyarrow not installed")
+
+    monkeypatch.setattr(pl, "from_pandas", _raise)
 
 
 def test_as_frame_converts_pandas_and_leaves_others():
@@ -17,25 +25,33 @@ def test_as_frame_converts_pandas_and_leaves_others():
     assert as_frame(array) is array
 
 
-def test_as_frame_rejects_extension_dtypes_without_pyarrow():
-    if importlib.util.find_spec("pyarrow") is not None:
-        pytest.skip("pyarrow is installed, so extension dtypes convert")
-    with pytest.raises(DatasetValidationError, match="pyarrow"):
-        as_frame(pd.DataFrame({"a": pd.array([1, None], dtype="Int64")}))
-
-
 def test_as_frame_rejects_duplicate_pandas_column_names():
     frame = pd.DataFrame([[1.0, 2.0]], columns=["a", "a"])
     with pytest.raises(DatasetValidationError, match="unique"):
         as_frame(frame)
 
 
-def test_as_frame_reports_non_numerical_columns_for_object_dtype_without_pyarrow():
-    if importlib.util.find_spec("pyarrow") is not None:
-        pytest.skip("pyarrow is installed, so object columns convert without this failure")
+def test_as_frame_reports_non_numerical_columns_for_object_dtype_without_pyarrow(monkeypatch):
+    _force_no_pyarrow(monkeypatch)
     frame = pd.DataFrame({"a": [1.0, 2.0], "s": [{"x": 1}, {"y": 2}]})
     with pytest.raises(DatasetValidationError, match="Non-numerical columns: s"):
-        as_frame(frame)
+        validate_feature_matrix(frame)
+
+
+def test_as_frame_rejects_pandas_string_columns_without_pyarrow(monkeypatch):
+    _force_no_pyarrow(monkeypatch)
+    frame = pd.DataFrame({"a": [1.0, 2.0], "s": pd.array(["p", "q"], dtype="string")})
+    with pytest.raises(DatasetValidationError, match="Non-numerical columns: s"):
+        validate_feature_matrix(frame)
+
+
+def test_as_frame_converts_nullable_int64_without_pyarrow(monkeypatch):
+    _force_no_pyarrow(monkeypatch)
+    frame = pd.DataFrame({"a": pd.array([1, None], dtype="Int64")})
+    result = as_frame(frame)
+    assert isinstance(result, pl.DataFrame)
+    assert result["a"].to_list() == [1, None]
+    assert result["a"].null_count() == 1
 
 
 def test_to_numpy_maps_null_and_nan_to_nan():
