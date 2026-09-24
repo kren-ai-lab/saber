@@ -83,6 +83,7 @@ dev = [
     "taskipy>=1.14",
     "prek",
     "pandas>=2.2.2",
+    "pyarrow>=25.0.1",
 ]
 examples = [
     "marimo>=0.24",

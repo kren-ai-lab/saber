@@ -92,7 +92,7 @@ iterating:
 | `tests/<package>/` | Public behavior of the corresponding package |
 | `tests/integration/` | Composition of workflows across packages |
 | `tests/robustness/` | Missing/constant data, degenerate folds, edge-case inputs |
-| `tests/examples/` | The marimo notebooks under `examples/` run end to end |
+| `tests/examples/` | Static contracts of the example notebooks (execution runs in the examples workflow / `bash examples/run_ci_examples.sh`) |
 | `tests/datasets/test_fingerprint_golden.py` | Provenance contract: never update these hashes to make a change pass |
 
 For scientific changes, cover the relevant degenerate case as well as an

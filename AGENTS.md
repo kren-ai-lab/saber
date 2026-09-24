@@ -25,7 +25,7 @@ task commands.
 
 ## Package Layout
 
-The package is a **flat layout** at `saber/`. `tests/` mirrors it one
+The package is a **flat layout** at `saber/`. `tests/` mostly mirrors it one
 directory per package, plus the cross-cutting suites `integration/`,
 `robustness/`, and `examples/`.
 

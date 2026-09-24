@@ -13,8 +13,7 @@ First public release, published on PyPI as `saberlib`.
 - Reproducible model and benchmark artifacts with checksums, fingerprints and environment metadata.
 - The `saber` command-line interface.
 - Tabular results (`BenchmarkResult.*_frame()`, `OptimizationResult.history_frame()`, loaded
-  benchmark tables) are Polars DataFrames. pandas DataFrames are still accepted as inputs; nested
-  cells in result tables are stable JSON strings.
+  benchmark tables) are Polars DataFrames; nested cells in result tables are stable JSON strings.
 - pandas DataFrames are accepted as inputs and converted once to Polars; this works with pandas 2
   and 3, and does not require pyarrow. pandas itself is not a runtime dependency.
 - A result-table column that mixes scalar types across rows (for example a search-space column
