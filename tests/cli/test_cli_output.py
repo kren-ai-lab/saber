@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -9,6 +10,7 @@ import pandas as pd
 import yaml
 from sklearn.datasets import make_classification
 
+import saber
 from saber.cli.main import EXIT_CONFIG, EXIT_OK, _doctor_payload, main
 from saber.datasets import DatasetBundle, PartitionPlan
 
@@ -129,19 +131,53 @@ def test_wrong_workflow_still_uses_configuration_exit_code(tmp_path):
     assert main(["train", str(config), "--dry-run"]) == EXIT_CONFIG
 
 
-def test_module_help_contains_cli2_commands(tmp_path):
-    completed = subprocess.run(
-        [sys.executable, "-m", "saber", "--help"],
-        cwd=tmp_path,
-        env={**__import__("os").environ, "PYTHONPATH": str(ROOT)},
-        capture_output=True,
-        text=True,
-        check=False,
+COMMANDS = (
+    "run",
+    "train",
+    "evaluate",
+    "validate",
+    "tune",
+    "optimize",
+    "benchmark",
+    "predict",
+    "models",
+    "artifact",
+    "config",
+    "doctor",
+)
+
+
+def _cli(*args: str) -> subprocess.CompletedProcess[str]:
+    env = {**os.environ, "COLUMNS": "200", "NO_COLOR": "1"}
+    return subprocess.run(  # noqa: S603
+        [sys.executable, "-m", "saber", *args], text=True, capture_output=True, env=env, check=False
     )
+
+
+def test_top_level_help_lists_every_command():
+    completed = _cli("--help")
     assert completed.returncode == 0
-    for token in ("doctor", "models", "artifact", "config", "benchmark"):
-        assert token in completed.stdout
-    assert "saber benchmark study.yaml --dry-run" in completed.stdout
+    for command in COMMANDS:
+        assert command in completed.stdout
+
+
+def test_workflow_help_lists_workflow_options():
+    completed = _cli("benchmark", "--help")
+    assert completed.returncode == 0
+    for option in ("--dry-run", "--json", "--quiet", "--no-progress"):
+        assert option in completed.stdout
+
+
+def test_invalid_command_is_a_usage_error():
+    completed = _cli("definitely-not-a-command")
+    assert completed.returncode == 2
+    assert "No such command" in completed.stderr
+
+
+def test_version_flag():
+    completed = _cli("--version")
+    assert completed.returncode == 0
+    assert completed.stdout.strip() == f"saber {saber.__version__}"
 
 
 def test_cli2_contains_no_scientific_engine_imports_or_splitters():
@@ -158,56 +194,3 @@ def test_cli2_contains_no_scientific_engine_imports_or_splitters():
     )
     for token in forbidden:
         assert token not in combined
-
-
-def test_top_level_help_uses_rich_cli2_layout(tmp_path):
-    completed = subprocess.run(
-        [sys.executable, "-m", "saber", "--help"],
-        cwd=tmp_path,
-        env={**__import__("os").environ, "PYTHONPATH": str(ROOT)},
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert completed.returncode == 0
-    assert "saber  CLI" in completed.stdout
-    assert "Commands" in completed.stdout
-    assert "Options" in completed.stdout
-    assert "Examples" in completed.stdout
-    assert "Run saber COMMAND --help" in completed.stdout
-    assert "usage:" not in completed.stdout.lower()
-
-
-def test_subcommand_help_uses_rich_cli2_layout(tmp_path):
-    completed = subprocess.run(
-        [sys.executable, "-m", "saber", "benchmark", "--help"],
-        cwd=tmp_path,
-        env={**__import__("os").environ, "PYTHONPATH": str(ROOT)},
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert completed.returncode == 0
-    assert "saber benchmark  CLI" in completed.stdout
-    assert "Arguments" in completed.stdout
-    assert "Options" in completed.stdout
-    assert "--dry-run" in completed.stdout
-    assert "--json" in completed.stdout
-    assert "Examples" in completed.stdout
-    assert "usage:" not in completed.stdout.lower()
-
-
-def test_invalid_command_uses_rich_usage_error(tmp_path):
-    completed = subprocess.run(
-        [sys.executable, "-m", "saber", "definitely-not-a-command"],
-        cwd=tmp_path,
-        env={**__import__("os").environ, "PYTHONPATH": str(ROOT)},
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert completed.returncode == 2
-    assert "CLI usage error" in completed.stderr
-    assert "invalid choice" in completed.stderr
-    assert "Run saber --help for details" in completed.stderr
-    assert "usage:" not in completed.stderr.lower()

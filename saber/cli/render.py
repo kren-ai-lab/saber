@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -17,112 +16,6 @@ from saber.config.schema import WorkflowConfig
 from saber.tuning import OptimizationResult
 from saber.utils.serialization import to_jsonable
 from saber.validation import ValidationResult
-
-
-def render_cli_help(console: Console, parser: argparse.ArgumentParser) -> None:
-    """Render argparse metadata using the same Rich visual language as CLI results."""
-    command = parser.prog
-    description = parser.description or "Classical supervised machine learning workflows."
-    heading = Text(command, style="bold cyan")
-    heading.append("  CLI", style="bold")
-    console.print(Panel(description, title=heading, border_style="cyan", padding=(1, 2)))
-
-    usage = parser.format_usage().strip()
-    if usage.lower().startswith("usage:"):
-        usage = usage.split(":", 1)[1].strip()
-    usage_table = Table.grid(padding=(0, 1))
-    usage_table.add_column(style="bold cyan", no_wrap=True)
-    usage_table.add_column()
-    usage_table.add_row("Usage", usage)
-    console.print(usage_table)
-
-    subcommands = _subcommand_rows(parser)
-    if subcommands:
-        table = Table(title="Commands", header_style="bold cyan", box=None, pad_edge=False)
-        table.add_column("Command", style="bold", no_wrap=True)
-        table.add_column("Description")
-        for name, help_text in subcommands:
-            table.add_row(name, help_text)
-        console.print(table)
-
-    positionals = _positional_rows(parser)
-    if positionals:
-        table = Table(title="Arguments", header_style="bold cyan", box=None, pad_edge=False)
-        table.add_column("Argument", style="bold", no_wrap=True)
-        table.add_column("Description")
-        for name, help_text in positionals:
-            table.add_row(name, help_text)
-        console.print(table)
-
-    options = _option_rows(parser)
-    if options:
-        table = Table(title="Options", header_style="bold cyan", box=None, pad_edge=False)
-        table.add_column("Option", style="bold", no_wrap=True)
-        table.add_column("Description")
-        for flags, help_text in options:
-            table.add_row(flags, help_text)
-        console.print(table)
-
-    examples = tuple(getattr(parser, "_saber_examples", ()))
-    if examples:
-        example_text = Text()
-        for index, example in enumerate(examples):
-            if index:
-                example_text.append("\n")
-            example_text.append("  $ ", style="dim")
-            example_text.append(str(example), style="green")
-        console.print(Panel(example_text, title="Examples", border_style="dim cyan"))
-
-    if subcommands:
-        console.print(f"[dim]Run [bold]{parser.prog} COMMAND --help[/bold] for command-specific help.[/dim]")
-
-
-def render_cli_usage_error(console: Console, parser: argparse.ArgumentParser, message: str) -> None:
-    """Render compact parse/usage errors without falling back to argparse styling."""
-    console.print(Panel(str(message), title="[bold red]CLI usage error[/bold red]", border_style="red"))
-    usage = parser.format_usage().strip()
-    if usage.lower().startswith("usage:"):
-        usage = usage.split(":", 1)[1].strip()
-    console.print(f"[bold cyan]Usage[/bold cyan]  {usage}")
-    console.print(f"[dim]Run [bold]{parser.prog} --help[/bold] for details.[/dim]")
-
-
-def _subcommand_rows(parser: argparse.ArgumentParser) -> list[tuple[str, str]]:
-    for action in parser._actions:
-        if isinstance(action, argparse._SubParsersAction):
-            return [(choice.dest, choice.help or "") for choice in action._choices_actions]
-    return []
-
-
-def _positional_rows(parser: argparse.ArgumentParser) -> list[tuple[str, str]]:
-    rows: list[tuple[str, str]] = []
-    for action in parser._actions:
-        if action.option_strings or isinstance(action, argparse._SubParsersAction):
-            continue
-        label = action.metavar or action.dest
-        rows.append((str(label), action.help or ""))
-    return rows
-
-
-def _option_rows(parser: argparse.ArgumentParser) -> list[tuple[str, str]]:
-    rows: list[tuple[str, str]] = []
-    for action in parser._actions:
-        if not action.option_strings:
-            continue
-        flags = ", ".join(action.option_strings)
-        if not isinstance(
-            action,
-            (
-                argparse._StoreTrueAction,
-                argparse._StoreFalseAction,
-                argparse._HelpAction,
-                argparse._VersionAction,
-            ),
-        ):
-            metavar = action.metavar or action.dest.upper()
-            flags = f"{flags} {metavar}"
-        rows.append((flags, action.help or ""))
-    return rows
 
 
 def render_preflight(console: Console, config: WorkflowConfig) -> None:

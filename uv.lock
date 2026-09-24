@@ -1310,6 +1310,7 @@ dependencies = [
     { name = "scikit-learn" },
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "typer" },
 ]
 
 [package.optional-dependencies]
@@ -1360,6 +1361,7 @@ requires-dist = [
     { name = "rich", specifier = ">=13.0,<16" },
     { name = "scikit-learn", specifier = ">=1.8,<2" },
     { name = "scipy", specifier = ">=1.10,<2" },
+    { name = "typer", specifier = ">=0.27,<1" },
     { name = "xgboost", marker = "extra == 'all'", specifier = ">=2.0,<4" },
     { name = "xgboost", marker = "extra == 'xgboost'", specifier = ">=2.0,<4" },
 ]
