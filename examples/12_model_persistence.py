@@ -117,7 +117,7 @@ def _(
 
 
 @app.cell
-def _(evaluation, pl, plt, report):
+def _(evaluation, mo, pl, plt, report):
     fig,axes=plt.subplots(1,2,figsize=(11,4))
     for cls in sorted(report.get_column("y_true").unique().to_list()):
         subset = report.filter(pl.col("y_true")==cls).get_column("p_positive").to_numpy()
@@ -125,7 +125,9 @@ def _(evaluation, pl, plt, report):
     axes[0].legend(); axes[0].set(title="Reloaded probability output",xlabel="P(positive)")
     metric_items = sorted(evaluation.metrics.items(), key=lambda kv: kv[1])
     axes[1].barh([k for k,_ in metric_items],[v for _,v in metric_items]); axes[1].set_title("Reloaded model metrics")
-    plt.tight_layout(); FIGURE_COUNT=1
+    plt.tight_layout()
+    mo.output.append(mo.as_html(fig))
+    FIGURE_COUNT=1
     return (FIGURE_COUNT,)
 
 

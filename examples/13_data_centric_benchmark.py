@@ -127,7 +127,7 @@ def _(
 
 
 @app.cell
-def _(history, leader, np, pl, plt, runs):
+def _(history, leader, mo, np, pl, plt, runs):
     def grouped_bar(ax, categories, series):
         x = np.arange(len(categories))
         width = 0.8 / len(series)
@@ -149,7 +149,9 @@ def _(history, leader, np, pl, plt, runs):
     runtime=runs.group_by(["algorithm","mode"]).agg(pl.col("elapsed_seconds").mean().alias("mean"))
     runtime=runtime.with_columns((pl.col("algorithm")+" / "+pl.col("mode")).alias("label"))
     axes[2].bar(runtime.get_column("label").to_list(),runtime.get_column("mean").to_numpy()); axes[2].set(title="Workflow runtime",ylabel="seconds"); axes[2].tick_params(axis="x",rotation=45)
-    plt.tight_layout(); FIGURE_COUNT=1
+    plt.tight_layout()
+    mo.output.append(mo.as_html(fig))
+    FIGURE_COUNT=1
     return (FIGURE_COUNT,)
 
 

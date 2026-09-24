@@ -127,7 +127,7 @@ def _(mo):
 
 
 @app.cell
-def _(ConfusionMatrixDisplay, fold_metrics, np, oof, plt, y):
+def _(ConfusionMatrixDisplay, fold_metrics, mo, np, oof, plt, y):
     def grouped_bar(ax, categories, series):
         x = np.arange(len(categories))
         width = 0.8 / len(series)
@@ -150,7 +150,9 @@ def _(ConfusionMatrixDisplay, fold_metrics, np, oof, plt, y):
     for cls in oof.classes:
         axes[2].hist(proba[y==cls, int(cls)], bins=15, alpha=0.55, label=f"true {cls}")
     axes[2].set(title="Probability assigned to true class", xlabel="P(true class)"); axes[2].legend()
-    plt.tight_layout(); FIGURE_COUNT=1
+    plt.tight_layout()
+    mo.output.append(mo.as_html(fig))
+    FIGURE_COUNT=1
     return (FIGURE_COUNT,)
 
 

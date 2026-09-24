@@ -115,7 +115,7 @@ def _(BenchmarkConfig, DEMO_TEST, benchmark, pl, plan_a, plan_b, rep1, rep2, rep
 
 
 @app.cell
-def _(np, plt, report, runs):
+def _(mo, np, plt, report, runs):
     def grouped_bar(ax, categories, series):
         x = np.arange(len(categories))
         width = 0.8 / len(series)
@@ -135,7 +135,9 @@ def _(np, plt, report, runs):
         ax.set_title(f"Mean MCC — {part}"); ax.tick_params(axis="x",rotation=35)
     runtime=runs.group_by("algorithm").agg(elapsed_seconds=pl.col("elapsed_seconds").mean()).sort("elapsed_seconds")
     axes[2].bar(runtime.get_column("algorithm").to_list(),runtime.get_column("elapsed_seconds").to_numpy()); axes[2].set(title="Mean runtime",ylabel="seconds"); axes[2].tick_params(axis="x",rotation=35)
-    plt.tight_layout(); FIGURE_COUNT=1
+    plt.tight_layout()
+    mo.output.append(mo.as_html(fig))
+    FIGURE_COUNT=1
     return (FIGURE_COUNT,)
 
 

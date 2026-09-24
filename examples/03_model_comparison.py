@@ -131,7 +131,7 @@ def _(
 
 
 @app.cell
-def _(leader, np, pl, plt, runs):
+def _(leader, mo, np, pl, plt, runs):
     def grouped_bar(ax, categories, series):
         x = np.arange(len(categories))
         width = 0.8 / len(series)
@@ -158,7 +158,9 @@ def _(leader, np, pl, plt, runs):
     runtime = runs.group_by("algorithm").agg(pl.col("elapsed_seconds").mean().alias("mean")).sort("mean")
     axes[2].bar(runtime.get_column("algorithm").to_list(), runtime.get_column("mean").to_numpy())
     axes[2].set(title="Mean runtime",ylabel="seconds"); axes[2].tick_params(axis="x",rotation=30)
-    plt.tight_layout(); FIGURE_COUNT=1
+    plt.tight_layout()
+    mo.output.append(mo.as_html(fig))
+    FIGURE_COUNT=1
     return (FIGURE_COUNT,)
 
 

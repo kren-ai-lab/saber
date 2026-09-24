@@ -213,6 +213,7 @@ def _(mo):
 def _(
     auc,
     fold_metrics,
+    mo,
     np,
     plt,
     precision_recall_curve,
@@ -254,6 +255,7 @@ def _(
         axes[1, 1].hist(proba[y == cls], bins=18, alpha=0.6, label=f"class {cls}")
     axes[1, 1].set(title="OOF probability distribution", xlabel="P(positive)"); axes[1, 1].legend()
     plt.tight_layout()
+    mo.output.append(mo.as_html(fig))
     FIGURE_COUNT = 1
     return (FIGURE_COUNT,)
 

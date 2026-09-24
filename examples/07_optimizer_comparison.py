@@ -106,13 +106,15 @@ def _(DEMO_TEST, TuningConfig, dataset, pl, perf_counter, plan, space, tune):
 
 
 @app.cell
-def _(plt, summary):
+def _(mo, plt, summary):
     fig,axes=plt.subplots(1,3,figsize=(15,4.5))
     optimizers = summary.get_column("optimizer").to_list()
     axes[0].bar(optimizers,summary.get_column("best_mcc").to_numpy()); axes[0].set(title="Best CV MCC",ylim=(-.05,1.0))
     axes[1].bar(optimizers,summary.get_column("elapsed_seconds").to_numpy()); axes[1].set(title="Optimization runtime",ylabel="seconds")
     axes[2].bar(optimizers,summary.get_column("candidates").to_numpy()); axes[2].set(title="Candidates evaluated",ylabel="count")
-    plt.tight_layout(); FIGURE_COUNT=1
+    plt.tight_layout()
+    mo.output.append(mo.as_html(fig))
+    FIGURE_COUNT=1
     return (FIGURE_COUNT,)
 
 

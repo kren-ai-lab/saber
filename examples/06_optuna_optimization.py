@@ -106,7 +106,7 @@ def _(DEMO_TEST, TuningConfig, dataset, pl, plan, space, tune):
 
 
 @app.cell
-def _(completed, np, opt, plt, score_col):
+def _(completed, mo, np, opt, plt, score_col):
     fig,axes=plt.subplots(1,3,figsize=(16,4.5))
     scores = completed.get_column(score_col).to_numpy()
     best_so_far = completed.get_column("best_so_far").to_numpy()
@@ -115,7 +115,9 @@ def _(completed, np, opt, plt, score_col):
     secondary_scores={k:v for k,v in opt.display_scores.items() if k!="mcc"}
     axes[2].bar(list(secondary_scores.keys()),list(secondary_scores.values()))
     axes[2].set(title="Secondary metrics for selected trial",ylabel="score",ylim=(0,1.05))
-    plt.tight_layout(); FIGURE_COUNT=1
+    plt.tight_layout()
+    mo.output.append(mo.as_html(fig))
+    FIGURE_COUNT=1
     return FIGURE_COUNT, secondary_scores
 
 

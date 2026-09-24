@@ -111,7 +111,7 @@ def _(BenchmarkConfig, DEMO_TEST, balanced, benchmark, dataset, group_blocked, p
 
 
 @app.cell
-def _(comparison, dataset, folds, group_blocked, np, pl, plt):
+def _(comparison, dataset, folds, group_blocked, mo, np, pl, plt):
     def grouped_bar(ax, categories, series):
         x = np.arange(len(categories))
         width = 0.8 / len(series)
@@ -137,7 +137,9 @@ def _(comparison, dataset, folds, group_blocked, np, pl, plt):
     for (name,),part in fold_mcc.group_by("partition"):
         axes[1].plot(part.get_column("split").to_numpy(),part.get_column("score").to_numpy(),marker="o",label=name)
     axes[1].set(title="Fold-level sensitivity to partition design",ylabel="MCC"); axes[1].tick_params(axis="x",rotation=30); axes[1].legend()
-    plt.tight_layout(); FIGURE_COUNT=1
+    plt.tight_layout()
+    mo.output.append(mo.as_html(fig))
+    FIGURE_COUNT=1
     return FIGURE_COUNT, leak_checks
 
 

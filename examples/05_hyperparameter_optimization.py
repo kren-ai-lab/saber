@@ -120,7 +120,7 @@ def _(PartitionPlan, dataset, opt, pl, test_ids, train_ids, val_ids, validate):
 
 
 @app.cell
-def _(comparison, complete, np, opt, pl, plt, score_col, tuned):
+def _(comparison, complete, mo, np, opt, pl, plt, score_col, tuned):
     def grouped_bar(ax, categories, series):
         x = np.arange(len(categories))
         width = 0.8 / len(series)
@@ -141,7 +141,9 @@ def _(comparison, complete, np, opt, pl, plt, score_col, tuned):
     )
     axes[1].set_ylim(-.05,1.05); axes[1].set_title("Protected test")
     axes[2].bar(["search","protected test"],[opt.display_scores["mcc"],tuned.aggregate_metrics["mcc"]]); axes[2].set_ylim(-.05,1.05); axes[2].set_title("Selection vs final estimate")
-    plt.tight_layout(); FIGURE_COUNT=1
+    plt.tight_layout()
+    mo.output.append(mo.as_html(fig))
+    FIGURE_COUNT=1
     return (FIGURE_COUNT,)
 
 

@@ -61,3 +61,14 @@ def test_reporting_example_exports_portable_tables():
     code = (ROOT / "examples" / "11_benchmark_reporting.py").read_text(encoding="utf-8")
     for name in ("leaderboard.csv", "metric_summary.csv", "sample_error_audit.csv", "report.md"):
         assert name in code
+
+
+def test_examples_display_generated_figures():
+    """marimo only shows a cell's last expression; a figure left as a bare
+    assignment never renders in the notebook. Every cell that creates a
+    figure must emit it explicitly."""
+    figure_markers = ("plt.subplots(", "plt.figure(", "ConfusionMatrixDisplay")
+    for path in EXAMPLES:
+        code = path.read_text(encoding="utf-8")
+        if any(marker in code for marker in figure_markers):
+            assert "mo.output.append(" in code, path.name

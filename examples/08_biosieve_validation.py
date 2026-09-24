@@ -111,7 +111,7 @@ def _(dataset, np, pl, result):
 
 
 @app.cell
-def _(fold_df, np, plt, y):
+def _(fold_df, mo, np, plt, y):
     def grouped_bar(ax, categories, series):
         x = np.arange(len(categories))
         width = 0.8 / len(series)
@@ -128,7 +128,9 @@ def _(fold_df, np, plt, y):
     axes[1].bar(fold_names,fold_df.get_column("positive_rate").to_numpy()); axes[1].axhline(np.mean(y),linestyle="--"); axes[1].set(title="Class balance per held-out fold",ylabel="positive rate")
     axes[2].bar(fold_names,fold_df.get_column("n_eval").to_numpy()); axes[2].set(title="Held-out fold size",ylabel="samples")
     for ax in axes: ax.tick_params(axis="x",rotation=35)
-    plt.tight_layout(); FIGURE_COUNT=1
+    plt.tight_layout()
+    mo.output.append(mo.as_html(fig))
+    FIGURE_COUNT=1
     return (FIGURE_COUNT,)
 
 

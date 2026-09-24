@@ -108,7 +108,7 @@ def _(dataset, ids, pl, plan, validate, y):
 
 
 @app.cell
-def _(fold_metrics, np, oof, plt, report, y):
+def _(fold_metrics, mo, np, oof, plt, report, y):
     def grouped_bar(ax, categories, series):
         x = np.arange(len(categories))
         width = 0.8 / len(series)
@@ -131,7 +131,9 @@ def _(fold_metrics, np, oof, plt, report, y):
         {col: fold_metrics.get_column(col).to_numpy() for col in fold_cols},
     )
     axes[1,1].set_title("Fold error stability")
-    plt.tight_layout(); FIGURE_COUNT=1
+    plt.tight_layout()
+    mo.output.append(mo.as_html(fig))
+    FIGURE_COUNT=1
     return (FIGURE_COUNT,)
 
 

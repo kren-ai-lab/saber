@@ -152,7 +152,7 @@ def _(Path, error_audit, leader, metric_wide, pl, runtime, tempfile):
 
 
 @app.cell
-def _(error_audit, leader, metric_wide, np, pl, plt):
+def _(error_audit, leader, metric_wide, mo, np, pl, plt):
     def grouped_bar(ax, categories, series):
         x = np.arange(len(categories))
         width = 0.8 / len(series)
@@ -169,7 +169,9 @@ def _(error_audit, leader, metric_wide, np, pl, plt):
     grouped_bar(axes[1], profile.get_column("algorithm").to_list(), {col: profile.get_column(col).to_numpy() for col in profile_cols})
     axes[1].set(title="Metric profile"); axes[1].tick_params(axis="x",rotation=35)
     axes[2].hist(error_audit.get_column("error_rate").to_numpy(),bins=12); axes[2].set(title="Sample-level error frequency",xlabel="error rate across runs")
-    plt.tight_layout(); FIGURE_COUNT=1
+    plt.tight_layout()
+    mo.output.append(mo.as_html(fig))
+    FIGURE_COUNT=1
     return (FIGURE_COUNT,)
 
 
