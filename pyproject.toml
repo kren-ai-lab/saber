@@ -44,9 +44,9 @@ classifiers = [
 
 dependencies = [
     "numpy>=2.0,<3",
-    "pandas>=2.0,<3",
+    "pandas>=2.2.2,<3",
     "scikit-learn>=1.8,<2",
-    "scipy>=1.10,<2",
+    "scipy>=1.16,<2",
     "joblib>=1.3,<2",
     "rich>=13.0,<16",
     "pyyaml>=6.0,<7",
@@ -59,13 +59,13 @@ saber = "saber.cli.main:main"
 [project.optional-dependencies]
 biosieve = ["biosieve>=0.1.2,<0.2"]
 xgboost = ["xgboost>=2.0,<4"]
-lightgbm = ["lightgbm>=4.0,<5"]
-optuna = ["optuna>=4.0,<5"]
+lightgbm = ["lightgbm>=4.6,<5"]
+optuna = ["optuna>=4.6,<5"]
 all = [
     "biosieve>=0.1.2,<0.2",
     "xgboost>=2.0,<4",
-    "lightgbm>=4.0,<5",
-    "optuna>=4.0,<5",
+    "lightgbm>=4.6,<5",
+    "optuna>=4.6,<5",
 ]
 
 [project.urls]
@@ -82,7 +82,7 @@ dev = [
     "pyrefly>1.0",
     "taskipy>=1.14",
     "prek",
-    "matplotlib>=3.8",
+    "matplotlib>=3.10.7",
 ]
 
 [tool.hatch.version]
