@@ -6,11 +6,11 @@ from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
-import pandas as pd
-from pandas.api.types import is_numeric_dtype
+import polars as pl
 from sklearn.utils.multiclass import type_of_target
 
 from saber.exceptions import DatasetValidationError
+from saber.utils.tabular import as_frame, missing_mask
 
 
 def validate_feature_matrix(
@@ -23,21 +23,22 @@ def validate_feature_matrix(
     Missing values are allowed by default so leakage-safe preprocessing can impute
     them inside each training fold. Infinite values are always rejected.
     """
-    if isinstance(X, pd.DataFrame):
-        if X.ndim != 2:
-            raise DatasetValidationError("X must be a two-dimensional feature matrix.")
-        if X.shape[0] == 0 or X.shape[1] == 0:
+    X = as_frame(X)
+    if isinstance(X, pl.DataFrame):
+        if X.height == 0 or X.width == 0:
             raise DatasetValidationError("X must contain at least one sample and one feature.")
-        if X.columns.duplicated().any():
-            raise DatasetValidationError("DataFrame feature names must be unique.")
 
-        non_numeric = [str(column) for column in X.columns if not is_numeric_dtype(X[column].dtype)]
+        non_numeric = [
+            column
+            for column, dtype in zip(X.columns, X.dtypes, strict=True)
+            if not (dtype.is_numeric() or dtype == pl.Boolean)
+        ]
         if non_numeric:
             raise DatasetValidationError(
                 "X must contain only numerical features. Non-numerical columns: " + ", ".join(non_numeric)
             )
 
-        values = X.to_numpy(dtype=float, copy=False)
+        values = X.cast(pl.Float64).to_numpy()
     else:
         array = np.asarray(X)
         if array.ndim != 2:
@@ -70,7 +71,7 @@ def validate_target(y: Any, *, n_samples: int) -> np.ndarray:
     if len(values) == 0:
         raise DatasetValidationError("y must contain at least one target value.")
 
-    if pd.isna(values).any():
+    if missing_mask(values).any():
         raise DatasetValidationError("y cannot contain missing target values.")
 
     if values.dtype.kind == "c":
@@ -99,7 +100,7 @@ def validate_aligned_vector(
         raise DatasetValidationError(f"{name} must be one-dimensional.")
     if len(array) != n_samples:
         raise DatasetValidationError(f"{name} must contain {n_samples} entries; received {len(array)}.")
-    if not allow_missing and pd.isna(array).any():
+    if not allow_missing and missing_mask(array).any():
         raise DatasetValidationError(f"{name} cannot contain missing values.")
     return array
 
@@ -179,7 +180,7 @@ def validate_target_for_task(y: Any, task: str) -> str:
             ) from exc
 
         if target_type == "binary":
-            if len(pd.unique(values)) < 2:
+            if len(set(values.tolist())) < 2:
                 raise DatasetValidationError(
                     "Classification datasets must contain at least two target classes."
                 )

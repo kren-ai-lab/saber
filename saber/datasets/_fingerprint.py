@@ -9,7 +9,9 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 import numpy as np
-import pandas as pd
+import polars as pl
+
+from saber.utils.tabular import canonical_dtype
 
 _FINGERPRINT_VERSION = "saber-fingerprint-v1"
 
@@ -78,7 +80,7 @@ def _normalized_numeric_bytes(values: np.ndarray) -> bytes:
         normalized = np.asarray(array, dtype=np.uint8)
         return np.ascontiguousarray(normalized).tobytes(order="C")
 
-    # Pandas nullable numerical extension dtypes may materialize as object.
+    # Nullable integer columns materialize as float with NaN.
     try:
         normalized = np.asarray(array, dtype="<f8").copy()
     except (TypeError, ValueError) as exc:
@@ -91,11 +93,11 @@ def update_feature_matrix(hasher: Any, X: Any) -> None:
     """Update a hasher from a validated numerical feature matrix."""
     hasher.update(b"X")
 
-    if isinstance(X, pd.DataFrame):
+    if isinstance(X, pl.DataFrame):
         _update_json(hasher, ["dataframe", X.shape])
         for column in X.columns:
             series = X[column]
-            _update_json(hasher, [str(column), str(series.dtype)])
+            _update_json(hasher, [column, canonical_dtype(series.dtype)])
             hasher.update(_normalized_numeric_bytes(series.to_numpy()))
         return
 

@@ -51,6 +51,7 @@ dependencies = [
     "rich>=13.0,<16",
     "pyyaml>=6.0,<7",
     "typer>=0.27,<1",
+    "polars>=1.44,<2",
 ]
 
 [project.scripts]

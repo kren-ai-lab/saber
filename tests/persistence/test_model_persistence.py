@@ -186,7 +186,7 @@ def test_round_trip_works_in_fresh_python_process(tmp_path):
     expected_path = tmp_path / "expected.npy"
     data_path = tmp_path / "features.csv"
     np.save(expected_path, pipeline.predict(dataset.X))
-    dataset.X.to_csv(data_path, index=False)
+    dataset.X.write_csv(data_path)
 
     save_model_artifact(
         artifact_path,

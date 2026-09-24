@@ -5,23 +5,21 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-import pandas as pd
 
 from saber.core.specs import AlgorithmSpec
 from saber.datasets.schemas import DatasetBundle
 from saber.exceptions import PreprocessingContractError
+from saber.utils.tabular import to_numpy
 
 
 def has_missing_features(X: Any) -> bool:
     """Return whether a numerical feature matrix contains missing values."""
-    if isinstance(X, pd.DataFrame):
-        return bool(X.isna().to_numpy().any())
-    return bool(np.isnan(np.asarray(X, dtype=float)).any())
+    return bool(np.isnan(to_numpy(X).astype(float)).any())
 
 
 def has_negative_features(X: Any) -> bool:
     """Return whether a numerical feature matrix contains a negative finite value."""
-    values = np.asarray(X if not isinstance(X, pd.DataFrame) else X.to_numpy(), dtype=float)
+    values = to_numpy(X).astype(float)
     finite = values[np.isfinite(values)]
     return bool(finite.size and (finite < 0).any())
 
