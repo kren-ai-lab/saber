@@ -24,6 +24,20 @@ def test_as_frame_rejects_extension_dtypes_without_pyarrow():
         as_frame(pd.DataFrame({"a": pd.array([1, None], dtype="Int64")}))
 
 
+def test_as_frame_rejects_duplicate_pandas_column_names():
+    frame = pd.DataFrame([[1.0, 2.0]], columns=["a", "a"])
+    with pytest.raises(DatasetValidationError, match="unique"):
+        as_frame(frame)
+
+
+def test_as_frame_reports_non_numerical_columns_for_object_dtype_without_pyarrow():
+    if importlib.util.find_spec("pyarrow") is not None:
+        pytest.skip("pyarrow is installed, so object columns convert without this failure")
+    frame = pd.DataFrame({"a": [1.0, 2.0], "s": [{"x": 1}, {"y": 2}]})
+    with pytest.raises(DatasetValidationError, match="Non-numerical columns: s"):
+        as_frame(frame)
+
+
 def test_to_numpy_maps_null_and_nan_to_nan():
     frame = pl.DataFrame({"a": [1.0, float("nan"), None], "b": [1, 2, 3]})
     values = to_numpy(frame)
@@ -46,6 +60,7 @@ def test_missing_mask_handles_object_and_float():
     assert missing_mask(np.array([1.0, np.nan])).tolist() == [False, True]
     assert missing_mask(np.array(["a", None, float("nan")], dtype=object)).tolist() == [False, True, True]
     assert missing_mask(np.array([1, 2])).tolist() == [False, False]
+    assert missing_mask(np.array(["a", np.float32("nan")], dtype=object)).tolist() == [False, True]
 
 
 def test_records_frame_serializes_nested_cells_and_handles_empty():

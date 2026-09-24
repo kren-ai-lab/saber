@@ -52,12 +52,26 @@ def as_frame(X: Any) -> Any:
     """Return pandas DataFrames as Polars; leave every other input unchanged."""
     if not _is_pandas_frame(X):
         return X
+    if X.columns.duplicated().any():
+        raise DatasetValidationError("DataFrame feature names must be unique.")
     try:
         return pl.from_pandas(X)
     except ImportError as exc:
+        import pandas as pd  # noqa: PLC0415 - only imported once X is confirmed to already be pandas
+
+        extension_columns = [
+            str(column) for column in X.columns if pd.api.types.is_extension_array_dtype(X[column].dtype)
+        ]
+        if extension_columns:
+            raise DatasetValidationError(
+                "pandas extension dtypes (e.g. 'Int64') need pyarrow to convert; "
+                "pass a Polars DataFrame or a NumPy array instead."
+            ) from exc
+        non_numeric = [
+            str(column) for column in X.columns if X[column].dtype.kind not in {"b", "i", "u", "f"}
+        ]
         raise DatasetValidationError(
-            "pandas extension dtypes (e.g. 'Int64') need pyarrow to convert; "
-            "pass a Polars DataFrame or a NumPy array instead."
+            "X must contain only numerical features. Non-numerical columns: " + ", ".join(non_numeric)
         ) from exc
 
 
@@ -81,7 +95,8 @@ def missing_mask(values: np.ndarray) -> np.ndarray:
         return np.isnan(values)
     if values.dtype.kind == "O":
         return np.array(
-            [v is None or (isinstance(v, float) and math.isnan(v)) for v in values.ravel()], dtype=bool
+            [v is None or (isinstance(v, (float, np.floating)) and math.isnan(v)) for v in values.ravel()],
+            dtype=bool,
         ).reshape(values.shape)
     return np.zeros(values.shape, dtype=bool)
 

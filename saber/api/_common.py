@@ -3,17 +3,22 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import polars as pl
 
 from saber.core.prediction import PredictionResult
 from saber.core.registry import MODEL_REGISTRY, AlgorithmRegistry
 from saber.core.results import TrainResult
 from saber.datasets import DatasetBundle
-from saber.exceptions import ValidationContractError
+from saber.datasets.validation import validate_feature_matrix
+from saber.exceptions import FeatureSchemaMismatchError, ValidationContractError
 from saber.preprocessing import PreprocessingConfig, build_model_pipeline
-from saber.utils.tabular import to_numpy
+from saber.utils.tabular import as_frame, to_numpy
+
+if TYPE_CHECKING:
+    from saber.datasets import FeatureSchema
 
 
 def fit_dataset(
@@ -57,6 +62,7 @@ def fit_dataset(
         model=pipeline,
         spec=spec,
         parameters=estimator_params,
+        feature_schema=dataset.feature_schema,
         metadata={
             "algorithm": spec.name,
             "provider": spec.provider,
@@ -68,6 +74,26 @@ def fit_dataset(
             "public_api": True,
         },
     )
+
+
+def _validate_feature_schema(schema: FeatureSchema | None, X: Any) -> None:
+    """Validate X against the training feature schema before the NumPy conversion.
+
+    DataFrame-like inputs carry feature names/order, so they are checked in full.
+    NumPy inputs carry no names, so only the feature count is checked (as sklearn
+    itself only warns, never raises, when feature names are simply absent).
+    """
+    if schema is None:
+        return
+    frame = as_frame(X)
+    if isinstance(frame, pl.DataFrame):
+        schema.validate_compatible(frame)
+        return
+    _, n_features = validate_feature_matrix(frame)
+    if n_features != schema.n_features:
+        raise FeatureSchemaMismatchError(
+            f"X has {n_features} features; expected {schema.n_features} from the training schema."
+        )
 
 
 def prediction_from_model(
@@ -89,6 +115,7 @@ def prediction_from_model(
     if model is None:
         raise ValidationContractError("TrainResult does not contain a fitted model.")
 
+    _validate_feature_schema(result.feature_schema, X)
     X = to_numpy(X)
     predictions = np.asarray(model.predict(X))
     probabilities = None
