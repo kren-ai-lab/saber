@@ -60,6 +60,58 @@ def _validate_config(tmp_path: Path) -> Path:
     return config_path
 
 
+def _benchmark_config(tmp_path: Path) -> Path:
+    X, y = make_classification(
+        n_samples=48,
+        n_features=5,
+        n_informative=4,
+        n_redundant=0,
+        random_state=11,
+    )
+    frame = pd.DataFrame(X, columns=[f"f{i}" for i in range(5)])
+    frame.insert(0, "sample_id", [f"s{i}" for i in range(len(frame))])
+    frame["label"] = y
+    data_path = tmp_path / "data.csv"
+    frame.to_csv(data_path, index=False)
+
+    loaded = read_table(data_path, separator=",")
+    dataset = DatasetBundle(
+        loaded.select([f"f{i}" for i in range(5)]),
+        loaded["label"].to_numpy(),
+        sample_ids=loaded["sample_id"].to_list(),
+    )
+    plan = PartitionPlan.from_predefined_folds(
+        sample_ids=dataset.sample_ids,
+        fold_assignments=[i % 3 for i in range(dataset.n_samples)],
+        dataset_fingerprint=dataset.fingerprint,
+    )
+    folds = tmp_path / "folds.json"
+    folds.write_text(json.dumps(plan.to_dict()), encoding="utf-8")
+
+    config = {
+        "workflow": "benchmark",
+        "datasets": {"rep_a": {"path": "data.csv", "target": "label", "sample_id": "sample_id"}},
+        "algorithms": ["logistic_regression"],
+        "partitions": {"cv": {"path": "folds.json"}},
+        "benchmark": {
+            "metrics": ["accuracy"],
+            "seeds": [42],
+            "modes": ["untuned"],
+            "include_baselines": False,
+        },
+    }
+    config_path = tmp_path / "benchmark.yaml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    return config_path
+
+
+def test_benchmark_human_output_renders_metric_table(tmp_path, capsys):
+    config = _benchmark_config(tmp_path)
+    assert main(["benchmark", str(config)]) == EXIT_OK
+    output = capsys.readouterr().out
+    assert "accuracy" in output
+
+
 def test_dry_run_validates_without_creating_outputs(tmp_path, capsys):
     config = _validate_config(tmp_path)
     assert main(["validate", str(config), "--dry-run"]) == EXIT_OK

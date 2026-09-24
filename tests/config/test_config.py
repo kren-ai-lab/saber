@@ -139,6 +139,31 @@ def test_tuning_yaml_executes_typed_search_space(tmp_path):
     assert execution.summary["workflow"] == "tune"
 
 
+def test_tuning_yaml_with_output_directory_writes_readable_history_csv(tmp_path):
+    _write_classification_inputs(tmp_path)
+    config = {
+        "workflow": "tune",
+        "dataset": {"path": str(tmp_path / "data.csv"), "target": "label", "sample_id": "sample_id"},
+        "algorithm": "logistic_regression",
+        "partition": {"path": str(tmp_path / "folds.json")},
+        "tuning": {
+            "optimizer": "grid",
+            "metrics": ["accuracy"],
+            "refit_metric": "accuracy",
+            "random_state": 42,
+        },
+        "search_space": {
+            "C": {"type": "categorical", "values": [0.1, 1.0]},
+        },
+        "output": {"directory": str(tmp_path / "results")},
+    }
+    execution = run_config(config)
+    history_path = tmp_path / "results" / "optimization_history.csv"
+    assert history_path.exists()
+    assert not read_table(history_path, separator=",").is_empty()
+    assert execution.outputs["optimization_history"] == str(history_path)
+
+
 def test_train_yaml_artifact_then_predict_yaml_round_trip(tmp_path):
     X, y = make_regression(n_samples=40, n_features=4, random_state=19)
     frame = pd.DataFrame(X, columns=["a", "b", "c", "d"])
@@ -210,6 +235,35 @@ def test_benchmark_yaml_runs_same_public_engine(tmp_path):
         execution.result.aggregate_metrics_frame()["score"].to_list()
         == direct.aggregate_metrics_frame()["score"].to_list()
     )
+
+
+def test_benchmark_yaml_with_output_directory_writes_readable_result_tables(tmp_path):
+    _write_classification_inputs(tmp_path)
+    config = {
+        "workflow": "benchmark",
+        "datasets": {
+            "rep_a": {
+                "path": str(tmp_path / "data.csv"),
+                "target": "label",
+                "sample_id": "sample_id",
+            }
+        },
+        "algorithms": ["logistic_regression"],
+        "partitions": {"cv": {"path": str(tmp_path / "folds.json")}},
+        "benchmark": {
+            "metrics": ["accuracy"],
+            "seeds": [42],
+            "modes": ["untuned"],
+            "include_baselines": False,
+        },
+        "output": {"directory": str(tmp_path / "results")},
+    }
+    execution = run_config(config)
+    for name in ("metrics", "predictions", "failures", "optimization_history"):
+        path = tmp_path / "results" / f"{name}.csv"
+        assert path.exists()
+        read_table(path, separator=",")  # must parse without error
+        assert execution.outputs[name] == str(path)
 
 
 def test_config_validate_rejects_unknown_nested_keys():

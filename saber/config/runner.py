@@ -199,7 +199,7 @@ def _run_tune(config: WorkflowConfig) -> WorkflowExecution:
         directory = config.resolve_path(output["directory"])
         directory.mkdir(parents=True, exist_ok=True)
         history_path = directory / "optimization_history.csv"
-        result.history_frame().to_csv(history_path, index=False)
+        result.history_frame().write_csv(history_path)
         outputs["optimization_history"] = str(history_path)
 
     artifact = _optional_mapping(payload.get("artifact"), "artifact")
@@ -372,7 +372,7 @@ def _write_result_tables(config: WorkflowConfig, result: Any, outputs: dict[str,
         }
         for name, frame in tables.items():
             path = directory / f"{name}.csv"
-            frame.to_csv(path, index=False)
+            frame.write_csv(path)
             outputs[name] = str(path)
 
 
