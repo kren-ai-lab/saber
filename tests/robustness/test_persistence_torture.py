@@ -117,7 +117,7 @@ def test_artifact_overwrite_replaces_previous_model_atomically(tmp_path):
 
 def test_invalid_task_is_rejected_before_writing_artifact(tmp_path):
     dataset, trained, _ = _trained(tmp_path)
-    with pytest.raises(PersistenceError, match="classification.*regression"):
+    with pytest.raises(PersistenceError, match=r"classification.*regression"):
         save_model_artifact(
             tmp_path / "bad",
             model=trained.model,

@@ -316,17 +316,17 @@ def test_fail_fast_raises_after_recordable_run_failure() -> None:
 
 def test_seeded_benchmark_is_score_reproducible() -> None:
     dataset = _classification_dataset()
-    kwargs = dict(
-        datasets=dataset,
-        algorithms=("random_forest",),
-        config=BenchmarkConfig(
+    kwargs = {
+        "datasets": dataset,
+        "algorithms": ("random_forest",),
+        "config": BenchmarkConfig(
             metrics=("accuracy", "mcc"),
             seeds=(123,),
             include_baselines=False,
         ),
-        partitions=_cv_plan(dataset),
-        model_params={"random_forest": {"n_estimators": 20}},
-    )
+        "partitions": _cv_plan(dataset),
+        "model_params": {"random_forest": {"n_estimators": 20}},
+    }
     engine = BenchmarkEngine(MODEL_REGISTRY)
     first = engine.run(**kwargs)
     second = engine.run(**kwargs)

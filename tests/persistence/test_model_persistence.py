@@ -213,7 +213,7 @@ print('PHASE7_SUBPROCESS_OK')
 """
     environment = os.environ.copy()
     environment["PYTHONPATH"] = str(Path(__file__).resolve().parents[2])
-    completed = subprocess.run(
+    completed = subprocess.run(  # noqa: S603  trusted, fixed argument list, no shell interpolation
         [sys.executable, "-c", code],
         check=True,
         capture_output=True,

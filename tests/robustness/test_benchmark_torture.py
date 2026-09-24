@@ -40,7 +40,7 @@ def test_multi_representation_benchmark_reuses_identical_membership():
         config=BenchmarkConfig(metrics=("accuracy",), seeds=(1, 2), include_baselines=True),
         partitions={"cv": plan},
     )
-    assert result.n_runs == 8  # 2 reps × (model + baseline) × 2 seeds
+    assert result.n_runs == 8  # 2 reps x (model + baseline) x 2 seeds
     assert len(result.failures) == 0
     memberships = {
         (run.dataset_label, tuple(tuple(f.evaluation_ids) for f in run.validation.folds))
@@ -116,13 +116,13 @@ def test_fail_fast_promotes_run_failure_to_benchmark_contract_error():
 
 def test_same_seed_benchmark_is_reproducible_for_random_forest():
     dataset = _classification(72)
-    kwargs = dict(
-        datasets=dataset,
-        algorithms=("random_forest",),
-        config=BenchmarkConfig(metrics=("accuracy", "mcc"), seeds=(42,), include_baselines=False),
-        partitions=_cv(dataset),
-        model_params={"random_forest": {"n_estimators": 20}},
-    )
+    kwargs = {
+        "datasets": dataset,
+        "algorithms": ("random_forest",),
+        "config": BenchmarkConfig(metrics=("accuracy", "mcc"), seeds=(42,), include_baselines=False),
+        "partitions": _cv(dataset),
+        "model_params": {"random_forest": {"n_estimators": 20}},
+    }
     engine = BenchmarkEngine(MODEL_REGISTRY)
     a = engine.run(**kwargs)
     b = engine.run(**kwargs)

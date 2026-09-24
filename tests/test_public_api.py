@@ -203,6 +203,8 @@ def test_saber_works_without_pandas():
         "DatasetBundle(X=np.ones((4, 2)), y=np.array([0, 1, 0, 1]))\n"
         "print('ok')"
     )
-    completed = subprocess.run([sys.executable, "-c", code], text=True, capture_output=True, check=False)
+    completed = subprocess.run(  # noqa: S603  trusted, fixed argument list, no shell interpolation
+        [sys.executable, "-c", code], text=True, capture_output=True, check=False
+    )
     assert completed.returncode == 0, completed.stderr
     assert completed.stdout.strip() == "ok"

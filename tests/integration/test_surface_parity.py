@@ -50,7 +50,9 @@ def test_python_and_yaml_validation_produce_equivalent_metrics(tmp_path):
     )
     config_path = tmp_path / "validate.yaml"
     config_path.write_text(
-        f"""schema_version: "1.0"\nworkflow: validate\ndataset:\n  path: {data_path.name}\n  target: label\n  sample_id: sample_id\nalgorithm: logistic_regression\npartition:\n  path: {part_path.name}\nmetrics: [accuracy, balanced_accuracy]\nrandom_state: 42\n"""
+        f"""schema_version: "1.0"\nworkflow: validate\ndataset:\n  path: {data_path.name}\n"""
+        """  target: label\n  sample_id: sample_id\nalgorithm: logistic_regression\npartition:\n"""
+        f"""  path: {part_path.name}\nmetrics: [accuracy, balanced_accuracy]\nrandom_state: 42\n"""
     )
     executed = run_config(load_config(config_path))
     assert executed.result.aggregate_metrics == pytest.approx(direct.aggregate_metrics)
@@ -61,7 +63,9 @@ def test_cli_validate_uses_same_config_runner_and_writes_summary(tmp_path):
     _, _, data_path, part_path = _write_classification_case(tmp_path)
     config_path = tmp_path / "validate.yaml"
     config_path.write_text(
-        f"""schema_version: "1.0"\nworkflow: validate\ndataset:\n  path: {data_path.name}\n  target: label\n  sample_id: sample_id\nalgorithm: logistic_regression\npartition:\n  path: {part_path.name}\nmetrics: [accuracy]\noutput:\n  directory: output\n"""
+        f"""schema_version: "1.0"\nworkflow: validate\ndataset:\n  path: {data_path.name}\n"""
+        """  target: label\n  sample_id: sample_id\nalgorithm: logistic_regression\npartition:\n"""
+        f"""  path: {part_path.name}\nmetrics: [accuracy]\noutput:\n  directory: output\n"""
     )
     assert main(["validate", str(config_path)]) == EXIT_OK
     summary = json.loads((tmp_path / "output" / "summary.json").read_text())
@@ -73,7 +77,9 @@ def test_cli_workflow_mismatch_is_config_error(tmp_path):
     _, _, data_path, part_path = _write_classification_case(tmp_path)
     config_path = tmp_path / "validate.yaml"
     config_path.write_text(
-        f"""schema_version: "1.0"\nworkflow: validate\ndataset:\n  path: {data_path.name}\n  target: label\n  sample_id: sample_id\nalgorithm: logistic_regression\npartition:\n  path: {part_path.name}\nmetrics: [accuracy]\n"""
+        f"""schema_version: "1.0"\nworkflow: validate\ndataset:\n  path: {data_path.name}\n"""
+        """  target: label\n  sample_id: sample_id\nalgorithm: logistic_regression\npartition:\n"""
+        f"""  path: {part_path.name}\nmetrics: [accuracy]\n"""
     )
     assert main(["train", str(config_path)]) == EXIT_CONFIG
 
@@ -84,7 +90,9 @@ def test_config_relative_paths_do_not_depend_on_current_working_directory(tmp_pa
     _, _, data_path, part_path = _write_classification_case(case)
     config_path = case / "validate.yaml"
     config_path.write_text(
-        f"""schema_version: "1.0"\nworkflow: validate\ndataset:\n  path: {data_path.name}\n  target: label\n  sample_id: sample_id\nalgorithm: logistic_regression\npartition:\n  path: {part_path.name}\nmetrics: [accuracy]\n"""
+        f"""schema_version: "1.0"\nworkflow: validate\ndataset:\n  path: {data_path.name}\n"""
+        """  target: label\n  sample_id: sample_id\nalgorithm: logistic_regression\npartition:\n"""
+        f"""  path: {part_path.name}\nmetrics: [accuracy]\n"""
     )
     other = tmp_path / "elsewhere"
     other.mkdir()
@@ -104,7 +112,9 @@ def test_yaml_train_artifact_predict_roundtrip(tmp_path):
 
     train_config = tmp_path / "train.yaml"
     train_config.write_text(
-        """schema_version: "1.0"\nworkflow: train\ndataset:\n  path: train.csv\n  target: label\n  sample_id: sample_id\nalgorithm: logistic_regression\nrandom_state: 42\nartifact:\n  path: artifact\n"""
+        """schema_version: "1.0"\nworkflow: train\ndataset:\n  path: train.csv\n  target: label\n"""
+        """  sample_id: sample_id\nalgorithm: logistic_regression\nrandom_state: 42\nartifact:\n"""
+        """  path: artifact\n"""
     )
     assert main(["train", str(train_config)]) == EXIT_OK
 
@@ -113,7 +123,8 @@ def test_yaml_train_artifact_predict_roundtrip(tmp_path):
     pred_frame.to_csv(tmp_path / "predict.csv", index=False)
     predict_config = tmp_path / "predict.yaml"
     predict_config.write_text(
-        """schema_version: "1.0"\nworkflow: predict\nartifact: artifact\ndataset:\n  path: predict.csv\n  sample_id: sample_id\noutput:\n  path: predictions.csv\n"""
+        """schema_version: "1.0"\nworkflow: predict\nartifact: artifact\ndataset:\n  path: predict.csv\n"""
+        """  sample_id: sample_id\noutput:\n  path: predictions.csv\n"""
     )
     assert main(["predict", str(predict_config)]) == EXIT_OK
     predictions = pd.read_csv(tmp_path / "predictions.csv")
@@ -134,7 +145,8 @@ def test_regression_yaml_evaluate_artifact_roundtrip(tmp_path):
     eval_frame.to_csv(tmp_path / "eval.csv", index=False)
     config_path = tmp_path / "evaluate.yaml"
     config_path.write_text(
-        """schema_version: "1.0"\nworkflow: evaluate\nartifact: artifact\ndataset:\n  path: eval.csv\n  target: target\n  sample_id: sample_id\nmetrics: [rmse, mae]\n"""
+        """schema_version: "1.0"\nworkflow: evaluate\nartifact: artifact\ndataset:\n  path: eval.csv\n"""
+        """  target: target\n  sample_id: sample_id\nmetrics: [rmse, mae]\n"""
     )
     result = run_config(load_config(config_path))
     assert set(result.result.metrics) == {"rmse", "mae"}

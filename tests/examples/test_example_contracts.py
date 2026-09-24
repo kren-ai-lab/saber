@@ -2,11 +2,31 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES = sorted((ROOT / "examples").glob("[0-9][0-9]_*.py"))
-FORBIDDEN = ("Trainer(", "GridSearchOptimizer(", "RandomSearchOptimizer(", "HalvingGridSearchOptimizer(",
-             "HalvingRandomSearchOptimizer(", "train_test_split(", "KFold(", "StratifiedKFold(", "GroupKFold(")
-REQUIRED_ACROSS_SUITE = ("sample_weight", "pr_auc", "log_loss", "f1_macro", "optimization_history_frame",
-                         "PartitionPlan.holdout", "BioSievePartitionConfig", "BenchmarkConfig", "SearchSpace",
-                         "positive_probabilities", "predictions_frame", "verify_artifact")
+FORBIDDEN = (
+    "Trainer(",
+    "GridSearchOptimizer(",
+    "RandomSearchOptimizer(",
+    "HalvingGridSearchOptimizer(",
+    "HalvingRandomSearchOptimizer(",
+    "train_test_split(",
+    "KFold(",
+    "StratifiedKFold(",
+    "GroupKFold(",
+)
+REQUIRED_ACROSS_SUITE = (
+    "sample_weight",
+    "pr_auc",
+    "log_loss",
+    "f1_macro",
+    "optimization_history_frame",
+    "PartitionPlan.holdout",
+    "BioSievePartitionConfig",
+    "BenchmarkConfig",
+    "SearchSpace",
+    "positive_probabilities",
+    "predictions_frame",
+    "verify_artifact",
+)
 
 
 def test_thirteen_examples_exist():

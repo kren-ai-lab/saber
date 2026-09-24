@@ -81,16 +81,16 @@ def test_seeded_optuna_is_reproducible() -> None:
 def test_optuna_storage_can_resume_existing_study(tmp_path) -> None:
     dataset, plan = _inputs()
     storage = f"sqlite:///{tmp_path / 'study.db'}"
-    base = dict(
-        optimizer="optuna",
-        metrics=("accuracy",),
-        n_trials=2,
-        random_state=17,
-        n_jobs=1,
-        optuna_storage=storage,
-        optuna_study_name="phase5-resume",
-        optuna_load_if_exists=True,
-    )
+    base = {
+        "optimizer": "optuna",
+        "metrics": ("accuracy",),
+        "n_trials": 2,
+        "random_state": 17,
+        "n_jobs": 1,
+        "optuna_storage": storage,
+        "optuna_study_name": "phase5-resume",
+        "optuna_load_if_exists": True,
+    }
     space = SearchSpace("lr", {"C": LogFloat(1e-3, 10.0)})
     first = TuningEngine(MODEL_REGISTRY).run(
         dataset=dataset,

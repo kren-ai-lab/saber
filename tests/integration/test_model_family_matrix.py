@@ -168,7 +168,7 @@ def test_gamma_regression_runs_on_strictly_positive_target():
 
 
 @pytest.mark.parametrize(
-    "module_name, classifier, regressor, class_params, reg_params",
+    ("module_name", "classifier", "regressor", "class_params", "reg_params"),
     [
         (
             "xgboost",

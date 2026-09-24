@@ -29,7 +29,7 @@ def _benchmark_result():
         test_ids=dataset.sample_ids[35:],
         dataset_fingerprint=dataset.fingerprint,
     )
-    result = BenchmarkEngine(MODEL_REGISTRY).run(
+    return BenchmarkEngine(MODEL_REGISTRY).run(
         datasets={"representation_a": dataset},
         algorithms=("logistic_regression",),
         partitions={"holdout": plan},
@@ -40,7 +40,6 @@ def _benchmark_result():
             return_estimators=False,
         ),
     )
-    return result
 
 
 def test_benchmark_artifact_persists_analysis_tables(tmp_path):

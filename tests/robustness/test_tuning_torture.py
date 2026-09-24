@@ -250,7 +250,7 @@ def test_tuning_rejects_any_explicit_training_fold_with_single_class_before_sear
         test_ids=ids[18:],
         dataset_fingerprint=dataset.fingerprint,
     )
-    with pytest.raises(Exception, match="at least two|binary|multiclass"):
+    with pytest.raises(Exception, match=r"at least two|binary|multiclass"):
         TuningEngine(MODEL_REGISTRY).run(
             dataset=dataset,
             algorithm="logistic_regression",

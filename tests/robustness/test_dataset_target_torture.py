@@ -24,12 +24,12 @@ def test_continuous_target_is_rejected_for_classification_before_fit():
     X = np.arange(60, dtype=float).reshape(20, 3)
     y = np.linspace(0.01, 0.99, 20)
     dataset = DatasetBundle(X=X, y=y)
-    with pytest.raises(DatasetValidationError, match="classification|target|continuous"):
+    with pytest.raises(DatasetValidationError, match=r"classification|target|continuous"):
         dataset.validate(task="classification")
 
 
 @pytest.mark.parametrize(
-    "labels, expected",
+    ("labels", "expected"),
     [
         (["neg", "pos"] * 10, "binary"),
         ([10, 20] * 10, "binary"),
@@ -46,7 +46,7 @@ def test_supported_class_label_regimes_are_detected(labels, expected):
 
 def test_single_class_target_is_rejected_for_classification():
     dataset = DatasetBundle(X=np.ones((12, 2)), y=["only"] * 12)
-    with pytest.raises(DatasetValidationError, match="at least two|binary|multiclass"):
+    with pytest.raises(DatasetValidationError, match=r"at least two|binary|multiclass"):
         dataset.validate(task="classification")
 
 
