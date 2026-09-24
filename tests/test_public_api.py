@@ -146,6 +146,30 @@ def test_evaluate_rejects_reordered_dataframe_columns():
         saber.evaluate(dataset=reordered, model=result, metrics=("accuracy",))
 
 
+def test_predict_and_evaluate_accept_dataset_feature_name_overrides():
+    dataset = _named_classification_dataset()
+    result = saber.train(dataset=dataset, algorithm="logistic_regression", random_state=42)
+
+    renamed = dataset.X.rename({"a": "x0", "b": "x1", "c": "x2", "d": "x3"})
+    overridden = DatasetBundle(renamed, dataset.y, sample_ids=dataset.sample_ids, feature_names=list("abcd"))
+
+    prediction = saber.predict(result, dataset=overridden)
+    evaluation = saber.evaluate(dataset=overridden, model=result, metrics=("accuracy",))
+
+    assert prediction.n_samples == dataset.n_samples
+    assert evaluation.metrics["accuracy"] >= 0.0
+
+
+def test_predict_forwards_explicit_feature_names_override_without_dataset():
+    dataset = _named_classification_dataset()
+    result = saber.train(dataset=dataset, algorithm="logistic_regression", random_state=42)
+
+    renamed = dataset.X.rename({"a": "x0", "b": "x1", "c": "x2", "d": "x3"})
+    prediction = saber.predict(result, X=renamed, feature_names=list("abcd"))
+
+    assert prediction.n_samples == dataset.n_samples
+
+
 def test_predict_accepts_same_order_dataframe_and_matching_width_numpy_array():
     dataset = _named_classification_dataset()
     result = saber.train(dataset=dataset, algorithm="logistic_regression", random_state=42)

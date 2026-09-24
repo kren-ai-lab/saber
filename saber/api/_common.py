@@ -76,7 +76,12 @@ def fit_dataset(
     )
 
 
-def _validate_feature_schema(schema: FeatureSchema | None, X: Any) -> None:
+def _validate_feature_schema(
+    schema: FeatureSchema | None,
+    X: Any,
+    *,
+    feature_names: Sequence[str] | None = None,
+) -> None:
     """Validate X against the training feature schema before the NumPy conversion.
 
     DataFrame-like inputs carry feature names/order, so they are checked in full.
@@ -87,7 +92,7 @@ def _validate_feature_schema(schema: FeatureSchema | None, X: Any) -> None:
         return
     frame = as_frame(X)
     if isinstance(frame, pl.DataFrame):
-        schema.validate_compatible(frame)
+        schema.validate_compatible(frame, feature_names=feature_names)
         return
     _, n_features = validate_feature_matrix(frame)
     if n_features != schema.n_features:
@@ -101,12 +106,14 @@ def prediction_from_model(
     result: TrainResult,
     dataset: DatasetBundle | None = None,
     X: Any | None = None,
+    feature_names: Sequence[str] | None = None,
     sample_ids: Sequence[Any] | None = None,
     positive_class: Any | None = None,
 ) -> PredictionResult:
     """Generate a structured prediction from a high-level TrainResult."""
     if dataset is not None:
         X = dataset.X
+        feature_names = dataset.feature_names
         sample_ids = dataset.sample_ids
     if X is None:
         raise ValidationContractError("Prediction requires dataset=... or X=....")
@@ -115,7 +122,7 @@ def prediction_from_model(
     if model is None:
         raise ValidationContractError("TrainResult does not contain a fitted model.")
 
-    _validate_feature_schema(result.feature_schema, X)
+    _validate_feature_schema(result.feature_schema, X, feature_names=feature_names)
     X = to_numpy(X)
     predictions = np.asarray(model.predict(X))
     probabilities = None

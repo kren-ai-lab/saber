@@ -48,6 +48,7 @@ def predict(
             result=active,
             dataset=dataset,
             X=X,
+            feature_names=feature_names,
             sample_ids=sample_ids,
             positive_class=positive_class,
         )

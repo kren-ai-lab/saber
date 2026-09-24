@@ -10,7 +10,7 @@ from sklearn.datasets import make_classification, make_regression
 
 import saber
 from saber.config import CONFIG_SCHEMA_VERSION, dump_config, load_config, run_config
-from saber.config.builders import load_dataset
+from saber.config.builders import load_dataset, load_prediction_frame
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.exceptions import ConfigurationError
 from saber.utils.tabular import read_table
@@ -284,6 +284,39 @@ def test_csv_and_tsv_dataset_loading_give_same_fingerprint(tmp_path):
     assert csv_bundle.feature_names == ("f0", "f1")
     assert np.isnan(csv_bundle.X["f1"].to_numpy()[0])
     assert np.isnan(tsv_bundle.X["f1"].to_numpy()[0])
+
+
+def test_dataset_sep_rejects_multi_character_separator(tmp_path):
+    data_path = tmp_path / "data.csv"
+    data_path.write_text("sample_id::target::f0\ns0::0::1.0\n", encoding="utf-8")
+    config = load_config(
+        {
+            "workflow": "train",
+            "dataset": {
+                "path": str(data_path),
+                "target": "target",
+                "sample_id": "sample_id",
+                "sep": "::",
+            },
+            "algorithm": "ridge_regressor",
+        }
+    )
+    with pytest.raises(ConfigurationError, match="single character"):
+        load_dataset(config, config.payload["dataset"])
+
+
+def test_prediction_frame_sep_rejects_multi_character_separator(tmp_path):
+    data_path = tmp_path / "data.csv"
+    data_path.write_text("sample_id::f0\ns0::1.0\n", encoding="utf-8")
+    config = load_config(
+        {
+            "workflow": "predict",
+            "dataset": {"path": str(data_path), "sample_id": "sample_id", "sep": "::"},
+            "artifact": str(tmp_path / "model"),
+        }
+    )
+    with pytest.raises(ConfigurationError, match="single character"):
+        load_prediction_frame(config, config.payload["dataset"])
 
 
 def test_benchmark_config_requires_partitions_or_biosieve():

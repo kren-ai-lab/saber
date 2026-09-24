@@ -59,6 +59,19 @@ def test_cli_config_validation_and_wrong_workflow(tmp_path):
     assert main(["train", str(path)]) == EXIT_CONFIG
 
 
+def test_cli_train_rejects_multi_character_dataset_separator(tmp_path):
+    data_path = tmp_path / "data.csv"
+    data_path.write_text("sample_id::target::f0\ns0::0::1.0\ns1::1::2.0\n", encoding="utf-8")
+    config = {
+        "workflow": "train",
+        "dataset": {"path": "data.csv", "target": "target", "sample_id": "sample_id", "sep": "::"},
+        "algorithm": "ridge_regressor",
+    }
+    path = tmp_path / "train.yaml"
+    path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    assert main(["train", str(path)]) == EXIT_CONFIG
+
+
 def test_cli_validate_uses_same_config_runner(tmp_path):
     path, _ = _workflow_files(tmp_path)
     direct = run_config(path)

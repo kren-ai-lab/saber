@@ -52,6 +52,7 @@ def load_dataset(
     separator = payload.get("sep")
     if separator is None:
         separator = "\t" if suffix == ".tsv" else ","
+    _validate_separator(separator)
     if suffix not in {".csv", ".tsv", ".txt"}:
         raise ConfigurationError("CLI/YAML dataset files currently support CSV, TSV, or TXT.")
     frame = read_table(path, separator=separator)
@@ -104,6 +105,7 @@ def load_prediction_frame(
     path = config.resolve_path(payload["path"])
     suffix = path.suffix.lower()
     separator = payload.get("sep") or ("\t" if suffix == ".tsv" else ",")
+    _validate_separator(separator)
     frame = read_table(path, separator=separator)
     id_col = payload.get("sample_id")
     excluded = {
@@ -248,6 +250,11 @@ def _build_domain(domain: Any) -> Any:
     if kind == "log_float":
         return LogFloat(float(domain["low"]), float(domain["high"]))
     raise ConfigurationError(f"Unknown search-space domain type '{kind}'.")
+
+
+def _validate_separator(separator: str) -> None:
+    if len(separator) != 1:
+        raise ConfigurationError(f"dataset.sep must be a single character; received {separator!r}.")
 
 
 def _reject_unknown(payload: Mapping[str, Any], allowed: set[str], label: str) -> None:
