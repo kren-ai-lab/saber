@@ -1,5 +1,4 @@
-"""saber.classification.lightgbm_models
-=====================================
+"""saber.classification.lightgbm_models.
 
 LightGBM classification models and registry wiring.
 """
@@ -25,8 +24,7 @@ _ALIASES: dict[str, tuple[str, ...]] = {"lgbm_classifier": ("lightgbm_classifier
 
 
 def register_lightgbm_classification_models() -> None:
-    """Register all LightGBM classification models.
-    """
+    """Register all LightGBM classification models."""
     models = [
         (
             "lgbm_classifier",
@@ -44,7 +42,7 @@ def register_lightgbm_classification_models() -> None:
             task="classification",
             name=name,
             estimator_cls=model_cls,
-            aliases=_ALIASES.get(name, tuple()),
+            aliases=_ALIASES.get(name, ()),
             capabilities=infer_estimator_capabilities(
                 model_cls,
                 native_missing_values=True,

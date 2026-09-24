@@ -1,5 +1,4 @@
-"""saber.classification.search_spaces
-===================================
+"""saber.classification.search_spaces.
 
 Default hyperparameter search spaces for classification models.
 """

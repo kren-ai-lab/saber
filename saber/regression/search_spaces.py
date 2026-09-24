@@ -1,5 +1,4 @@
-"""saber.regression.search_spaces
-===============================
+"""saber.regression.search_spaces.
 
 Default hyperparameter search spaces for regression models.
 """

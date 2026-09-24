@@ -1,5 +1,4 @@
-"""saber.regression.xgboost
-=========================
+"""saber.regression.xgboost.
 
 XGBoost regression models and registry wiring.
 """
@@ -26,8 +25,7 @@ _ALIASES: dict[str, tuple[str, ...]] = {
 
 
 def register_xgboost_regression_models() -> None:
-    """Register all XGBoost regression models.
-    """
+    """Register all XGBoost regression models."""
     models = [
         (
             "xgb_regressor",
@@ -61,7 +59,7 @@ def register_xgboost_regression_models() -> None:
             task="regression",
             name=name,
             estimator_cls=model_rgx,
-            aliases=_ALIASES.get(name, tuple()),
+            aliases=_ALIASES.get(name, ()),
             tags=tags,
             capabilities=infer_estimator_capabilities(
                 model_rgx,

@@ -1,5 +1,4 @@
-"""saber.classification.sklearn_models
-====================================
+"""saber.classification.sklearn_models.
 
 Scikit-learn classification models and registry wiring.
 """
@@ -102,8 +101,7 @@ def _requirements_for(name: str) -> EstimatorRequirements:
 
 
 def register_sklearn_classification_models() -> None:
-    """Register all scikit-learn classification models.
-    """
+    """Register all scikit-learn classification models."""
     models = [
         ("dummy_classifier", DummyClassifier, ("classification", "baseline", "dummy"), None),
         (
@@ -231,7 +229,7 @@ def register_sklearn_classification_models() -> None:
             task="classification",
             name=name,
             tags=tags,
-            aliases=_ALIASES.get(name, tuple()),
+            aliases=_ALIASES.get(name, ()),
             default_params=_DEFAULT_PARAMS.get(name, {}),
             estimator_cls=model_cls,
             capabilities=capabilities,

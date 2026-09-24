@@ -1,5 +1,4 @@
-"""saber.regression.lightgbm
-==========================
+"""saber.regression.lightgbm.
 
 LightGBM regression models and registry wiring.
 """
@@ -20,8 +19,7 @@ _ALIASES: dict[str, tuple[str, ...]] = {"lgbm_regressor": ("lightgbm_regressor",
 
 
 def register_lightgbm_regression_models() -> None:
-    """Register all LightGBM regression models.
-    """
+    """Register all LightGBM regression models."""
     models = [
         (
             "lgbm_regressor",
@@ -44,7 +42,7 @@ def register_lightgbm_regression_models() -> None:
             task="regression",
             name=name,
             estimator_cls=model_rgx,
-            aliases=_ALIASES.get(name, tuple()),
+            aliases=_ALIASES.get(name, ()),
             tags=tags,
             capabilities=infer_estimator_capabilities(
                 model_rgx,

@@ -1,5 +1,4 @@
-"""saber.classification.xgboost_models
-====================================
+"""saber.classification.xgboost_models.
 
 XGBoost classification models and registry wiring.
 """
@@ -31,8 +30,7 @@ _ALIASES: dict[str, tuple[str, ...]] = {
 
 
 def register_xgboost_classification_models() -> None:
-    """Register all XGBoost classification models.
-    """
+    """Register all XGBoost classification models."""
     models = [
         (
             "xgb_classifier",
@@ -56,7 +54,7 @@ def register_xgboost_classification_models() -> None:
             task="classification",
             name=name,
             estimator_cls=model_cls,
-            aliases=_ALIASES.get(name, tuple()),
+            aliases=_ALIASES.get(name, ()),
             tags=tags,
             capabilities=infer_estimator_capabilities(
                 model_cls,
