@@ -1,7 +1,4 @@
-"""saber.core.registry
-====================
-
-Central registry for machine learning algorithms.
+"""Central registry for machine learning algorithms.
 
 This module provides the registry infrastructure used to
 register, query, filter, and retrieve algorithm specifications
@@ -11,14 +8,18 @@ throughout the saber ecosystem.
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Iterator, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from saber.core.specs import AlgorithmSpec
 from saber.exceptions import (
     AlgorithmAlreadyRegisteredError,
     AlgorithmNotFoundError,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator, Sequence
+
+    from saber.core.estimator import EstimatorFactory
+    from saber.core.specs import AlgorithmSpec
 
 
 class AlgorithmRegistry:
@@ -34,13 +35,14 @@ class AlgorithmRegistry:
     """
 
     def __init__(self) -> None:
+        """Initialize an empty registry with no algorithms or aliases."""
         self._algorithms: dict[str, AlgorithmSpec] = {}
         self._aliases: dict[str, str] = {}
 
     def register(
         self,
         spec: AlgorithmSpec,
-        overwrite: bool = False,
+        overwrite: bool = False,  # noqa: FBT001, FBT002  # public API keyword-or-positional flag
     ) -> None:
         """Register a single algorithm.
 
@@ -78,7 +80,7 @@ class AlgorithmRegistry:
     def register_many(
         self,
         specs: Sequence[AlgorithmSpec],
-        overwrite: bool = False,
+        overwrite: bool = False,  # noqa: FBT001, FBT002  # public API keyword-or-positional flag
     ) -> None:
         """Register multiple algorithm specifications.
 
@@ -144,10 +146,10 @@ class AlgorithmRegistry:
         """
         try:
             self.get(name)
-            return True
-
         except AlgorithmNotFoundError:
             return False
+        else:
+            return True
 
     def filter(
         self,
@@ -183,9 +185,8 @@ class AlgorithmRegistry:
             if provider is not None and spec.provider != provider:
                 continue
 
-            if tags is not None:
-                if not all(tag in spec.tags for tag in tags):
-                    continue
+            if tags is not None and not all(tag in spec.tags for tag in tags):
+                continue
 
             results.append(spec)
 
@@ -195,8 +196,7 @@ class AlgorithmRegistry:
         self,
         task: str,
     ) -> list[AlgorithmSpec]:
-        """Retrieve algorithms by task.
-        """
+        """Retrieve algorithms by task."""
         return self.filter(task=task)
 
     def get_by_provider(
@@ -210,8 +210,7 @@ class AlgorithmRegistry:
         self,
         tag: str,
     ) -> list[AlgorithmSpec]:
-        """Retrieve algorithms by tag.
-        """
+        """Retrieve algorithms by tag."""
         return self.filter(tags=[tag])
 
     def list(
@@ -316,7 +315,7 @@ class AlgorithmRegistry:
     def get_factory(
         self,
         name: str,
-    ):
+    ) -> EstimatorFactory:
         """Return the canonical estimator factory for an algorithm."""
         spec = self.get(name)
 
@@ -331,7 +330,7 @@ class AlgorithmRegistry:
         *,
         random_state: int | None = None,
         **params: Any,
-    ):
+    ) -> Any:
         """Construct an estimator through the registry's canonical path."""
         return self.get(name).build_estimator(
             random_state=random_state,
@@ -367,15 +366,14 @@ class AlgorithmRegistry:
         }
 
     def clear(self) -> None:
-        """Remove all registered algorithms.
-        """
+        """Remove all registered algorithms."""
         self._algorithms.clear()
         self._aliases.clear()
 
     def remove(
         self,
         name: str,
-        missing_ok: bool = False,
+        missing_ok: bool = False,  # noqa: FBT001, FBT002  # public API keyword-or-positional flag
     ) -> None:
         """Remove an algorithm from the registry.
 
@@ -431,22 +429,26 @@ class AlgorithmRegistry:
         return dict(self._aliases)
 
     def __len__(self) -> int:
+        """Return the number of registered algorithms."""
         return len(self._algorithms)
 
     def __contains__(
         self,
         item: str,
     ) -> bool:
+        """Return whether an algorithm name or alias is registered."""
         return self.exists(item)
 
     def __iter__(
         self,
     ) -> Iterator[AlgorithmSpec]:
+        """Return an iterator over registered algorithm specifications."""
         return iter(self._algorithms.values())
 
     def __repr__(
         self,
     ) -> str:
+        """Return a debug representation showing the registry size."""
         return f"{self.__class__.__name__}(n_algorithms={len(self)})"
 
 

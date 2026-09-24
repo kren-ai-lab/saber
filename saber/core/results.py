@@ -5,9 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from saber.core.specs import AlgorithmSpec
-
 if TYPE_CHECKING:
+    from saber.core.specs import AlgorithmSpec
     from saber.datasets.schemas import FeatureSchema
 
 

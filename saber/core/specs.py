@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from saber.core.capabilities import (
     EstimatorCapabilities,
@@ -11,7 +11,9 @@ from saber.core.capabilities import (
     infer_estimator_capabilities,
 )
 from saber.core.estimator import EstimatorFactory
-from saber.core.search_space import SearchSpace
+
+if TYPE_CHECKING:
+    from saber.core.search_space import SearchSpace
 
 
 @dataclass(frozen=True)
@@ -36,6 +38,7 @@ class AlgorithmSpec:
     description: str | None = None
 
     def __post_init__(self) -> None:
+        """Resolve the estimator factory, capabilities, and description defaults."""
         default_params = dict(self.default_params)
         object.__setattr__(self, "default_params", default_params)
 
@@ -73,26 +76,33 @@ class AlgorithmSpec:
             object.__setattr__(self, "description", _description_from_estimator(estimator_cls))
 
     def matches_name(self, query: str) -> bool:
+        """Return whether a query matches this algorithm's name or an alias."""
         return query == self.name or query in self.aliases
 
     def has_tag(self, tag: str) -> bool:
+        """Return whether this algorithm is tagged with the given tag."""
         return tag in self.tags
 
     def get_default_params(self) -> dict[str, Any]:
+        """Return a copy of the algorithm's default parameters."""
         return dict(self.default_params)
 
     def has_search_space(self) -> bool:
+        """Return whether this algorithm defines a search space."""
         return self.search_space is not None
 
     def get_search_space(self) -> SearchSpace | None:
+        """Return this algorithm's search space, if defined."""
         return self.search_space
 
     def get_search_space_parameters(self) -> dict[str, Any]:
+        """Return a copy of the search space's parameters, if defined."""
         if self.search_space is None:
             return {}
         return dict(self.search_space.parameters)
 
     def has_estimator_factory(self) -> bool:
+        """Return whether this algorithm defines an estimator factory."""
         return self.estimator_factory is not None
 
     def build_estimator(
@@ -100,7 +110,7 @@ class AlgorithmSpec:
         *,
         random_state: int | None = None,
         **params: Any,
-    ):
+    ) -> Any:
         """Build an estimator through the canonical factory."""
         if self.estimator_factory is None:
             raise ValueError(f"Algorithm '{self.name}' does not define an estimator factory.")

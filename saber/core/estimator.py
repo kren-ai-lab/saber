@@ -1,15 +1,13 @@
-"""saber.core.estimator
-=====================
-
-Canonical estimator construction for saber.
-"""
+"""Canonical estimator construction for saber."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 from inspect import Parameter, signature
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +33,7 @@ class EstimatorFactory:
     default_params: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        """Normalize default_params into a plain dict."""
         object.__setattr__(
             self,
             "default_params",
@@ -48,7 +47,7 @@ class EstimatorFactory:
             get_params = getattr(estimator, "get_params", None)
             if callable(get_params):
                 return set(get_params(deep=False))
-        except Exception:
+        except Exception:  # noqa: S110, BLE001  # falls back to signature inspection below
             pass
 
         try:
@@ -62,9 +61,7 @@ class EstimatorFactory:
         for name, parameter in constructor.parameters.items():
             if parameter.kind is Parameter.VAR_KEYWORD:
                 accepts_kwargs = True
-            elif parameter.kind not in {
-                Parameter.VAR_POSITIONAL,
-            }:
+            elif parameter.kind is not Parameter.VAR_POSITIONAL:
                 names.add(name)
 
         if accepts_kwargs:
@@ -102,7 +99,7 @@ class EstimatorFactory:
         *,
         random_state: int | None = None,
         **params: Any,
-    ):
+    ) -> Any:
         """Construct a fresh estimator instance."""
         resolved = self.resolved_params(
             random_state=random_state,

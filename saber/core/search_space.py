@@ -1,8 +1,4 @@
-"""saber.core.search_space
-========================
-
-Typed, backend-agnostic hyperparameter search-space contracts.
-"""
+"""Typed, backend-agnostic hyperparameter search-space contracts."""
 
 from __future__ import annotations
 
@@ -19,10 +15,21 @@ from scipy.stats import loguniform, uniform
 class SearchParameter(Protocol):
     """Protocol implemented by typed search-space primitives."""
 
-    def grid_values(self) -> list[Any]: ...
-    def random_distribution(self) -> Any: ...
-    def suggest(self, trial: Any, name: str) -> Any: ...
-    def to_dict(self) -> dict[str, Any]: ...
+    def grid_values(self) -> list[Any]:
+        """Return the finite values to enumerate for grid search."""
+        ...
+
+    def random_distribution(self) -> Any:
+        """Return the domain sampled by randomized-search backends."""
+        ...
+
+    def suggest(self, trial: Any, name: str) -> Any:
+        """Sample one value from this domain using an Optuna trial."""
+        ...
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a serialization-friendly representation of this domain."""
+        ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,21 +39,26 @@ class Categorical:
     values: tuple[Any, ...]
 
     def __init__(self, values: Any) -> None:
+        """Validate and store the finite set of categorical values."""
         values = tuple(values)
         if not values:
             raise ValueError("Categorical values cannot be empty.")
         object.__setattr__(self, "values", values)
 
     def grid_values(self) -> list[Any]:
+        """Return the categorical values as a list."""
         return list(self.values)
 
     def random_distribution(self) -> list[Any]:
+        """Return the categorical values as a list."""
         return list(self.values)
 
     def suggest(self, trial: Any, name: str) -> Any:
+        """Sample one categorical value using an Optuna trial."""
         return trial.suggest_categorical(name, list(self.values))
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a serialization-friendly representation of this domain."""
         return {"type": "categorical", "values": list(self.values)}
 
 
@@ -59,23 +71,28 @@ class Integer:
     step: int = 1
 
     def __post_init__(self) -> None:
+        """Validate that the integer bounds and step are well-formed."""
         if self.low > self.high:
             raise ValueError("Integer.low cannot exceed Integer.high.")
         if self.step <= 0:
             raise ValueError("Integer.step must be positive.")
 
     def grid_values(self) -> list[int]:
+        """Return the inclusive, stepped range of integer values."""
         return list(range(self.low, self.high + 1, self.step))
 
     def random_distribution(self) -> list[int]:
+        """Return the inclusive, stepped range of integer values."""
         # A finite stepped list preserves exactly the same domain across
         # RandomizedSearchCV, halving-random, and Optuna.
         return self.grid_values()
 
     def suggest(self, trial: Any, name: str) -> int:
+        """Sample one integer value using an Optuna trial."""
         return int(trial.suggest_int(name, self.low, self.high, step=self.step))
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a serialization-friendly representation of this domain."""
         return {
             "type": "integer",
             "low": self.low,
@@ -93,6 +110,7 @@ class Float:
     step: float | None = None
 
     def __post_init__(self) -> None:
+        """Validate that the float bounds and optional step are well-formed."""
         if not np.isfinite(self.low) or not np.isfinite(self.high):
             raise ValueError("Float bounds must be finite.")
         if self.low >= self.high:
@@ -101,6 +119,7 @@ class Float:
             raise ValueError("Float.step must be positive when supplied.")
 
     def grid_values(self) -> list[float]:
+        """Return stepped float values, when a step is defined."""
         if self.step is None:
             raise ValueError(
                 "Continuous Float parameters are not directly enumerable for grid search. "
@@ -113,11 +132,13 @@ class Float:
         return [float(value) for value in values]
 
     def random_distribution(self) -> Any:
+        """Return stepped values when defined, otherwise a continuous uniform distribution."""
         if self.step is not None:
             return self.grid_values()
         return uniform(loc=self.low, scale=self.high - self.low)
 
     def suggest(self, trial: Any, name: str) -> float:
+        """Sample one float value using an Optuna trial."""
         return float(
             trial.suggest_float(
                 name,
@@ -128,6 +149,7 @@ class Float:
         )
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a serialization-friendly representation of this domain."""
         payload: dict[str, Any] = {
             "type": "float",
             "low": self.low,
@@ -146,24 +168,29 @@ class LogFloat:
     high: float
 
     def __post_init__(self) -> None:
+        """Validate that the log-uniform bounds are strictly positive and ordered."""
         if self.low <= 0 or self.high <= 0:
             raise ValueError("LogFloat bounds must be strictly positive.")
         if self.low >= self.high:
             raise ValueError("LogFloat.low must be smaller than LogFloat.high.")
 
     def grid_values(self) -> list[float]:
+        """Raise, since a continuous log-uniform domain is not enumerable for grid search."""
         raise ValueError(
             "Continuous LogFloat parameters are not directly enumerable for grid search. "
             "Use categorical values for an explicit logarithmic grid, or use random/Optuna."
         )
 
     def random_distribution(self) -> Any:
+        """Return a log-uniform distribution over the configured bounds."""
         return loguniform(self.low, self.high)
 
     def suggest(self, trial: Any, name: str) -> float:
+        """Sample one log-uniform float value using an Optuna trial."""
         return float(trial.suggest_float(name, self.low, self.high, log=True))
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a serialization-friendly representation of this domain."""
         return {
             "type": "log_float",
             "low": self.low,
@@ -224,6 +251,7 @@ class SearchSpace:
     parameters: dict[str, ParameterDomain]
 
     def __post_init__(self) -> None:
+        """Validate the space name and coerce/validate every parameter domain."""
         if not self.name.strip():
             raise ValueError("SearchSpace.name cannot be empty.")
         self.parameters = dict(self.parameters)
@@ -238,16 +266,19 @@ class SearchSpace:
         name: str,
         parameters: dict[str, ParameterDomain],
     ) -> SearchSpace:
+        """Build a search space from a name and a parameter-domain mapping."""
         return cls(name=name, parameters=parameters)
 
     @classmethod
     def from_json(cls, path: str | Path) -> SearchSpace:
-        with open(path, encoding="utf-8") as handle:
+        """Load a search space from a JSON file."""
+        with Path(path).open(encoding="utf-8") as handle:
             data = json.load(handle)
         parameters = {name: _domain_from_dict(domain) for name, domain in data["parameters"].items()}
         return cls(name=data["name"], parameters=parameters)
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a serialization-friendly representation of this search space."""
         serialized: dict[str, Any] = {}
         for name, domain in self.parameters.items():
             if isinstance(domain, list):
@@ -261,13 +292,16 @@ class SearchSpace:
         return {"name": self.name, "parameters": serialized}
 
     def to_json(self, path: str | Path) -> None:
-        with open(path, "w", encoding="utf-8") as handle:
+        """Write this search space to a JSON file."""
+        with Path(path).open("w", encoding="utf-8") as handle:
             json.dump(self.to_dict(), handle, indent=4)
 
     def get(self, parameter: str) -> ParameterDomain:
+        """Return the domain of a named parameter."""
         return self.parameters[parameter]
 
     def exists(self, parameter: str) -> bool:
+        """Return whether a named parameter is defined in this space."""
         return parameter in self.parameters
 
     def to_grid(self, *, prefix: str = "") -> dict[str, list[Any]]:
@@ -299,4 +333,5 @@ class SearchSpace:
         )
 
     def __len__(self) -> int:
+        """Return the number of parameters in this search space."""
         return len(self.parameters)
