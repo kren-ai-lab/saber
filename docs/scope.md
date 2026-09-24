@@ -86,11 +86,11 @@ pyyaml
 Optional providers/features are installed explicitly:
 
 ```text
-saber[xgboost]
-saber[lightgbm]
-saber[optuna]
-saber[biosieve]
-saber[all]
+saberlib[xgboost]
+saberlib[lightgbm]
+saberlib[optuna]
+saberlib[biosieve]
+saberlib[all]
 ```
 
 Importing `saber` must succeed without any optional dependency installed. Optional estimator providers register only when their Python package is available.

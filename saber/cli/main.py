@@ -69,7 +69,7 @@ WORKFLOW_HELP = {
 
 
 class TaskChoice(StrEnum):
-    """Mirrors the argparse ``--task`` choices constraint."""
+    """Restricts the ``--task`` option to classification or regression."""
 
     classification = "classification"
     regression = "regression"
@@ -127,7 +127,10 @@ def _register_workflow(name: str, help_text: str) -> None:
             console=Console(),
         )
 
-    epilog = f"Examples: saber {name} experiment.yaml · saber {name} experiment.yaml --dry-run"
+    epilog = (
+        f"Examples: saber {name} experiment.yaml · saber {name} experiment.yaml --dry-run · "
+        f"saber {name} experiment.yaml --json"
+    )
     app.command(name, help=help_text, epilog=epilog)(command)
 
 

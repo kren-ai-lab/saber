@@ -97,7 +97,7 @@ Dataset fingerprints are deterministic hashes of scientific content (`X`, `y`, s
 
 Predefined fold assignments are converted once into explicit memberships. External JSON/CSV/TSV/DataFrame partition tables can be ingested through a normalized interchange contract.
 
-BioSieve is the **canonical partition-generation engine** when a dataset is not already partitioned. `saber` does not reimplement random, stratified, group, distance-aware, homology-aware, or k-fold split generation. Instead, the optional `saber[biosieve]` adapter converts `DatasetBundle` into a BioSieve-compatible table, executes the requested BioSieve splitter, preserves BioSieve strategy/parameter/statistics provenance, and converts returned memberships into `PartitionPlan`. Already-partitioned datasets bypass BioSieve and are consumed exactly as supplied. Redundancy reduction remains fully outside `saber`; BioSieve reduction, if desired, occurs upstream before `DatasetBundle` creation.
+BioSieve is the **canonical partition-generation engine** when a dataset is not already partitioned. `saber` does not reimplement random, stratified, group, distance-aware, homology-aware, or k-fold split generation. Instead, the optional `saberlib[biosieve]` adapter converts `DatasetBundle` into a BioSieve-compatible table, executes the requested BioSieve splitter, preserves BioSieve strategy/parameter/statistics provenance, and converts returned memberships into `PartitionPlan`. Already-partitioned datasets bypass BioSieve and are consumed exactly as supplied. Redundancy reduction remains fully outside `saber`; BioSieve reduction, if desired, occurs upstream before `DatasetBundle` creation.
 
 ### 4. Preprocessing
 

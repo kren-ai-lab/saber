@@ -74,7 +74,7 @@ pip install -e '.[all]'        # all optional runtime integrations
 For development and executable notebooks:
 
 ```bash
-pip install -e '.[dev]'
+uv sync --all-extras
 ```
 
 Check the environment at any time:

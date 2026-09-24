@@ -142,7 +142,7 @@ class OptionalDependencyError(SaberError, ImportError):
     def __init__(self, *, dependency: str, extra: str, purpose: str) -> None:
         super().__init__(
             f"Optional dependency '{dependency}' is required for {purpose}. "
-            f"Install with: pip install 'saber[{extra}]'."
+            f"Install with: pip install 'saberlib[{extra}]'."
         )
 
 

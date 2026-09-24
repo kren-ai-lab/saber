@@ -172,7 +172,7 @@ def test_missing_biosieve_dependency_has_actionable_error(monkeypatch):
         return original(name)
 
     monkeypatch.setattr(adapter, "import_module", fail)
-    with pytest.raises(OptionalDependencyError, match="saber\\[biosieve\\]"):
+    with pytest.raises(OptionalDependencyError, match="saberlib\\[biosieve\\]"):
         adapter._import_biosieve_runtime()
 
 
