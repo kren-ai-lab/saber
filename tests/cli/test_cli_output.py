@@ -202,6 +202,9 @@ COMMANDS = (
 
 def _cli(*args: str) -> subprocess.CompletedProcess[str]:
     env = {**os.environ, "COLUMNS": "200", "NO_COLOR": "1"}
+    env.pop("GITHUB_ACTIONS", None)
+    env.pop("FORCE_COLOR", None)
+    env.pop("PY_COLORS", None)
     return subprocess.run(  # noqa: S603
         [sys.executable, "-m", "saber", *args], text=True, capture_output=True, env=env, check=False
     )
