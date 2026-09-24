@@ -135,6 +135,9 @@ class BenchmarkResult:
                 continue
             for fold in validation.folds:
                 prediction = fold.prediction
+                if prediction.sample_ids is None:
+                    # Fold predictions from ValidationEngine always carry sample_ids.
+                    raise AssertionError("Fold prediction is missing sample_ids.")
                 for index, sample_id in enumerate(prediction.sample_ids):
                     row: dict[str, Any] = {
                         **_run_identity(run),

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from saber.tuning import TuningConfig
+    from saber.validation.partitioning import EvaluationRole
 
 BenchmarkMode = Literal["untuned", "tuned"]
 
@@ -20,7 +21,7 @@ class BenchmarkConfig:
     modes: tuple[BenchmarkMode, ...] = ("untuned",)
     include_baselines: bool = True
     fail_fast: bool = False
-    evaluation_role: str = "auto"
+    evaluation_role: EvaluationRole = "auto"
     require_complete: bool = True
     return_estimators: bool = False
     tuning: TuningConfig | None = None

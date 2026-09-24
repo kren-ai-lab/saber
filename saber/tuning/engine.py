@@ -121,8 +121,9 @@ class TuningEngine:
             require_complete=require_complete,
         )
 
+        search_dataset_ids = search_dataset.resolved_sample_ids
         for split_index, (train_index, _) in enumerate(cv):
-            train_ids = tuple(search_dataset.sample_ids[index] for index in train_index)
+            train_ids = tuple(search_dataset_ids[index] for index in train_index)
             try:
                 search_dataset.subset(train_ids).validate(task=spec.task)
             except DatasetValidationError as exc:
@@ -144,9 +145,7 @@ class TuningEngine:
         scorers = {metric: get_scorer(metric, task=spec.task, y=search_dataset.y) for metric in metrics}
 
         first_train_index = cv[0][0]
-        first_train = search_dataset.subset(
-            tuple(search_dataset.sample_ids[index] for index in first_train_index)
-        )
+        first_train = search_dataset.subset(tuple(search_dataset_ids[index] for index in first_train_index))
         estimator = spec.build_estimator(
             random_state=config.random_state,
             **dict(model_params or {}),
@@ -245,11 +244,15 @@ class TuningEngine:
             ) from exc
 
         if optimizer == "grid":
+            if grid_parameters is None:  # always set above whenever optimizer is "grid"
+                raise AssertionError("grid optimizer resolved no grid_parameters.")
             search = GridSearchCV(
                 param_grid=grid_parameters,
                 **common,
             )
         elif optimizer == "random":
+            if random_parameters is None:  # always set above whenever optimizer is "random"
+                raise AssertionError("random optimizer resolved no random_parameters.")
             search = RandomizedSearchCV(
                 param_distributions=random_parameters,
                 n_iter=config.n_iter,
@@ -267,7 +270,12 @@ class TuningEngine:
 
             # Deferred: enables the experimental halving search API only when it is used.
             from sklearn.experimental import enable_halving_search_cv  # noqa: F401, PLC0415
-            from sklearn.model_selection import HalvingGridSearchCV, HalvingRandomSearchCV  # noqa: PLC0415
+
+            # sklearn stubs omit these experimental estimators; real once enabled above.
+            from sklearn.model_selection import (  # noqa: PLC0415
+                HalvingGridSearchCV,  # pyrefly: ignore[missing-module-attribute]
+                HalvingRandomSearchCV,  # pyrefly: ignore[missing-module-attribute]
+            )
 
             halving_common = {
                 **single_common,
@@ -324,8 +332,10 @@ class TuningEngine:
             )
             best_score = float(results["mean_test_score"][best_index])
             history = _history_from_singlemetric_results(results, refit_metric)
+            # sklearn *SearchCV stubs omit `.estimator`, though it's always set
+            # from the constructor arg at runtime.
             best_scores = _evaluate_selected_metrics(
-                pipeline=search.estimator,
+                pipeline=search.estimator,  # pyrefly: ignore[missing-attribute]
                 params=results["params"][best_index],
                 dataset=dataset,
                 cv=cv,
@@ -431,7 +441,9 @@ class TuningEngine:
                     scoring=scorers[refit_metric],
                     cv=cv,
                     n_jobs=config.n_jobs,
-                    params=fit_params or None,
+                    # sklearn stubs predate the `params=` kwarg (sklearn 1.4+);
+                    # installed sklearn (1.9.1) supports it.
+                    params=fit_params or None,  # pyrefly: ignore[unexpected-keyword]
                     error_score=config.error_score,
                 )["test_score"]
                 score = float(np.mean(np.asarray(scores, dtype=float)))
@@ -470,9 +482,9 @@ class TuningEngine:
                 score=float("nan"),
             )
 
-        best_trial = max(completed, key=lambda trial: float(trial.value))
+        best_trial = max(completed, key=_finite_trial_value)
         best_score = _ensure_finite(
-            float(best_trial.value),
+            _finite_trial_value(best_trial),
             algorithm=spec.name,
             metric=refit_metric,
             optimizer="optuna",
@@ -545,6 +557,18 @@ def _fit_params(dataset: DatasetBundle, spec: Any) -> dict[str, Any]:
     return {
         "estimator__sample_weight": np.asarray(dataset.sample_weight, dtype=float),
     }
+
+
+def _finite_trial_value(trial: Any) -> float:
+    """Return an optuna trial's objective value, already known to be finite/non-None.
+
+    Only called on trials from the ``completed`` list, which is filtered to
+    ``trial.value is not None`` above; optuna's stubs still type ``value`` as
+    optional, so this narrows it back for callers.
+    """
+    if trial.value is None:
+        raise AssertionError("Trial is missing an objective value.")
+    return float(trial.value)
 
 
 def _best_index(
@@ -672,7 +696,9 @@ def _evaluate_selected_metrics(
         scoring=dict(scorers),
         cv=cv,
         n_jobs=n_jobs,
-        params=dict(fit_params) or None,
+        # sklearn stubs predate the `params=` kwarg (sklearn 1.4+); installed
+        # sklearn (1.9.1) supports it.
+        params=dict(fit_params) or None,  # pyrefly: ignore[unexpected-keyword]
         error_score=np.nan,
     )
     output: dict[str, float] = {}

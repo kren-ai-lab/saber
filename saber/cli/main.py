@@ -299,6 +299,8 @@ def _models_command(
     tag: str | None = None,
 ) -> int:
     if subcommand == "show":
+        if name is None:  # models_show requires name; only "show" reaches this branch
+            raise AssertionError("_models_command('show', ...) requires name.")
         metadata = MODEL_REGISTRY.describe(name)
         if json_output:
             _print_json(console, metadata)
@@ -310,6 +312,8 @@ def _models_command(
     if tag:
         specs = [spec for spec in specs if tag in spec.tags]
     if subcommand == "search":
+        if query is None:  # models_search requires query; only "search" reaches this branch
+            raise AssertionError("_models_command('search', ...) requires query.")
         needle = query.strip().lower()
         specs = [
             spec
@@ -372,13 +376,15 @@ def _config_command(
         else:
             render_preflight(console, config)
         return EXIT_OK
+    if output is None:  # config_normalize requires --output; only "normalize" reaches this branch
+        raise AssertionError("_config_command('normalize', ...) requires output.")
     written = dump_config(config, output)
     console.print(f"[green]✓[/green] Normalized config written to {written.resolve()}")
     return EXIT_OK
 
 
 def _doctor_payload() -> dict[str, Any]:
-    components = [
+    components: list[dict[str, Any]] = [
         {"name": "saber", "available": True, "version": __version__},
         {"name": "python", "available": True, "version": platform.python_version()},
     ]

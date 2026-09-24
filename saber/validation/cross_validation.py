@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
     from saber.core.registry import AlgorithmRegistry
+    from saber.core.task import TaskType
     from saber.datasets import DatasetBundle, PartitionPlan
     from saber.datasets.biosieve import BioSievePartitionConfig
 
@@ -99,7 +100,7 @@ class ValidationEngine:
 
             fit_kwargs: dict[str, Any] = {}
             if resolved.train.sample_weight is not None:
-                if not spec.capabilities.sample_weight:
+                if not spec.resolved_capabilities.sample_weight:
                     raise ValidationContractError(
                         f"Dataset supplies sample_weight but algorithm '{spec.name}' "
                         "does not advertise sample-weight support."
@@ -132,7 +133,7 @@ class ValidationEngine:
                 FoldValidationResult(
                     split_name=split.name,
                     evaluation_role=role,
-                    train_ids=tuple(resolved.train.sample_ids),
+                    train_ids=tuple(resolved.train.resolved_sample_ids),
                     evaluation_ids=tuple(evaluation_data.sample_ids),
                     prediction=prediction,
                     evaluation=evaluation,
@@ -182,7 +183,7 @@ def validate_model(
 def _prediction_from_pipeline(
     pipeline: Any,
     *,
-    spec_task: str,
+    spec_task: TaskType,
     X: Any,
     sample_ids: Sequence[Any],
     positive_class: Any | None,
@@ -229,7 +230,7 @@ def _build_oof_prediction(
     *,
     dataset: DatasetBundle,
     folds: tuple[FoldValidationResult, ...],
-    task: str,
+    task: TaskType,
 ) -> tuple[PredictionResult | None, dict[str, Any]]:
     ids = [sample_id for fold in folds for sample_id in fold.evaluation_ids]
     if len(ids) != len(set(ids)):
@@ -249,7 +250,7 @@ def _build_oof_prediction(
         for local_index, sample_id in enumerate(fold.evaluation_ids):
             prediction_by_id[sample_id] = (fold, local_index)
 
-    ordered_ids = [sample_id for sample_id in dataset.sample_ids if sample_id in prediction_by_id]
+    ordered_ids = [sample_id for sample_id in dataset.resolved_sample_ids if sample_id in prediction_by_id]
     predictions = np.asarray(
         [
             prediction_by_id[sample_id][0].prediction.predictions[prediction_by_id[sample_id][1]]

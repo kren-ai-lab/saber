@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import polars as pl
@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from saber.config.schema import WorkflowConfig
+    from saber.validation.partitioning import EvaluationRole
 
 
 @dataclass(slots=True)
@@ -147,7 +148,10 @@ def _run_validate(config: WorkflowConfig) -> WorkflowExecution:
         ),
         preprocessing=build_preprocessing(_optional_mapping(payload.get("preprocessing"), "preprocessing")),
         metrics=payload.get("metrics"),
-        evaluation_role=str(payload.get("evaluation_role", "auto")),
+        # Config-supplied strings are validated downstream by
+        # resolve_evaluation_dataset, which raises ValidationContractError for
+        # anything other than "auto"/"validation"/"test".
+        evaluation_role=cast("EvaluationRole", str(payload.get("evaluation_role", "auto"))),
         positive_class=payload.get("positive_class"),
         random_state=payload.get("random_state"),
         return_estimators=bool(payload.get("return_estimators", False)),
@@ -183,7 +187,10 @@ def _run_tune(config: WorkflowConfig) -> WorkflowExecution:
         search_space=build_search_space(
             str(payload["algorithm"]), _optional_mapping(payload.get("search_space"), "search_space")
         ),
-        evaluation_role=str(payload.get("evaluation_role", "auto")),
+        # Config-supplied strings are validated downstream by
+        # resolve_evaluation_dataset, which raises ValidationContractError for
+        # anything other than "auto"/"validation"/"test".
+        evaluation_role=cast("EvaluationRole", str(payload.get("evaluation_role", "auto"))),
         require_complete=bool(payload.get("require_complete", True)),
         model_params=_optional_mapping(payload.get("model_params"), "model_params"),
     )
@@ -250,6 +257,10 @@ def _run_benchmark(config: WorkflowConfig) -> WorkflowExecution:
                 partition=_mapping(spec, f"partitions.{label}"),
                 partitioning=None,
             )
+            if plan is None:
+                # partition= is always provided above, so build_partition_inputs
+                # always returns a plan for this loop.
+                raise AssertionError(f"Partition '{label}' resolved to no plan.")
             partitions[str(label)] = plan
 
     partitioning = None

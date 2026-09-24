@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from saber.core import SearchSpace
     from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
     from saber.preprocessing import PreprocessingConfig
+    from saber.validation.partitioning import EvaluationRole
 
 
 def tune(
@@ -25,7 +26,7 @@ def tune(
     biosieve_extra_columns: Mapping[str, Sequence[Any]] | None = None,
     preprocessing: PreprocessingConfig | Any | None = None,
     search_space: SearchSpace | None = None,
-    evaluation_role: str = "auto",
+    evaluation_role: EvaluationRole = "auto",
     require_complete: bool = True,
     model_params: Mapping[str, Any] | None = None,
     registry: AlgorithmRegistry = MODEL_REGISTRY,

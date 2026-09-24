@@ -111,15 +111,15 @@ def build_explicit_cv(
             requested=evaluation_role,
             plan_kind=plan.kind,
         )
-        train_ids = tuple(resolved.train.sample_ids)
+        train_ids = tuple(resolved.train.resolved_sample_ids)
         evaluation_ids = tuple(evaluation_data.sample_ids)
         memberships.append((train_ids, evaluation_ids, role))
         used_ids.update(train_ids)
         used_ids.update(evaluation_ids)
 
-    ordered_ids = tuple(sample_id for sample_id in dataset.sample_ids if sample_id in used_ids)
+    ordered_ids = tuple(sample_id for sample_id in dataset.resolved_sample_ids if sample_id in used_ids)
     search_dataset = dataset.subset(ordered_ids)
-    id_to_index = {sample_id: index for index, sample_id in enumerate(search_dataset.sample_ids)}
+    id_to_index = {sample_id: index for index, sample_id in enumerate(search_dataset.resolved_sample_ids)}
 
     cv: list[tuple[np.ndarray, np.ndarray]] = []
     roles: list[str] = []

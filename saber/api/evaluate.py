@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
     from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
     from saber.preprocessing import PreprocessingConfig
+    from saber.validation.partitioning import EvaluationRole
 
 
 def validate(
@@ -28,7 +29,7 @@ def validate(
     biosieve_extra_columns: Mapping[str, Sequence[Any]] | None = None,
     preprocessing: PreprocessingConfig | Any | None = None,
     metrics: Sequence[str] | None = None,
-    evaluation_role: str = "auto",
+    evaluation_role: EvaluationRole = "auto",
     positive_class: Any | None = None,
     random_state: int | None = None,
     return_estimators: bool = False,

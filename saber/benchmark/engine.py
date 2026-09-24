@@ -199,7 +199,7 @@ class BenchmarkEngine:
         partition_spec: BenchmarkPartition,
         bound_plan: PartitionPlan,
         algorithm: str,
-        algorithm_spec: Any | None,
+        algorithm_spec: AlgorithmSpec | None,
         mode: str,
         seed: int | None,
         config: BenchmarkConfig,
@@ -223,6 +223,11 @@ class BenchmarkEngine:
         try:
             if algorithm_spec is None:
                 self.registry.get(algorithm)  # raises canonical registry error
+                # The lookup above always raises for an unregistered algorithm, so this
+                # is unreachable; caught below like any other run failure.
+                raise AssertionError(  # noqa: TRY301
+                    f"Algorithm '{algorithm}' resolved to no spec but did not raise."
+                )
             if task is not None:
                 dataset_spec.dataset.validate(task=task)
 
@@ -448,7 +453,7 @@ def _validate_dataset_alignment(datasets: tuple[BenchmarkDataset, ...]) -> None:
 def _targets_by_id(dataset: DatasetBundle) -> dict[Any, Any]:
     return {
         sample_id: target.item() if isinstance(target, np.generic) else target
-        for sample_id, target in zip(dataset.sample_ids, np.asarray(dataset.y), strict=True)
+        for sample_id, target in zip(dataset.resolved_sample_ids, np.asarray(dataset.y), strict=True)
     }
 
 
