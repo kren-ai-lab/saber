@@ -33,7 +33,6 @@ def train(
     This is a final-fit operation.  Model assessment belongs to ``validate`` or
     ``benchmark``; hyperparameter selection belongs to ``tune``.
     """
-
     result = fit_dataset(
         dataset=dataset,
         algorithm=algorithm,

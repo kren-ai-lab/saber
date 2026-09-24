@@ -28,7 +28,6 @@ def tune(
     registry: AlgorithmRegistry = MODEL_REGISTRY,
 ) -> OptimizationResult:
     """Optimize a model on explicit/BioSieve partitions."""
-
     return TuningEngine(registry).run(
         dataset=dataset,
         algorithm=algorithm,

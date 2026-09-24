@@ -96,9 +96,7 @@ class LoadedModelArtifact:
             probabilities=probabilities,
             decision_scores=decision_scores,
             classes=classes,
-            positive_class=(
-                self.positive_class if positive_class is None else positive_class
-            ),
+            positive_class=(self.positive_class if positive_class is None else positive_class),
             sample_ids=ids,
             metadata={
                 "artifact_path": str(self.path),

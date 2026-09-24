@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 from sklearn.datasets import make_classification, make_regression
 
@@ -34,8 +33,16 @@ def _cv_plan(dataset):
 
 def test_top_level_public_api_exports():
     for name in (
-        "train", "validate", "evaluate", "tune", "benchmark", "predict",
-        "load_config", "run_config", "save_model", "load_model",
+        "train",
+        "validate",
+        "evaluate",
+        "tune",
+        "benchmark",
+        "predict",
+        "load_config",
+        "run_config",
+        "save_model",
+        "load_model",
     ):
         assert hasattr(saber, name)
 

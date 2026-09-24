@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import yaml
 
@@ -14,7 +15,6 @@ from saber.exceptions import ConfigurationError
 
 def load_config(source: str | Path | Mapping[str, Any] | WorkflowConfig) -> WorkflowConfig:
     """Load and validate a YAML/JSON workflow configuration."""
-
     if isinstance(source, WorkflowConfig):
         return source
     if isinstance(source, Mapping):
@@ -48,7 +48,6 @@ def dump_config(
     path: str | Path,
 ) -> Path:
     """Serialize a normalized config for reproducible reruns."""
-
     document = load_config(config)
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)

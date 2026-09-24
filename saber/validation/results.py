@@ -53,14 +53,7 @@ def aggregate_fold_metrics(
     folds: tuple[FoldValidationResult, ...],
 ) -> tuple[dict[str, float], dict[str, dict[str, float]]]:
     """Aggregate finite metrics across folds."""
-
-    metric_names = sorted(
-        {
-            name
-            for fold in folds
-            for name in fold.evaluation.metrics
-        }
-    )
+    metric_names = sorted({name for fold in folds for name in fold.evaluation.metrics})
     means: dict[str, float] = {}
     summary: dict[str, dict[str, float]] = {}
 
@@ -69,8 +62,7 @@ def aggregate_fold_metrics(
             [
                 fold.evaluation.metrics[name]
                 for fold in folds
-                if name in fold.evaluation.metrics
-                and np.isfinite(fold.evaluation.metrics[name])
+                if name in fold.evaluation.metrics and np.isfinite(fold.evaluation.metrics[name])
             ],
             dtype=float,
         )

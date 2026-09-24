@@ -23,7 +23,6 @@ def validate_feature_matrix(
     Missing values are allowed by default so leakage-safe preprocessing can impute
     them inside each training fold. Infinite values are always rejected.
     """
-
     if isinstance(X, pd.DataFrame):
         if X.ndim != 2:
             raise DatasetValidationError("X must be a two-dimensional feature matrix.")
@@ -35,8 +34,7 @@ def validate_feature_matrix(
         non_numeric = [str(column) for column in X.columns if not is_numeric_dtype(X[column].dtype)]
         if non_numeric:
             raise DatasetValidationError(
-                "X must contain only numerical features. Non-numerical columns: "
-                + ", ".join(non_numeric)
+                "X must contain only numerical features. Non-numerical columns: " + ", ".join(non_numeric)
             )
 
         values = X.to_numpy(dtype=float, copy=False)
@@ -60,7 +58,6 @@ def validate_feature_matrix(
 
 def validate_target(y: Any, *, n_samples: int) -> np.ndarray:
     """Validate and normalize a single-target vector."""
-
     values = np.asarray(y)
     if values.ndim != 1:
         raise DatasetValidationError(
@@ -84,9 +81,7 @@ def validate_target(y: Any, *, n_samples: int) -> np.ndarray:
     for value in values:
         scalar = _to_python_scalar(value)
         if not isinstance(scalar, (str, int, float, bool)):
-            raise DatasetValidationError(
-                "y must contain scalar str/int/float/bool target values."
-            )
+            raise DatasetValidationError("y must contain scalar str/int/float/bool target values.")
 
     return values
 
@@ -99,14 +94,11 @@ def validate_aligned_vector(
     allow_missing: bool = False,
 ) -> np.ndarray:
     """Validate a one-dimensional vector aligned to dataset samples."""
-
     array = np.asarray(values, dtype=object)
     if array.ndim != 1:
         raise DatasetValidationError(f"{name} must be one-dimensional.")
     if len(array) != n_samples:
-        raise DatasetValidationError(
-            f"{name} must contain {n_samples} entries; received {len(array)}."
-        )
+        raise DatasetValidationError(f"{name} must contain {n_samples} entries; received {len(array)}.")
     if not allow_missing and pd.isna(array).any():
         raise DatasetValidationError(f"{name} cannot contain missing values.")
     return array
@@ -114,7 +106,6 @@ def validate_aligned_vector(
 
 def validate_sample_ids(sample_ids: Sequence[Any], *, n_samples: int) -> tuple[Any, ...]:
     """Validate stable sample identifiers."""
-
     values = validate_aligned_vector(
         sample_ids,
         n_samples=n_samples,
@@ -132,16 +123,13 @@ def validate_sample_ids(sample_ids: Sequence[Any], *, n_samples: int) -> tuple[A
 
     for sample_id in ids:
         if not isinstance(sample_id, (str, int, float, bool)):
-            raise DatasetValidationError(
-                "sample_ids must use scalar str/int/float/bool identifiers."
-            )
+            raise DatasetValidationError("sample_ids must use scalar str/int/float/bool identifiers.")
 
     return ids
 
 
 def validate_groups(groups: Any, *, n_samples: int) -> tuple[Any, ...]:
     """Validate optional group labels."""
-
     values = validate_aligned_vector(
         groups,
         n_samples=n_samples,
@@ -151,16 +139,13 @@ def validate_groups(groups: Any, *, n_samples: int) -> tuple[Any, ...]:
 
     for group in groups_tuple:
         if not isinstance(group, (str, int, float, bool)):
-            raise DatasetValidationError(
-                "groups must use scalar str/int/float/bool identifiers."
-            )
+            raise DatasetValidationError("groups must use scalar str/int/float/bool identifiers.")
 
     return groups_tuple
 
 
 def validate_sample_weight(sample_weight: Any, *, n_samples: int) -> np.ndarray:
     """Validate optional non-negative finite sample weights."""
-
     weights = np.asarray(sample_weight, dtype=float)
     if weights.ndim != 1:
         raise DatasetValidationError("sample_weight must be one-dimensional.")
@@ -182,7 +167,6 @@ def validate_target_for_task(y: Any, task: str) -> str:
 
     Returns ``binary``, ``multiclass``, or ``regression``.
     """
-
     values = np.asarray(y)
 
     if task == "classification":
@@ -217,9 +201,7 @@ def validate_target_for_task(y: Any, task: str) -> str:
             raise DatasetValidationError("Regression targets must be finite.")
         return "regression"
 
-    raise DatasetValidationError(
-        "task must be either 'classification' or 'regression'."
-    )
+    raise DatasetValidationError("task must be either 'classification' or 'regression'.")
 
 
 def _to_python_scalar(value: Any) -> Any:

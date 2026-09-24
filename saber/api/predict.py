@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from saber.api._common import prediction_from_model
 from saber.core.prediction import PredictionResult
@@ -23,7 +24,6 @@ def predict(
     strict_environment: bool = False,
 ) -> PredictionResult:
     """Generate a structured PredictionResult from a fitted/persisted model."""
-
     active = model
     if isinstance(model, (str, Path)):
         active = load_model_artifact(model, strict_environment=strict_environment)

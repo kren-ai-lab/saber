@@ -34,9 +34,7 @@ class FeatureSchema:
         if not self.names:
             raise DatasetValidationError("FeatureSchema must contain at least one feature.")
         if len(self.names) != len(self.dtypes):
-            raise DatasetValidationError(
-                "FeatureSchema names and dtypes must have identical lengths."
-            )
+            raise DatasetValidationError("FeatureSchema names and dtypes must have identical lengths.")
         if len(set(self.names)) != len(self.names):
             raise DatasetValidationError("FeatureSchema names must be unique.")
         if any(not name for name in self.names):
@@ -64,7 +62,7 @@ class FeatureSchema:
         X: Any,
         *,
         feature_names: tuple[str, ...] | list[str] | None = None,
-    ) -> "FeatureSchema":
+    ) -> FeatureSchema:
         _, n_features = validate_feature_matrix(X)
 
         if feature_names is None:
@@ -98,16 +96,11 @@ class FeatureSchema:
         check_dtypes: bool = False,
     ) -> None:
         """Validate that another feature matrix matches this schema."""
-
         candidate = FeatureSchema.from_data(X, feature_names=feature_names)
         if candidate.names != self.names:
-            raise FeatureSchemaMismatchError(
-                "Feature names/order do not match the expected training schema."
-            )
+            raise FeatureSchemaMismatchError("Feature names/order do not match the expected training schema.")
         if check_dtypes and candidate.dtypes != self.dtypes:
-            raise FeatureSchemaMismatchError(
-                "Feature dtypes do not match the expected training schema."
-            )
+            raise FeatureSchemaMismatchError("Feature dtypes do not match the expected training schema.")
 
 
 @dataclass
@@ -154,7 +147,7 @@ class DatasetBundle:
 
     @property
     def n_samples(self) -> int:
-        return int(len(self.y))
+        return len(self.y)
 
     @property
     def n_features(self) -> int:
@@ -171,7 +164,6 @@ class DatasetBundle:
     @property
     def fingerprint(self) -> str:
         """Return a content fingerprint excluding free-form metadata."""
-
         return dataset_fingerprint(
             X=self.X,
             y=self.y,
@@ -188,15 +180,12 @@ class DatasetBundle:
         require_finite_features: bool = False,
     ) -> str | None:
         """Revalidate dataset integrity and optional task semantics."""
-
         n_samples, n_features = validate_feature_matrix(
             self.X,
             require_finite=require_finite_features,
         )
         if n_samples != self.n_samples or n_features != self.n_features:
-            raise DatasetValidationError(
-                "Dataset X was structurally modified after DatasetBundle creation."
-            )
+            raise DatasetValidationError("Dataset X was structurally modified after DatasetBundle creation.")
         validate_target(self.y, n_samples=n_samples)
         validate_sample_ids(self.sample_ids, n_samples=n_samples)
 
@@ -206,7 +195,6 @@ class DatasetBundle:
 
     def indices_for(self, sample_ids: Any) -> np.ndarray:
         """Return positions for identifiers in original dataset order."""
-
         requested = tuple(sample_ids)
         requested_set = set(requested)
         known = set(self.sample_ids)
@@ -222,9 +210,8 @@ class DatasetBundle:
             dtype=int,
         )
 
-    def subset(self, sample_ids: Any) -> "DatasetBundle":
+    def subset(self, sample_ids: Any) -> DatasetBundle:
         """Create a sample-identity-preserving subset in original dataset order."""
-
         indices = self.indices_for(sample_ids)
 
         if isinstance(self.X, pd.DataFrame):
@@ -258,7 +245,6 @@ class DatasetBundle:
 
     def to_metadata(self) -> dict[str, Any]:
         """Return serialization-friendly structural metadata."""
-
         return {
             "n_samples": self.n_samples,
             "n_features": self.n_features,

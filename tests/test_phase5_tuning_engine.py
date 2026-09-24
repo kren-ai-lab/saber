@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pytest
-import warnings
 from sklearn.datasets import make_classification, make_regression
 from sklearn.pipeline import Pipeline
 

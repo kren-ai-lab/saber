@@ -10,18 +10,14 @@ NOTEBOOKS = sorted((ROOT / "examples").rglob("*.ipynb"))
 def _code(path: Path) -> str:
     payload = json.loads(path.read_text(encoding="utf-8"))
     return "\n".join(
-        "".join(cell.get("source", []))
-        for cell in payload["cells"]
-        if cell.get("cell_type") == "code"
+        "".join(cell.get("source", [])) for cell in payload["cells"] if cell.get("cell_type") == "code"
     )
 
 
 def _markdown(path: Path) -> str:
     payload = json.loads(path.read_text(encoding="utf-8"))
     return "\n".join(
-        "".join(cell.get("source", []))
-        for cell in payload["cells"]
-        if cell.get("cell_type") == "markdown"
+        "".join(cell.get("source", [])) for cell in payload["cells"] if cell.get("cell_type") == "markdown"
     )
 
 

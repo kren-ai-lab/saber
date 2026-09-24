@@ -71,7 +71,6 @@ class BenchmarkResult:
 
     def aggregate_metrics_frame(self) -> pd.DataFrame:
         """Return one long-form row per completed run and aggregate metric."""
-
         rows: list[dict[str, Any]] = []
         for run in self.successes:
             for metric, value in run.aggregate_metrics.items():
@@ -90,7 +89,6 @@ class BenchmarkResult:
 
     def fold_metrics_frame(self) -> pd.DataFrame:
         """Return one long-form row per fold/split and metric."""
-
         rows: list[dict[str, Any]] = []
         for run in self.successes:
             if run.validation is None:
@@ -113,7 +111,6 @@ class BenchmarkResult:
 
     def metrics_frame(self) -> pd.DataFrame:
         """Return aggregate and fold metrics in one analysis-ready table."""
-
         frames = [self.aggregate_metrics_frame(), self.fold_metrics_frame()]
         non_empty = [frame for frame in frames if not frame.empty]
         if not non_empty:
@@ -122,7 +119,6 @@ class BenchmarkResult:
 
     def predictions_frame(self) -> pd.DataFrame:
         """Return sample-level held-out predictions for every successful run."""
-
         rows: list[dict[str, Any]] = []
         for run in self.successes:
             validation = run.validation
@@ -145,25 +141,19 @@ class BenchmarkResult:
                             row["probability"] = float(values[index])
                         elif prediction.classes is not None:
                             for class_index, class_label in enumerate(prediction.classes):
-                                row[f"probability__{class_label}"] = float(
-                                    values[index, class_index]
-                                )
+                                row[f"probability__{class_label}"] = float(values[index, class_index])
                     if prediction.decision_scores is not None:
                         values = np.asarray(prediction.decision_scores)
                         if values.ndim == 1:
                             row["decision_score"] = float(values[index])
                         elif prediction.classes is not None and values.shape[1] == len(prediction.classes):
                             for class_index, class_label in enumerate(prediction.classes):
-                                row[f"decision_score__{class_label}"] = float(
-                                    values[index, class_index]
-                                )
+                                row[f"decision_score__{class_label}"] = float(values[index, class_index])
                     rows.append(row)
         return pd.DataFrame(rows)
 
-
     def optimization_history_frame(self) -> pd.DataFrame:
         """Return tuning candidate/trial history annotated with benchmark identity."""
-
         frames: list[pd.DataFrame] = []
         for run in self.successes:
             if run.optimization is None:
@@ -181,7 +171,6 @@ class BenchmarkResult:
 
     def failures_frame(self) -> pd.DataFrame:
         """Return failed runs without discarding successful benchmark results."""
-
         return pd.DataFrame(
             [
                 {
@@ -195,7 +184,6 @@ class BenchmarkResult:
 
     def runs_frame(self) -> pd.DataFrame:
         """Return one row per requested benchmark run."""
-
         rows = []
         for run in self.runs:
             row = {

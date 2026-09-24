@@ -1,5 +1,4 @@
-"""
-saber.evaluation.results
+"""saber.evaluation.results
 =========================
 
 Structured evaluation result objects.
@@ -25,12 +24,10 @@ class EvaluationResult:
 
     def get_metric(self, name: str) -> float:
         """Retrieve one metric by name."""
-
         return self.metrics[name]
 
     def to_dict(self) -> dict[str, Any]:
         """Return a serialization-friendly summary."""
-
         return {
             "task": self.task,
             "metrics": dict(self.metrics),

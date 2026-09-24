@@ -37,7 +37,6 @@ def build_model_pipeline(
     All data-dependent preprocessing is part of the returned pipeline, so fit
     statistics are learned only from the split supplied to ``Pipeline.fit``.
     """
-
     config = _normalize_config(preprocessing)
 
     if config.transformer is not None:

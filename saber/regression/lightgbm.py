@@ -1,5 +1,4 @@
-"""
-saber.regression.lightgbm
+"""saber.regression.lightgbm
 ==========================
 
 LightGBM regression models and registry wiring.
@@ -15,17 +14,14 @@ from saber.core.capabilities import (
 )
 from saber.core.registry import MODEL_REGISTRY
 from saber.core.specs import AlgorithmSpec
-
 from saber.regression import search_spaces
 
 _ALIASES: dict[str, tuple[str, ...]] = {"lgbm_regressor": ("lightgbm_regressor",)}
 
 
 def register_lightgbm_regression_models() -> None:
+    """Register all LightGBM regression models.
     """
-    Register all LightGBM regression models.
-    """
-
     models = [
         (
             "lgbm_regressor",
@@ -36,14 +32,13 @@ def register_lightgbm_regression_models() -> None:
                 "tree",
                 "boosting",
             ),
-            search_spaces.LGBM_REGRESSOR
+            search_spaces.LGBM_REGRESSOR,
         ),
     ]
 
     specs: list[AlgorithmSpec] = []
 
     for name, model_rgx, tags, search_space in models:
-
         spec = AlgorithmSpec(
             provider="lightgbm",
             task="regression",

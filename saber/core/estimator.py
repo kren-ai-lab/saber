@@ -1,5 +1,4 @@
-"""
-saber.core.estimator
+"""saber.core.estimator
 =====================
 
 Canonical estimator construction for saber.
@@ -7,9 +6,10 @@ Canonical estimator construction for saber.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from inspect import Parameter, signature
-from typing import Any, Mapping
+from typing import Any
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +28,7 @@ class EstimatorFactory:
     ``random_state`` is injected only when explicitly requested and when the
     estimator exposes that parameter. An explicit seed overrides a factory
     default; other call-specific parameters override their defaults normally.
+
     """
 
     estimator_cls: type
@@ -42,7 +43,6 @@ class EstimatorFactory:
 
     def parameter_names(self) -> set[str]:
         """Return constructor parameters accepted by the estimator."""
-
         try:
             estimator = self.estimator_cls()
             get_params = getattr(estimator, "get_params", None)
@@ -77,7 +77,6 @@ class EstimatorFactory:
 
     def supports_parameter(self, name: str) -> bool:
         """Return whether the estimator advertises a constructor parameter."""
-
         names = self.parameter_names()
         return name in names or "**kwargs" in names
 
@@ -88,16 +87,12 @@ class EstimatorFactory:
         **params: Any,
     ) -> dict[str, Any]:
         """Resolve defaults, overrides, and optional random-state injection."""
-
         resolved = {
             **dict(self.default_params),
             **params,
         }
 
-        if (
-            random_state is not None
-            and self.supports_parameter("random_state")
-        ):
+        if random_state is not None and self.supports_parameter("random_state"):
             resolved["random_state"] = random_state
 
         return resolved
@@ -109,7 +104,6 @@ class EstimatorFactory:
         **params: Any,
     ):
         """Construct a fresh estimator instance."""
-
         resolved = self.resolved_params(
             random_state=random_state,
             **params,
@@ -120,9 +114,8 @@ class EstimatorFactory:
     def with_defaults(
         self,
         default_params: Mapping[str, Any],
-    ) -> "EstimatorFactory":
+    ) -> EstimatorFactory:
         """Return a new factory with merged defaults."""
-
         merged = {
             **dict(self.default_params),
             **dict(default_params),

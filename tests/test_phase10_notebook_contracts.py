@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_NOTEBOOKS = {
     "examples/classification/01_binary_classification.ipynb",
@@ -21,23 +20,19 @@ EXPECTED_NOTEBOOKS = {
     "examples/end_to_end/01_data_centric_benchmark.ipynb",
 }
 
+
 def _load(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _source(nb: dict) -> str:
     return "\n".join(
-        "".join(cell.get("source", []))
-        for cell in nb["cells"]
-        if cell.get("cell_type") == "code"
+        "".join(cell.get("source", [])) for cell in nb["cells"] if cell.get("cell_type") == "code"
     )
 
 
 def test_phase10_demo_inventory_is_complete() -> None:
-    observed = {
-        path.relative_to(ROOT).as_posix()
-        for path in (ROOT / "examples").rglob("*.ipynb")
-    }
+    observed = {path.relative_to(ROOT).as_posix() for path in (ROOT / "examples").rglob("*.ipynb")}
     assert observed == EXPECTED_NOTEBOOKS
 
 

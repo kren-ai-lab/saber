@@ -1,5 +1,4 @@
-"""
-saber.core.capabilities
+"""saber.core.capabilities
 ========================
 
 Static estimator capability and requirement contracts.
@@ -11,10 +10,9 @@ that later preprocessing/validation phases can enforce explicitly.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import inspect
+from dataclasses import dataclass
 from typing import Literal
-
 
 ScalingRecommendation = Literal[
     "optional",
@@ -34,7 +32,6 @@ class EstimatorCapabilities:
 
     def to_dict(self) -> dict[str, bool]:
         """Return a serialization-friendly capability mapping."""
-
         return {
             "predict_proba": self.predict_proba,
             "decision_function": self.decision_function,
@@ -53,7 +50,6 @@ class EstimatorRequirements:
 
     def to_dict(self) -> dict[str, bool | str]:
         """Return a serialization-friendly requirement mapping."""
-
         return {
             "non_negative_X": self.non_negative_X,
             "positive_y": self.positive_y,
@@ -73,7 +69,6 @@ def infer_estimator_capabilities(
     inferred automatically. Provider modules may explicitly supply additional
     information, such as native missing-value handling.
     """
-
     predict_proba = hasattr(estimator_cls, "predict_proba")
     decision_function = hasattr(estimator_cls, "decision_function")
 

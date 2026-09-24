@@ -1,5 +1,4 @@
-"""
-saber.core.prediction
+"""saber.core.prediction
 ======================
 
 Structured prediction contracts shared by training and evaluation.
@@ -33,9 +32,7 @@ class PredictionResult:
         self.predictions = np.asarray(self.predictions)
 
         if self.predictions.ndim != 1:
-            raise PredictionContractError(
-                "predictions must be a one-dimensional array."
-            )
+            raise PredictionContractError("predictions must be a one-dimensional array.")
 
         if self.probabilities is not None:
             self.probabilities = np.asarray(self.probabilities)
@@ -46,20 +43,14 @@ class PredictionResult:
         if self.classes is not None:
             self.classes = np.asarray(self.classes)
             if self.classes.ndim != 1:
-                raise PredictionContractError(
-                    "classes must be a one-dimensional array."
-                )
+                raise PredictionContractError("classes must be a one-dimensional array.")
 
         if self.sample_ids is not None:
             self.sample_ids = np.asarray(self.sample_ids)
             if self.sample_ids.ndim != 1:
-                raise PredictionContractError(
-                    "sample_ids must be a one-dimensional array."
-                )
+                raise PredictionContractError("sample_ids must be a one-dimensional array.")
             if self.sample_ids.shape[0] != self.n_samples:
-                raise PredictionContractError(
-                    "sample_ids length must match predictions length."
-                )
+                raise PredictionContractError("sample_ids length must match predictions length.")
 
         self._validate_response_shapes()
         self._validate_task_semantics()
@@ -67,13 +58,11 @@ class PredictionResult:
     @property
     def n_samples(self) -> int:
         """Number of predicted samples."""
-
         return int(self.predictions.shape[0])
 
     @property
     def n_classes(self) -> int | None:
         """Number of known classes for classification results."""
-
         if self.classes is None:
             return None
         return int(self.classes.shape[0])
@@ -81,84 +70,61 @@ class PredictionResult:
     @property
     def is_binary(self) -> bool:
         """Whether this is an explicitly binary classification result."""
-
         return self.task == "classification" and self.n_classes == 2
 
     def class_index(self, label: Any) -> int:
         """Return the probability-column index associated with a class label."""
-
         if self.classes is None:
-            raise PredictionContractError(
-                "Class order is unavailable for this prediction result."
-            )
+            raise PredictionContractError("Class order is unavailable for this prediction result.")
 
         matches = np.flatnonzero(self.classes == label)
         if matches.size != 1:
-            raise PredictionContractError(
-                f"Class {label!r} is not present in classes."
-            )
+            raise PredictionContractError(f"Class {label!r} is not present in classes.")
         return int(matches[0])
 
     def probabilities_for(self, label: Any) -> np.ndarray:
         """Return one-dimensional probabilities for a requested class."""
-
         if self.probabilities is None:
-            raise PredictionContractError(
-                "Probability predictions are unavailable."
-            )
+            raise PredictionContractError("Probability predictions are unavailable.")
 
         probabilities = self.probabilities
 
         if probabilities.ndim == 1:
             if self.positive_class is None:
-                raise PredictionContractError(
-                    "One-dimensional probabilities require positive_class."
-                )
+                raise PredictionContractError("One-dimensional probabilities require positive_class.")
             if label != self.positive_class:
                 if self.is_binary:
                     return 1.0 - probabilities
-                raise PredictionContractError(
-                    "One-dimensional probabilities only describe positive_class."
-                )
+                raise PredictionContractError("One-dimensional probabilities only describe positive_class.")
             return probabilities
 
         if probabilities.ndim != 2:
-            raise PredictionContractError(
-                "Probabilities must be one- or two-dimensional."
-            )
+            raise PredictionContractError("Probabilities must be one- or two-dimensional.")
 
         return probabilities[:, self.class_index(label)]
 
     def positive_probabilities(self) -> np.ndarray:
         """Return binary positive-class probabilities as a one-dimensional array."""
-
         if not self.is_binary:
             raise PredictionContractError(
                 "Positive-class probabilities are only defined for binary classification."
             )
 
         if self.positive_class is None:
-            raise PredictionContractError(
-                "positive_class is not defined."
-            )
+            raise PredictionContractError("positive_class is not defined.")
 
         return self.probabilities_for(self.positive_class)
 
     def positive_decision_scores(self) -> np.ndarray:
         """Return decision scores oriented toward the configured positive class."""
-
         if not self.is_binary:
             raise PredictionContractError(
                 "Positive-class decision scores are only defined for binary classification."
             )
         if self.decision_scores is None:
-            raise PredictionContractError(
-                "Decision scores are unavailable."
-            )
+            raise PredictionContractError("Decision scores are unavailable.")
         if self.positive_class is None or self.classes is None:
-            raise PredictionContractError(
-                "Binary decision scores require classes and positive_class."
-            )
+            raise PredictionContractError("Binary decision scores require classes and positive_class.")
 
         scores = self.decision_scores
         positive_index = self.class_index(self.positive_class)
@@ -186,44 +152,28 @@ class PredictionResult:
             if values is None:
                 continue
             if values.ndim not in (1, 2):
-                raise PredictionContractError(
-                    f"{name} must be one- or two-dimensional."
-                )
+                raise PredictionContractError(f"{name} must be one- or two-dimensional.")
             if values.shape[0] != self.n_samples:
-                raise PredictionContractError(
-                    f"{name} rows must match predictions length."
-                )
+                raise PredictionContractError(f"{name} rows must match predictions length.")
 
     def _validate_task_semantics(self) -> None:
         if self.task == "regression":
             if self.classes is not None:
-                raise PredictionContractError(
-                    "Regression predictions cannot define classes."
-                )
+                raise PredictionContractError("Regression predictions cannot define classes.")
             if self.probabilities is not None:
-                raise PredictionContractError(
-                    "Regression predictions cannot define probabilities."
-                )
+                raise PredictionContractError("Regression predictions cannot define probabilities.")
             if self.positive_class is not None:
-                raise PredictionContractError(
-                    "Regression predictions cannot define positive_class."
-                )
+                raise PredictionContractError("Regression predictions cannot define positive_class.")
             return
 
         if self.task != "classification":
-            raise PredictionContractError(
-                f"Unknown prediction task: {self.task}"
-            )
+            raise PredictionContractError(f"Unknown prediction task: {self.task}")
 
         if self.probabilities is not None and self.probabilities.ndim == 2:
             if self.classes is None:
-                raise PredictionContractError(
-                    "Two-dimensional probabilities require explicit class order."
-                )
+                raise PredictionContractError("Two-dimensional probabilities require explicit class order.")
             if self.probabilities.shape[1] != self.classes.shape[0]:
-                raise PredictionContractError(
-                    "Probability columns must match the number of classes."
-                )
+                raise PredictionContractError("Probability columns must match the number of classes.")
 
         if self.classes is not None and self.classes.size == 2:
             if self.positive_class is None:
@@ -231,6 +181,4 @@ class PredictionResult:
             else:
                 self.class_index(self.positive_class)
         elif self.positive_class is not None:
-            raise PredictionContractError(
-                "positive_class is only valid for binary classification."
-            )
+            raise PredictionContractError("positive_class is only valid for binary classification.")

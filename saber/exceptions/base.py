@@ -1,5 +1,4 @@
-"""
-saber.exceptions.base
+"""saber.exceptions.base
 ======================
 
 Core exception hierarchy for saber.
@@ -41,6 +40,7 @@ class AlgorithmNotFoundError(RegistryError):
             f"Algorithm '{name}' was not found in the registry.",
         )
 
+
 class MetricError(SaberError, ValueError):
     """Base exception for metric contract errors."""
 
@@ -62,10 +62,7 @@ class MetricTaskMismatchError(MetricError):
         metric_task: str,
         requested_task: str,
     ) -> None:
-        super().__init__(
-            f"Metric '{metric}' supports task '{metric_task}', "
-            f"not '{requested_task}'."
-        )
+        super().__init__(f"Metric '{metric}' supports task '{metric_task}', not '{requested_task}'.")
 
 
 class MetricProblemTypeError(MetricError):
@@ -80,8 +77,7 @@ class MetricProblemTypeError(MetricError):
     ) -> None:
         supported_text = ", ".join(supported)
         super().__init__(
-            f"Metric '{metric}' does not support problem type "
-            f"'{problem_type}'. Supported: {supported_text}."
+            f"Metric '{metric}' does not support problem type '{problem_type}'. Supported: {supported_text}."
         )
 
 
@@ -108,6 +104,7 @@ class NonFiniteScoreError(OptimizationError):
             f"Optimizer '{optimizer}' produced a non-finite score ({score}) "
             f"for algorithm '{algorithm}' and metric '{metric}'."
         )
+
 
 class DatasetError(SaberError, ValueError):
     """Base exception for dataset contract errors."""
@@ -163,6 +160,7 @@ class ValidationContractError(SaberError, ValueError):
 
 class BenchmarkContractError(SaberError, ValueError):
     """Raised when a benchmark matrix violates a scientific/workflow contract."""
+
 
 class PersistenceError(SaberError, RuntimeError):
     """Base exception for persistence/artifact failures."""

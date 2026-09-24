@@ -25,7 +25,7 @@ def test_registry_tags_are_normalized() -> None:
 
 
 def test_core_import_can_skip_optional_estimator_providers() -> None:
-    code = r'''
+    code = r"""
 import importlib.util
 
 original_find_spec = importlib.util.find_spec
@@ -44,7 +44,7 @@ import saber
 assert saber.MODEL_REGISTRY.providers() == {"sklearn"}
 assert "xgb_classifier" not in saber.MODEL_REGISTRY
 assert "lgbm_classifier" not in saber.MODEL_REGISTRY
-'''
+"""
 
     completed = subprocess.run(  # noqa: S603
         [sys.executable, "-c", code],

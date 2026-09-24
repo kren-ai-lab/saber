@@ -39,12 +39,7 @@ def package_version(name: str) -> str | None:
 
 def environment_snapshot() -> dict[str, Any]:
     """Capture runtime/package versions without importing optional providers."""
-
-    packages = {
-        name: version
-        for name in _TRACKED_PACKAGES
-        if (version := package_version(name)) is not None
-    }
+    packages = {name: version for name in _TRACKED_PACKAGES if (version := package_version(name)) is not None}
     return {
         "python": {
             "version": platform.python_version(),
@@ -71,16 +66,13 @@ def compatibility_warnings(
     compatibility-sensitive. Other package-version changes are reported as
     warnings but remain loadable unless ``strict`` is enabled.
     """
-
     current = environment_snapshot()
     warnings: list[str] = []
 
     expected_python = str(expected.get("python", {}).get("version", ""))
     current_python = str(current["python"]["version"])
     if expected_python and _major_minor(expected_python) != _major_minor(current_python):
-        warnings.append(
-            f"Python version differs: artifact={expected_python}, current={current_python}."
-        )
+        warnings.append(f"Python version differs: artifact={expected_python}, current={current_python}.")
 
     expected_packages = expected.get("packages", {})
     current_packages = current.get("packages", {})
@@ -94,8 +86,7 @@ def compatibility_warnings(
             continue
         if str(expected_version) != str(current_version):
             warnings.append(
-                f"Package '{name}' version differs: artifact={expected_version}, "
-                f"current={current_version}."
+                f"Package '{name}' version differs: artifact={expected_version}, current={current_version}."
             )
 
     if strict and warnings:

@@ -1,5 +1,4 @@
-"""
-saber.regression.sklearn
+"""saber.regression.sklearn
 =========================
 
 Scikit-learn based regression algorithms and registry wiring.
@@ -8,46 +7,36 @@ Scikit-learn based regression algorithms and registry wiring.
 from __future__ import annotations
 
 from sklearn.dummy import DummyRegressor
-
 from sklearn.ensemble import (
     AdaBoostRegressor,
+    BaggingRegressor,
     ExtraTreesRegressor,
     GradientBoostingRegressor,
     HistGradientBoostingRegressor,
     RandomForestRegressor,
-    BaggingRegressor
 )
-
 from sklearn.gaussian_process import (
     GaussianProcessRegressor,
 )
-
 from sklearn.linear_model import (
+    ARDRegression,
     BayesianRidge,
     ElasticNet,
-    Lasso,
-    LinearRegression,
-    Ridge,
-    ARDRegression,
     GammaRegressor,
     HuberRegressor,
     Lars,
+    Lasso,
     LassoLars,
+    LinearRegression,
     OrthogonalMatchingPursuit,
+    Ridge,
 )
-
-from sklearn.neighbors import (
-    KNeighborsRegressor,
-    RadiusNeighborsRegressor
-)
-
-
+from sklearn.neighbors import KNeighborsRegressor, RadiusNeighborsRegressor
 from sklearn.svm import (
+    SVR,
     LinearSVR,
     NuSVR,
-    SVR,
 )
-
 from sklearn.tree import (
     DecisionTreeRegressor,
     ExtraTreeRegressor,
@@ -59,9 +48,7 @@ from saber.core.capabilities import (
 )
 from saber.core.registry import MODEL_REGISTRY
 from saber.core.specs import AlgorithmSpec
-
 from saber.regression import search_spaces
-
 
 _ALIASES: dict[str, tuple[str, ...]] = {
     "dummy_regressor": ("regression_baseline",),
@@ -99,19 +86,13 @@ _SCALING_RECOMMENDED = {
 def _requirements_for(name: str) -> EstimatorRequirements:
     return EstimatorRequirements(
         positive_y=(name == "gamma_regression"),
-        scaling=(
-            "recommended"
-            if name in _SCALING_RECOMMENDED
-            else "not_required"
-        ),
+        scaling=("recommended" if name in _SCALING_RECOMMENDED else "not_required"),
     )
 
 
 def register_sklearn_regression_models() -> None:
+    """Register all scikit-learn regression models.
     """
-    Register all scikit-learn regression models.
-    """
-
     models = [
         (
             "dummy_regressor",
@@ -226,62 +207,54 @@ def register_sklearn_regression_models() -> None:
             BaggingRegressor,
             ("regression", "ensemble"),
             search_spaces.BAGGING_REGRESSOR,
-        ), 
-
+        ),
         (
             "ard_regression",
             ARDRegression,
             ("regression", "linear"),
             search_spaces.ARD_REGRESSION,
         ),
-
         (
             "gamma_regression",
             GammaRegressor,
             ("regression", "linear"),
             search_spaces.GAMMA_REGRESSION,
         ),
-
         (
             "huber_regression",
             HuberRegressor,
             ("regression", "linear"),
             search_spaces.HUBER_REGRESSION,
         ),
-
         (
             "lars_regressor",
             Lars,
             ("regression", "linear"),
             search_spaces.LARS_REGRESSOR,
         ),
-
         (
             "lasso_lars_regressor",
             LassoLars,
             ("regression", "linear"),
             search_spaces.LASSO_LARS_REGRESSOR,
         ),
-
         (
             "orthogonal_matching_pursuit",
             OrthogonalMatchingPursuit,
             ("regression", "linear"),
             search_spaces.ORTHOGONAL_MATCHING_PURSUIT,
         ),
-
         (
             "radius_neighbors_regressor",
             RadiusNeighborsRegressor,
             ("regression", "knn"),
             search_spaces.RADIUS_NEIGHBORS_REGRESSOR,
-        )
+        ),
     ]
 
     specs: list[AlgorithmSpec] = []
 
     for name, model_rgx, tags, search_space in models:
-
         capabilities = infer_estimator_capabilities(
             model_rgx,
             native_missing_values=(name == "hist_gradient_boosting_regressor"),

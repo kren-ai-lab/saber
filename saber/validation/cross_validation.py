@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from time import perf_counter
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -24,7 +25,6 @@ from saber.validation.results import (
     ValidationResult,
     aggregate_fold_metrics,
 )
-
 
 
 class ValidationEngine:
@@ -51,7 +51,6 @@ class ValidationEngine:
         **model_params: Any,
     ) -> ValidationResult:
         """Validate one registered algorithm over an explicit/generated plan."""
-
         spec = self.registry.get(algorithm)
         dataset.validate(task=spec.task)
 
@@ -80,8 +79,7 @@ class ValidationEngine:
                 resolved.train.validate(task=spec.task)
             except DatasetValidationError as exc:
                 raise ValidationContractError(
-                    f"Training membership for split '{split.name}' is invalid "
-                    f"for task '{spec.task}': {exc}"
+                    f"Training membership for split '{split.name}' is invalid for task '{spec.task}': {exc}"
                 ) from exc
 
             estimator = spec.build_estimator(
@@ -174,7 +172,6 @@ def validate_model(
     **kwargs: Any,
 ) -> ValidationResult:
     """Functional convenience wrapper around :class:`ValidationEngine`."""
-
     return ValidationEngine(registry).run(**kwargs)
 
 
@@ -250,9 +247,7 @@ def _build_oof_prediction(
     ordered_ids = [sample_id for sample_id in dataset.sample_ids if sample_id in prediction_by_id]
     predictions = np.asarray(
         [
-            prediction_by_id[sample_id][0].prediction.predictions[
-                prediction_by_id[sample_id][1]
-            ]
+            prediction_by_id[sample_id][0].prediction.predictions[prediction_by_id[sample_id][1]]
             for sample_id in ordered_ids
         ]
     )

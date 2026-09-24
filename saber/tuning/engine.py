@@ -13,7 +13,12 @@ from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, cross_vali
 from saber.core.registry import AlgorithmRegistry
 from saber.core.search_space import SearchSpace
 from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
-from saber.exceptions import DatasetValidationError, NonFiniteScoreError, OptimizationError, ValidationContractError
+from saber.exceptions import (
+    DatasetValidationError,
+    NonFiniteScoreError,
+    OptimizationError,
+    ValidationContractError,
+)
 from saber.preprocessing import PreprocessingConfig, build_model_pipeline
 from saber.tuning.results import OptimizationResult
 from saber.tuning.scorers import get_scorer
@@ -122,22 +127,15 @@ class TuningEngine:
 
         space = search_space if search_space is not None else spec.get_search_space()
         if space is None:
-            raise ValidationContractError(
-                f"No search space defined for algorithm '{spec.name}'."
-            )
+            raise ValidationContractError(f"No search space defined for algorithm '{spec.name}'.")
         if len(space) == 0:
-            raise ValidationContractError(
-                f"Search space for algorithm '{spec.name}' is empty."
-            )
+            raise ValidationContractError(f"Search space for algorithm '{spec.name}' is empty.")
 
         metrics = tuple(dict.fromkeys(config.metrics))
         if not metrics:
             raise ValidationContractError("At least one tuning metric is required.")
         refit_metric = config.resolved_refit_metric()
-        scorers = {
-            metric: get_scorer(metric, task=spec.task, y=search_dataset.y)
-            for metric in metrics
-        }
+        scorers = {metric: get_scorer(metric, task=spec.task, y=search_dataset.y) for metric in metrics}
 
         first_train_index = cv[0][0]
         first_train = search_dataset.subset(
@@ -228,9 +226,7 @@ class TuningEngine:
 
         try:
             grid_parameters = (
-                search_space.to_grid(prefix="estimator__")
-                if optimizer in {"grid", "halving_grid"}
-                else None
+                search_space.to_grid(prefix="estimator__") if optimizer in {"grid", "halving_grid"} else None
             )
             random_parameters = (
                 search_space.to_random(prefix="estimator__")
@@ -310,10 +306,7 @@ class TuningEngine:
             mean_key = f"mean_test_{refit_metric}"
             best_index = _best_index(results[mean_key], spec.name, refit_metric, optimizer)
             best_score = float(results[mean_key][best_index])
-            best_scores = {
-                metric: float(results[f"mean_test_{metric}"][best_index])
-                for metric in scorers
-            }
+            best_scores = {metric: float(results[f"mean_test_{metric}"][best_index]) for metric in scorers}
             history = _history_from_multimetric_results(results, tuple(scorers))
         else:
             best_index = _best_index(
@@ -507,9 +500,7 @@ class TuningEngine:
                     "trial": trial.number,
                     "params": dict(trial.params),
                     "score": None if trial.value is None else float(trial.value),
-                    "metrics": {
-                        refit_metric: None if trial.value is None else float(trial.value)
-                    },
+                    "metrics": {refit_metric: None if trial.value is None else float(trial.value)},
                     "status": str(trial.state).split(".")[-1].lower(),
                     "error": trial.user_attrs.get("saber_error"),
                 }
@@ -532,7 +523,6 @@ class TuningEngine:
 
 def tune_model(registry: AlgorithmRegistry, **kwargs: Any) -> OptimizationResult:
     """Functional convenience wrapper around :class:`TuningEngine`."""
-
     return TuningEngine(registry).run(**kwargs)
 
 
@@ -598,10 +588,7 @@ def _validate_best_scores(
 
 def _strip_estimator_prefix(params: dict[str, Any]) -> dict[str, Any]:
     prefix = "estimator__"
-    return {
-        key[len(prefix):] if key.startswith(prefix) else key: value
-        for key, value in params.items()
-    }
+    return {key.removeprefix(prefix): value for key, value in params.items()}
 
 
 def _candidate_status(value: float) -> str:
@@ -653,11 +640,7 @@ def _history_from_singlemetric_results(
                 },
                 "status": _candidate_status(mean),
                 "error": None if np.isfinite(mean) else "non-finite candidate score",
-                **(
-                    {"iteration": int(results["iter"][index])}
-                    if "iter" in results
-                    else {}
-                ),
+                **({"iteration": int(results["iter"][index])} if "iter" in results else {}),
             }
         )
     return history

@@ -39,9 +39,7 @@ def verify_checksums(root: str | Path) -> None:
     base = Path(root)
     checksum_path = base / CHECKSUM_FILENAME
     if not checksum_path.is_file():
-        raise ArtifactIntegrityError(
-            f"Artifact checksum file '{CHECKSUM_FILENAME}' is missing."
-        )
+        raise ArtifactIntegrityError(f"Artifact checksum file '{CHECKSUM_FILENAME}' is missing.")
 
     for line_number, raw_line in enumerate(
         checksum_path.read_text(encoding="utf-8").splitlines(),
@@ -52,14 +50,10 @@ def verify_checksums(root: str | Path) -> None:
         try:
             expected, relative = raw_line.split("  ", 1)
         except ValueError as exc:
-            raise ArtifactIntegrityError(
-                f"Malformed checksum entry on line {line_number}."
-            ) from exc
+            raise ArtifactIntegrityError(f"Malformed checksum entry on line {line_number}.") from exc
         target = base / relative
         if not target.is_file():
-            raise ArtifactIntegrityError(
-                f"Artifact file listed in checksums is missing: '{relative}'."
-            )
+            raise ArtifactIntegrityError(f"Artifact file listed in checksums is missing: '{relative}'.")
         observed = sha256_file(target)
         if observed != expected:
             raise ArtifactIntegrityError(

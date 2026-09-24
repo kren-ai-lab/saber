@@ -7,10 +7,11 @@ public BioSieve splitting protocol.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -18,7 +19,6 @@ import pandas as pd
 from saber.datasets.folds import PartitionPlan, PartitionSplit
 from saber.datasets.schemas import DatasetBundle
 from saber.exceptions import OptionalDependencyError, PartitionIntegrationError
-
 
 _STRATEGIES: dict[str, tuple[str, str]] = {
     "random": ("biosieve.splitting.random", "RandomSplitter"),
@@ -102,7 +102,6 @@ class BioSievePartitionConfig:
 
 def available_biosieve_strategies() -> tuple[str, ...]:
     """Return BioSieve strategies supported by this adapter."""
-
     return tuple(sorted(_STRATEGIES))
 
 
@@ -122,7 +121,6 @@ def partition_with_biosieve(
     columns) without expanding ``DatasetBundle`` into a domain-specific data
     container.
     """
-
     dataset.validate()
     pl, Columns = _import_biosieve_runtime()
 
@@ -158,20 +156,14 @@ def partition_with_biosieve(
         elif hasattr(active_splitter, "run"):
             raw_results = [active_splitter.run(frame, columns)]
         else:
-            raise PartitionIntegrationError(
-                "BioSieve splitter must implement run(...) or run_folds(...)."
-            )
+            raise PartitionIntegrationError("BioSieve splitter must implement run(...) or run_folds(...).")
     except PartitionIntegrationError:
         raise
     except Exception as exc:
-        raise PartitionIntegrationError(
-            f"BioSieve strategy '{config.strategy}' failed: {exc}"
-        ) from exc
+        raise PartitionIntegrationError(f"BioSieve strategy '{config.strategy}' failed: {exc}") from exc
 
     if not raw_results:
-        raise PartitionIntegrationError(
-            f"BioSieve strategy '{config.strategy}' produced no split results."
-        )
+        raise PartitionIntegrationError(f"BioSieve strategy '{config.strategy}' produced no split results.")
 
     splits = tuple(
         _split_result_to_partition(
@@ -274,23 +266,16 @@ def _dataset_to_polars(
     collisions = reserved & set(feature_names)
     if collisions:
         raise PartitionIntegrationError(
-            "Feature names collide with saber/BioSieve integration columns: "
-            + ", ".join(sorted(collisions))
+            "Feature names collide with saber/BioSieve integration columns: " + ", ".join(sorted(collisions))
         )
 
     features: dict[str, Any] = {}
     if include_features:
         if isinstance(dataset.X, pd.DataFrame):
-            features = {
-                str(column): dataset.X[column].to_numpy(copy=True)
-                for column in dataset.X.columns
-            }
+            features = {str(column): dataset.X[column].to_numpy(copy=True) for column in dataset.X.columns}
         else:
             values = np.asarray(dataset.X)
-            features = {
-                name: values[:, index].copy()
-                for index, name in enumerate(feature_names)
-            }
+            features = {name: values[:, index].copy() for index, name in enumerate(feature_names)}
 
     payload: dict[str, Any] = {
         config.id_col: list(dataset.sample_ids),
@@ -302,14 +287,11 @@ def _dataset_to_polars(
 
     for name, values in dict(extra_columns or {}).items():
         if name in payload:
-            raise PartitionIntegrationError(
-                f"extra_columns cannot overwrite existing column '{name}'."
-            )
+            raise PartitionIntegrationError(f"extra_columns cannot overwrite existing column '{name}'.")
         sequence = list(values)
         if len(sequence) != dataset.n_samples:
             raise PartitionIntegrationError(
-                f"extra column '{name}' must contain {dataset.n_samples} values; "
-                f"received {len(sequence)}."
+                f"extra column '{name}' must contain {dataset.n_samples} values; received {len(sequence)}."
             )
         payload[str(name)] = sequence
 

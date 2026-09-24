@@ -8,17 +8,17 @@ import importlib.util
 import json
 import platform
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from rich.console import Console
-from rich.table import Table
 
 from saber import __version__
 from saber.cli.render import (
+    render_artifact,
     render_cli_help,
     render_cli_usage_error,
-    render_artifact,
     render_doctor,
     render_dry_run,
     render_execution,
@@ -68,7 +68,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"saber {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    run_parser = sub.add_parser("run", help="Run the workflow declared by a validated YAML/JSON config.", description="Run the workflow declared by a validated YAML/JSON config.")
+    run_parser = sub.add_parser(
+        "run",
+        help="Run the workflow declared by a validated YAML/JSON config.",
+        description="Run the workflow declared by a validated YAML/JSON config.",
+    )
     _add_workflow_arguments(run_parser)
     run_parser._saber_examples = ("saber run experiment.yaml", "saber run experiment.yaml --dry-run")
 
@@ -90,7 +94,11 @@ def build_parser() -> argparse.ArgumentParser:
             f"saber {workflow} experiment.yaml --json",
         )
 
-    models = sub.add_parser("models", help="Discover registered algorithms and their capabilities.", description="Discover registered algorithms and their capabilities.")
+    models = sub.add_parser(
+        "models",
+        help="Discover registered algorithms and their capabilities.",
+        description="Discover registered algorithms and their capabilities.",
+    )
     models_sub = models.add_subparsers(dest="models_command", required=True)
     list_parser = models_sub.add_parser("list", help="List available algorithms.")
     _add_model_filters(list_parser)
@@ -108,9 +116,15 @@ def build_parser() -> argparse.ArgumentParser:
         "saber models show random_forest",
     )
 
-    artifact = sub.add_parser("artifact", help="Inspect or verify persistence artifacts.", description="Inspect or verify persistence artifacts.")
+    artifact = sub.add_parser(
+        "artifact",
+        help="Inspect or verify persistence artifacts.",
+        description="Inspect or verify persistence artifacts.",
+    )
     artifact_sub = artifact.add_subparsers(dest="artifact_command", required=True)
-    inspect_parser = artifact_sub.add_parser("inspect", help="Inspect an artifact manifest without loading its model.")
+    inspect_parser = artifact_sub.add_parser(
+        "inspect", help="Inspect an artifact manifest without loading its model."
+    )
     inspect_parser.add_argument("path")
     inspect_parser.add_argument("--no-verify", action="store_true")
     inspect_parser.add_argument("--json", action="store_true")
@@ -121,9 +135,15 @@ def build_parser() -> argparse.ArgumentParser:
         "saber artifact verify artifacts/model",
     )
 
-    config = sub.add_parser("config", help="Inspect, validate, or normalize workflow config files.", description="Inspect, validate, or normalize workflow config files.")
+    config = sub.add_parser(
+        "config",
+        help="Inspect, validate, or normalize workflow config files.",
+        description="Inspect, validate, or normalize workflow config files.",
+    )
     config_sub = config.add_subparsers(dest="config_command", required=True)
-    validate_parser = config_sub.add_parser("validate", help="Validate a YAML/JSON config without executing it.")
+    validate_parser = config_sub.add_parser(
+        "validate", help="Validate a YAML/JSON config without executing it."
+    )
     validate_parser.add_argument("path")
     show_config_parser = config_sub.add_parser("show", help="Render a validated execution plan.")
     show_config_parser.add_argument("path")
@@ -137,7 +157,11 @@ def build_parser() -> argparse.ArgumentParser:
         "saber config normalize experiment.yaml -o normalized.yaml",
     )
 
-    doctor = sub.add_parser("doctor", help="Show runtime and optional-provider availability.", description="Show runtime and optional-provider availability.")
+    doctor = sub.add_parser(
+        "doctor",
+        help="Show runtime and optional-provider availability.",
+        description="Show runtime and optional-provider availability.",
+    )
     doctor.add_argument("--json", action="store_true")
     doctor._saber_examples = ("saber doctor", "saber doctor --json")
 
@@ -225,9 +249,7 @@ def _models_command(args: Any, console: Console) -> int:
         specs = [
             spec
             for spec in specs
-            if needle in " ".join(
-                [spec.name, *spec.aliases, *spec.tags, spec.description or ""]
-            ).lower()
+            if needle in " ".join([spec.name, *spec.aliases, *spec.tags, spec.description or ""]).lower()
         ]
 
     rows = [_model_row(spec) for spec in sorted(specs, key=lambda item: item.name)]
@@ -321,10 +343,18 @@ def _model_row(spec: Any) -> dict[str, Any]:
 
 def _add_workflow_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("config", help="YAML or JSON workflow configuration.")
-    parser.add_argument("--dry-run", action="store_true", help="Validate and show the execution plan without running it.")
-    parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON instead of rich output.")
-    parser.add_argument("--quiet", action="store_true", help="Suppress normal CLI output; errors still go to stderr.")
-    parser.add_argument("--no-progress", action="store_true", help="Disable the interactive progress/status indicator.")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Validate and show the execution plan without running it."
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="Emit machine-readable JSON instead of rich output."
+    )
+    parser.add_argument(
+        "--quiet", action="store_true", help="Suppress normal CLI output; errors still go to stderr."
+    )
+    parser.add_argument(
+        "--no-progress", action="store_true", help="Disable the interactive progress/status indicator."
+    )
 
 
 def _add_model_filters(parser: argparse.ArgumentParser) -> None:

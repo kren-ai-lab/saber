@@ -3,14 +3,18 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import pytest
 from sklearn.datasets import make_classification
 
 import saber
 from saber.datasets import DatasetBundle
-from saber.exceptions import ArtifactIntegrityError, FeatureSchemaMismatchError, PersistenceError, PredictionContractError
+from saber.exceptions import (
+    ArtifactIntegrityError,
+    FeatureSchemaMismatchError,
+    PersistenceError,
+    PredictionContractError,
+)
 from saber.persistence import inspect_artifact, load_model_artifact, save_model_artifact, verify_artifact
 from saber.persistence.checksums import write_checksums
 
@@ -21,7 +25,9 @@ def _trained(tmp_path: Path):
     dataset = DatasetBundle(frame, y, sample_ids=[f"s{i}" for i in range(50)])
     trained = saber.train(dataset=dataset, algorithm="logistic_regression", random_state=42)
     path = tmp_path / "model"
-    save_model_artifact(path, model=trained.model, algorithm="logistic_regression", task="classification", dataset=dataset)
+    save_model_artifact(
+        path, model=trained.model, algorithm="logistic_regression", task="classification", dataset=dataset
+    )
     return dataset, trained, path
 
 

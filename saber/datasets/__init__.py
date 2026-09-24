@@ -24,6 +24,6 @@ __all__ = [
     "ResolvedPartition",
     "available_biosieve_strategies",
     "load_partition_plan",
-    "partition_with_biosieve",
     "partition_plan_from_frame",
+    "partition_with_biosieve",
 ]

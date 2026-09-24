@@ -14,15 +14,15 @@ from saber.tuning.scorers import (
     REGRESSION_SCORERS,
     SCORERS,
     get_scorer,
-    list_scorers,
     is_classification_scorer,
     is_regression_scorer,
+    list_scorers,
 )
-
 
 # ============================================================
 # Registry
 # ============================================================
+
 
 def test_classification_scorers_exist() -> None:
 
@@ -63,6 +63,7 @@ def test_combined_registry_contains_all() -> None:
 # get_scorer
 # ============================================================
 
+
 def test_get_classification_scorer() -> None:
 
     scorer = get_scorer(
@@ -95,6 +96,7 @@ def test_unknown_scorer_raises() -> None:
 # Listing
 # ============================================================
 
+
 def test_list_scorers_returns_list() -> None:
 
     scorers = list_scorers()
@@ -104,9 +106,12 @@ def test_list_scorers_returns_list() -> None:
         list,
     )
 
-    assert len(
-        scorers,
-    ) > 0
+    assert (
+        len(
+            scorers,
+        )
+        > 0
+    )
 
 
 def test_list_scorers_contains_expected_metrics() -> None:
@@ -125,6 +130,7 @@ def test_list_scorers_contains_expected_metrics() -> None:
 # ============================================================
 # Classification helpers
 # ============================================================
+
 
 def test_is_classification_scorer() -> None:
 
@@ -159,6 +165,7 @@ def test_is_regression_scorer() -> None:
 # ============================================================
 # Scorer objects
 # ============================================================
+
 
 def test_accuracy_returns_sklearn_scorer() -> None:
 

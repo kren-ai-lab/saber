@@ -8,11 +8,11 @@ import pandas as pd
 import yaml
 from sklearn.datasets import make_classification
 
+from saber import train
 from saber.cli.main import EXIT_CONFIG, EXIT_OK, main
 from saber.config import run_config
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.persistence import save_model_artifact
-from saber import train
 
 
 def _workflow_files(tmp_path):

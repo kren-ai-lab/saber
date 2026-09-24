@@ -102,16 +102,12 @@ class AlgorithmSpec:
         **params: Any,
     ):
         """Build an estimator through the canonical factory."""
-
         if self.estimator_factory is None:
-            raise ValueError(
-                f"Algorithm '{self.name}' does not define an estimator factory."
-            )
+            raise ValueError(f"Algorithm '{self.name}' does not define an estimator factory.")
         return self.estimator_factory.build(random_state=random_state, **params)
 
     def metadata(self) -> dict[str, Any]:
         """Return serialization-friendly registry metadata."""
-
         estimator_name = None
         if self.estimator_cls is not None:
             estimator_name = self.estimator_cls.__name__

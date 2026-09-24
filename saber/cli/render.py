@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -22,7 +21,6 @@ from saber.validation import ValidationResult
 
 def render_cli_help(console: Console, parser: argparse.ArgumentParser) -> None:
     """Render argparse metadata using the same Rich visual language as CLI results."""
-
     command = parser.prog
     description = parser.description or "Classical supervised machine learning workflows."
     heading = Text(command, style="bold cyan")
@@ -81,7 +79,6 @@ def render_cli_help(console: Console, parser: argparse.ArgumentParser) -> None:
 
 def render_cli_usage_error(console: Console, parser: argparse.ArgumentParser, message: str) -> None:
     """Render compact parse/usage errors without falling back to argparse styling."""
-
     console.print(Panel(str(message), title="[bold red]CLI usage error[/bold red]", border_style="red"))
     usage = parser.format_usage().strip()
     if usage.lower().startswith("usage:"):
@@ -113,7 +110,15 @@ def _option_rows(parser: argparse.ArgumentParser) -> list[tuple[str, str]]:
         if not action.option_strings:
             continue
         flags = ", ".join(action.option_strings)
-        if not isinstance(action, (argparse._StoreTrueAction, argparse._StoreFalseAction, argparse._HelpAction, argparse._VersionAction)):
+        if not isinstance(
+            action,
+            (
+                argparse._StoreTrueAction,
+                argparse._StoreFalseAction,
+                argparse._HelpAction,
+                argparse._VersionAction,
+            ),
+        ):
             metavar = action.metavar or action.dest.upper()
             flags = f"{flags} {metavar}"
         rows.append((flags, action.help or ""))
@@ -122,7 +127,6 @@ def _option_rows(parser: argparse.ArgumentParser) -> list[tuple[str, str]]:
 
 def render_preflight(console: Console, config: WorkflowConfig) -> None:
     """Render a concise execution plan without duplicating workflow logic."""
-
     payload = config.payload
     table = Table.grid(padding=(0, 2))
     table.add_column(style="bold cyan", no_wrap=True)
@@ -182,7 +186,6 @@ def render_dry_run(console: Console, config: WorkflowConfig) -> None:
 
 def render_execution(console: Console, execution: WorkflowExecution) -> None:
     """Render one completed public/config workflow."""
-
     workflow = execution.config.workflow
     result = execution.result
     console.print()

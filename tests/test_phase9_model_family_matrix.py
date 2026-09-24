@@ -10,7 +10,6 @@ import saber
 from saber.datasets import DatasetBundle
 from saber.preprocessing import PreprocessingConfig
 
-
 CLASSIFIERS = (
     "logistic_regression",
     "random_forest",
@@ -171,11 +170,25 @@ def test_gamma_regression_runs_on_strictly_positive_target():
 @pytest.mark.parametrize(
     "module_name, classifier, regressor, class_params, reg_params",
     [
-        ("xgboost", "xgb_classifier", "xgb_regressor", {"n_estimators": 8, "max_depth": 3, "verbosity": 0}, {"n_estimators": 8, "max_depth": 3, "verbosity": 0}),
-        ("lightgbm", "lgbm_classifier", "lgbm_regressor", {"n_estimators": 8, "verbose": -1}, {"n_estimators": 8, "verbose": -1}),
+        (
+            "xgboost",
+            "xgb_classifier",
+            "xgb_regressor",
+            {"n_estimators": 8, "max_depth": 3, "verbosity": 0},
+            {"n_estimators": 8, "max_depth": 3, "verbosity": 0},
+        ),
+        (
+            "lightgbm",
+            "lgbm_classifier",
+            "lgbm_regressor",
+            {"n_estimators": 8, "verbose": -1},
+            {"n_estimators": 8, "verbose": -1},
+        ),
     ],
 )
-def test_optional_provider_public_api_end_to_end(module_name, classifier, regressor, class_params, reg_params):
+def test_optional_provider_public_api_end_to_end(
+    module_name, classifier, regressor, class_params, reg_params
+):
     pytest.importorskip(module_name)
 
     classification = _classification_dataset()

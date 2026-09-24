@@ -6,13 +6,13 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+import saber.validation.partitioning as partitioning_module
 from saber import MODEL_REGISTRY
 from saber.datasets import DatasetBundle
 from saber.datasets import biosieve as adapter
 from saber.datasets.biosieve import BioSievePartitionConfig, partition_with_biosieve
 from saber.exceptions import PartitionIntegrationError, PartitionValidationError
 from saber.validation import ValidationEngine
-import saber.validation.partitioning as partitioning_module
 
 
 class FakeSeries:
@@ -123,7 +123,9 @@ def test_validation_engine_can_consume_biosieve_generated_memberships_end_to_end
     dataset = _dataset()
 
     def fake_partition(ds, config, extra_columns=None):
-        return partition_with_biosieve(ds, config, extra_columns=extra_columns, splitter=CompleteKFoldSplitter())
+        return partition_with_biosieve(
+            ds, config, extra_columns=extra_columns, splitter=CompleteKFoldSplitter()
+        )
 
     monkeypatch.setattr(partitioning_module, "partition_with_biosieve", fake_partition)
     result = ValidationEngine(MODEL_REGISTRY).run(

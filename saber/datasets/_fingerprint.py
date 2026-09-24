@@ -11,7 +11,6 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-
 _FINGERPRINT_VERSION = "saber-fingerprint-v1"
 
 
@@ -23,7 +22,6 @@ def _python_scalar(value: Any) -> Any:
 
 def _scalar_token(value: Any) -> list[Any]:
     """Return a JSON-safe, type-aware token for a scalar value."""
-
     value = _python_scalar(value)
 
     if value is None:
@@ -42,8 +40,7 @@ def _scalar_token(value: Any) -> list[Any]:
         return ["str", value]
 
     raise TypeError(
-        "Fingerprint values must be scalar None/bool/int/float/str values; "
-        f"received {type(value).__name__}."
+        f"Fingerprint values must be scalar None/bool/int/float/str values; received {type(value).__name__}."
     )
 
 
@@ -65,7 +62,6 @@ def _update_sequence(hasher: Any, label: str, values: Iterable[Any]) -> None:
 
 def _normalized_numeric_bytes(values: np.ndarray) -> bytes:
     """Return stable bytes for a numeric array independent of byte order."""
-
     array = np.asarray(values)
 
     if array.dtype.kind == "f":
@@ -86,16 +82,13 @@ def _normalized_numeric_bytes(values: np.ndarray) -> bytes:
     try:
         normalized = np.asarray(array, dtype="<f8").copy()
     except (TypeError, ValueError) as exc:
-        raise TypeError(
-            f"Unsupported numeric dtype for fingerprinting: {array.dtype}."
-        ) from exc
+        raise TypeError(f"Unsupported numeric dtype for fingerprinting: {array.dtype}.") from exc
     normalized[np.isnan(normalized)] = np.nan
     return np.ascontiguousarray(normalized).tobytes(order="C")
 
 
 def update_feature_matrix(hasher: Any, X: Any) -> None:
     """Update a hasher from a validated numerical feature matrix."""
-
     hasher.update(b"X")
 
     if isinstance(X, pd.DataFrame):
@@ -121,7 +114,6 @@ def dataset_fingerprint(
     sample_weight: Sequence[float] | None = None,
 ) -> str:
     """Create a deterministic content fingerprint for a supervised dataset."""
-
     hasher = hashlib.sha256()
     hasher.update(_FINGERPRINT_VERSION.encode("utf-8"))
     update_feature_matrix(hasher, X)
@@ -148,7 +140,6 @@ def feature_schema_fingerprint(
     dtypes: Sequence[str],
 ) -> str:
     """Create a deterministic fingerprint for a feature schema."""
-
     hasher = hashlib.sha256()
     hasher.update(_FINGERPRINT_VERSION.encode("utf-8"))
     _update_json(
@@ -173,7 +164,6 @@ def partition_fingerprint(
     Membership order inside each role is intentionally ignored. Split names are
     semantic identifiers and therefore participate in the fingerprint.
     """
-
     canonical_splits: list[dict[str, Any]] = []
 
     for split in sorted(splits, key=lambda item: str(item["name"])):

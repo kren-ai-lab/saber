@@ -1,5 +1,4 @@
-"""
-saber.tuning.results
+"""saber.tuning.results
 =====================
 
 Result objects returned by optimization methods.
@@ -59,7 +58,6 @@ class OptimizationResult:
     @property
     def display_score(self) -> float:
         """User-facing score in the metric's natural direction."""
-
         if self.metric is None:
             return self.best_score
         return get_metric_spec(self.metric).to_natural_score(self.best_score)
@@ -67,60 +65,48 @@ class OptimizationResult:
     @property
     def score_is_finite(self) -> bool:
         """Whether the stored best score is finite."""
-
         return bool(np.isfinite(self.best_score))
 
     @property
     def display_scores(self) -> dict[str, float]:
         """Best candidate scores converted to each metric's natural direction."""
-
         return {
-            name: get_metric_spec(name).to_natural_score(value)
-            for name, value in self.best_scores.items()
+            name: get_metric_spec(name).to_natural_score(value) for name, value in self.best_scores.items()
         }
 
     @property
     def failures(self) -> list[dict[str, Any]]:
         """Return candidate/trial history entries explicitly marked as failed."""
-
         return [entry for entry in self.history if entry.get("status") == "failed"]
 
     def has_model(self) -> bool:
         """Check whether a best fitted model is available."""
-
         return self.best_model is not None
 
     def has_history(self) -> bool:
         """Check whether optimization history exists."""
-
         return len(self.history) > 0
 
     def has_study(self) -> bool:
         """Check whether a backend-specific study object exists."""
-
         return self.study is not None
 
     def get_best_param(self, name: str) -> Any:
         """Retrieve a best parameter value."""
-
         return self.best_params[name]
 
     def get_history(self) -> list[dict[str, Any]]:
         """Return a shallow copy of optimization history."""
-
         return list(self.history)
 
     def history_frame(self):
         """Return optimization history as a flat pandas DataFrame."""
-
         import pandas as pd
 
         rows: list[dict[str, Any]] = []
         for entry in self.history:
             row: dict[str, Any] = {
-                key: value
-                for key, value in entry.items()
-                if key not in {"params", "metrics"}
+                key: value for key, value in entry.items() if key not in {"params", "metrics"}
             }
             for name, value in entry.get("params", {}).items():
                 row[f"param__{name}"] = value
@@ -135,7 +121,6 @@ class OptimizationResult:
 
     def to_dict(self) -> dict[str, Any]:
         """Export result as dictionary."""
-
         return {
             "algorithm": self.algorithm,
             "optimizer": self.optimizer,
@@ -154,5 +139,4 @@ class OptimizationResult:
 
     def summary(self) -> dict[str, Any]:
         """Return concise optimization summary."""
-
         return self.to_dict()

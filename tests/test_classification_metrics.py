@@ -11,16 +11,16 @@ import numpy as np
 
 from saber.evaluation.classification import (
     evaluate_binary_classification,
-    evaluate_multiclass_classification,
     evaluate_classification,
+    evaluate_multiclass_classification,
     sensitivity_score,
     specificity_score,
 )
 
-
 # ============================================================
 # Binary classification
 # ============================================================
+
 
 def test_binary_classification_metrics() -> None:
     """
@@ -54,6 +54,7 @@ def test_binary_classification_metrics() -> None:
 # Multiclass classification
 # ============================================================
 
+
 def test_multiclass_classification_metrics() -> None:
     """
     Multiclass evaluation should return expected metrics.
@@ -83,6 +84,7 @@ def test_multiclass_classification_metrics() -> None:
 # ============================================================
 # Automatic dispatch
 # ============================================================
+
 
 def test_auto_binary_dispatch() -> None:
     """
@@ -131,6 +133,7 @@ def test_auto_multiclass_dispatch() -> None:
 # Sensitivity
 # ============================================================
 
+
 def test_sensitivity_score() -> None:
     """
     Sensitivity should match expected value.
@@ -156,6 +159,7 @@ def test_sensitivity_score() -> None:
 # Specificity
 # ============================================================
 
+
 def test_specificity_score() -> None:
     """
     Specificity should match expected value.
@@ -180,6 +184,7 @@ def test_specificity_score() -> None:
 # ============================================================
 # Perfect predictions
 # ============================================================
+
 
 def test_perfect_binary_predictions() -> None:
     """
@@ -211,6 +216,7 @@ def test_perfect_binary_predictions() -> None:
 # Shape consistency
 # ============================================================
 
+
 def test_metric_outputs_are_numeric() -> None:
     """
     All returned metrics should be numeric.
@@ -230,11 +236,11 @@ def test_metric_outputs_are_numeric() -> None:
     )
 
     for value in results.values():
-
         assert isinstance(
             value,
             float,
         )
+
 
 def test_binary_probability_matrix_uses_explicit_positive_class() -> None:
     y_true = np.array(["active", "inactive", "active", "inactive"])

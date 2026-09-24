@@ -1,5 +1,4 @@
-"""
-saber.regression.search_spaces
+"""saber.regression.search_spaces
 ===============================
 
 Default hyperparameter search spaces for regression models.
@@ -8,7 +7,6 @@ Default hyperparameter search spaces for regression models.
 from __future__ import annotations
 
 from saber.core.search_space import SearchSpace
-
 
 # ============================================================
 # Linear Models
@@ -242,8 +240,6 @@ GAUSSIAN_PROCESS_REGRESSOR = SearchSpace(
     name="gaussian_process_regressor",
     parameters={},
 )
-
-
 
 
 # ============================================================

@@ -34,7 +34,6 @@ def validate(
     registry: AlgorithmRegistry = MODEL_REGISTRY,
 ) -> ValidationResult:
     """Validate a registered model using explicit/BioSieve partitions."""
-
     return ValidationEngine(registry).run(
         dataset=dataset,
         algorithm=algorithm,
@@ -60,7 +59,6 @@ def evaluate(
     positive_class: Any | None = None,
 ) -> EvaluationResult:
     """Evaluate one already-fitted model on a labeled prepared dataset."""
-
     if isinstance(model, (str, Path)):
         model = load_model_artifact(model)
 

@@ -35,7 +35,10 @@ def _mixed_frame_bundle() -> DatasetBundle:
 def test_numpy_float_dataset_fingerprint_is_stable():
     bundle = _float_bundle()
     assert bundle.fingerprint == "34127c6582310a87e9ddd3ce2927dcdf49a23ab4009e36b495a557b9044874a0"
-    assert bundle.feature_schema.fingerprint == "03fa76b63bacc4d4d53b2127c58970c5e8ddc00b686e4c8224eacbf0c25b9200"
+    assert (
+        bundle.feature_schema.fingerprint
+        == "03fa76b63bacc4d4d53b2127c58970c5e8ddc00b686e4c8224eacbf0c25b9200"
+    )
     assert bundle.feature_schema.dtypes == ("float64", "float64", "float64")
 
 
@@ -43,13 +46,19 @@ def test_numpy_int_dataset_fingerprint_is_stable():
     X = np.array([[1, 2], [3, 4], [5, 6], [7, 8]], dtype=np.int64)
     bundle = DatasetBundle(X=X, y=np.array([0.1, 0.2, 0.3, 0.4]))
     assert bundle.fingerprint == "c19c53e24268620e11e933c65a11b6d84e28fca31e88b5d121bf49ee9e80c887"
-    assert bundle.feature_schema.fingerprint == "4a78ce8db8553917f40da9c5b7d646d6a8b0758d87e0eedd42825c48492882c2"
+    assert (
+        bundle.feature_schema.fingerprint
+        == "4a78ce8db8553917f40da9c5b7d646d6a8b0758d87e0eedd42825c48492882c2"
+    )
 
 
 def test_dataframe_dataset_fingerprint_is_stable():
     bundle = _mixed_frame_bundle()
     assert bundle.fingerprint == "0f04b24a4970a562567118699e657301a01b5e55ebc7c96ecdfab64be2bafdaf"
-    assert bundle.feature_schema.fingerprint == "c9109f309306648713fd4a28cb537cbed0295653f6fd38baa9e8bbdfb3dab994"
+    assert (
+        bundle.feature_schema.fingerprint
+        == "c9109f309306648713fd4a28cb537cbed0295653f6fd38baa9e8bbdfb3dab994"
+    )
     assert bundle.feature_schema.dtypes == ("float64", "float64", "int64", "bool")
 
 

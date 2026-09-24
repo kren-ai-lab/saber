@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -25,7 +26,6 @@ from saber.config.io import load_config
 from saber.config.schema import WorkflowConfig
 from saber.exceptions import ConfigurationError
 from saber.persistence import load_model_artifact, save_benchmark_artifact, save_model_artifact
-from saber.tuning import OptimizationResult
 from saber.utils.serialization import to_jsonable
 from saber.validation import ValidationResult
 
@@ -42,7 +42,6 @@ class WorkflowExecution:
 
 def run_config(source: str | Path | Mapping[str, Any] | WorkflowConfig) -> WorkflowExecution:
     """Run one YAML/JSON workflow using the same public API as Python callers."""
-
     config = load_config(source)
     handler = {
         "train": _run_train,
@@ -97,7 +96,6 @@ def _run_train(config: WorkflowConfig) -> WorkflowExecution:
     return WorkflowExecution(config, result, summary, outputs)
 
 
-
 def _run_evaluate(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
     dataset = load_dataset(config, _mapping(payload["dataset"], "dataset"))
@@ -140,7 +138,9 @@ def _run_validate(config: WorkflowConfig) -> WorkflowExecution:
         algorithm=str(payload["algorithm"]),
         partition_plan=plan,
         partitioning=partitioning,
-        biosieve_extra_columns=_optional_mapping(payload.get("biosieve_extra_columns"), "biosieve_extra_columns"),
+        biosieve_extra_columns=_optional_mapping(
+            payload.get("biosieve_extra_columns"), "biosieve_extra_columns"
+        ),
         preprocessing=build_preprocessing(_optional_mapping(payload.get("preprocessing"), "preprocessing")),
         metrics=payload.get("metrics"),
         evaluation_role=str(payload.get("evaluation_role", "auto")),
@@ -172,9 +172,13 @@ def _run_tune(config: WorkflowConfig) -> WorkflowExecution:
         config=tuning_config,
         partition_plan=plan,
         partitioning=partitioning,
-        biosieve_extra_columns=_optional_mapping(payload.get("biosieve_extra_columns"), "biosieve_extra_columns"),
+        biosieve_extra_columns=_optional_mapping(
+            payload.get("biosieve_extra_columns"), "biosieve_extra_columns"
+        ),
         preprocessing=build_preprocessing(_optional_mapping(payload.get("preprocessing"), "preprocessing")),
-        search_space=build_search_space(str(payload["algorithm"]), _optional_mapping(payload.get("search_space"), "search_space")),
+        search_space=build_search_space(
+            str(payload["algorithm"]), _optional_mapping(payload.get("search_space"), "search_space")
+        ),
         evaluation_role=str(payload.get("evaluation_role", "auto")),
         require_complete=bool(payload.get("require_complete", True)),
         model_params=_optional_mapping(payload.get("model_params"), "model_params"),
@@ -266,7 +270,9 @@ def _run_benchmark(config: WorkflowConfig) -> WorkflowExecution:
         partitions=partitions,
         partitioning=partitioning,
         partitioning_reference=payload.get("partitioning_reference"),
-        biosieve_extra_columns=_optional_mapping(payload.get("biosieve_extra_columns"), "biosieve_extra_columns"),
+        biosieve_extra_columns=_optional_mapping(
+            payload.get("biosieve_extra_columns"), "biosieve_extra_columns"
+        ),
         preprocessing=build_preprocessing(_optional_mapping(payload.get("preprocessing"), "preprocessing")),
         model_params=_optional_mapping(payload.get("model_params"), "model_params"),
         search_spaces=search_spaces,

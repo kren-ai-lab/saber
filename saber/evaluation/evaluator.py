@@ -1,5 +1,4 @@
-"""
-saber.evaluation.evaluator
+"""saber.evaluation.evaluator
 ===========================
 
 Evaluation entry point for structured prediction results.
@@ -24,14 +23,11 @@ def evaluate_prediction(
     metrics: Sequence[str] | None = None,
 ) -> EvaluationResult:
     """Evaluate a :class:`PredictionResult` using task-aware semantics."""
-
     y_true = np.asarray(y_true)
     if y_true.ndim != 1:
         raise ValueError("y_true must be a one-dimensional array.")
     if y_true.shape[0] != prediction.n_samples:
-        raise ValueError(
-            "y_true length must match the prediction result length."
-        )
+        raise ValueError("y_true length must match the prediction result length.")
 
     if prediction.task == "classification":
         y_score = None

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from saber.exceptions import ArtifactCompatibilityError
@@ -19,17 +19,13 @@ class ArtifactManifest:
     artifact_type: ArtifactType
     files: dict[str, str]
     schema_version: str = ARTIFACT_SCHEMA_VERSION
-    created_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     saber_version: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.artifact_type not in {"model", "benchmark"}:
-            raise ArtifactCompatibilityError(
-                f"Unsupported artifact type '{self.artifact_type}'."
-            )
+            raise ArtifactCompatibilityError(f"Unsupported artifact type '{self.artifact_type}'.")
         if not self.files:
             raise ArtifactCompatibilityError("Artifact manifest must list files.")
 
@@ -44,7 +40,7 @@ class ArtifactManifest:
         }
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "ArtifactManifest":
+    def from_dict(cls, payload: dict[str, Any]) -> ArtifactManifest:
         schema_version = str(payload.get("schema_version", ""))
         if schema_version != ARTIFACT_SCHEMA_VERSION:
             raise ArtifactCompatibilityError(

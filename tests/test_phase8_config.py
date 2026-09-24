@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 
-import numpy as np
 import pandas as pd
 import pytest
 import yaml
@@ -204,7 +203,10 @@ def test_benchmark_yaml_runs_same_public_engine(tmp_path):
         partitions={"cv": plan},
     )
     assert execution.result.n_runs == direct.n_runs == 1
-    assert execution.result.aggregate_metrics_frame()["score"].tolist() == direct.aggregate_metrics_frame()["score"].tolist()
+    assert (
+        execution.result.aggregate_metrics_frame()["score"].tolist()
+        == direct.aggregate_metrics_frame()["score"].tolist()
+    )
 
 
 def test_config_validate_rejects_unknown_nested_keys():

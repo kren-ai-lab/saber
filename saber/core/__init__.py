@@ -14,13 +14,15 @@ from saber.core.metrics import (
     validate_metric,
 )
 from saber.core.prediction import PredictionResult
-from saber.core.registry import AlgorithmRegistry, MODEL_REGISTRY
+from saber.core.registry import MODEL_REGISTRY, AlgorithmRegistry
 from saber.core.results import TrainResult
 from saber.core.search_space import Categorical, Float, Integer, LogFloat, SearchSpace
 from saber.core.specs import AlgorithmSpec
 from saber.core.task import TaskType
 
 __all__ = [
+    "METRIC_SPECS",
+    "MODEL_REGISTRY",
     "AlgorithmRegistry",
     "AlgorithmSpec",
     "Categorical",
@@ -30,8 +32,6 @@ __all__ = [
     "Float",
     "Integer",
     "LogFloat",
-    "METRIC_SPECS",
-    "MODEL_REGISTRY",
     "MetricSpec",
     "PredictionResult",
     "SearchSpace",

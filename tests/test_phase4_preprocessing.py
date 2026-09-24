@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from saber import MODEL_REGISTRY
-from saber.datasets import DatasetBundle, PartitionPlan
+from saber.datasets import DatasetBundle
 from saber.exceptions import PreprocessingContractError
 from saber.preprocessing import PreprocessingConfig, build_model_pipeline
 
@@ -77,8 +77,6 @@ def test_minmax_scaling_clips_held_out_values_for_non_negative_estimators():
     )
     pipeline.fit(train.X, train.y)
 
-    transformed = pipeline.named_steps["scaler"].transform(
-        np.array([[-100.0, -100.0], [100.0, 100.0]])
-    )
+    transformed = pipeline.named_steps["scaler"].transform(np.array([[-100.0, -100.0], [100.0, 100.0]]))
     assert np.all(transformed >= 0.0)
     assert np.all(transformed <= 1.0)

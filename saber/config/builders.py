@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -29,9 +28,14 @@ def load_dataset(
     require_target: bool = True,
 ) -> DatasetBundle:
     """Load one prepared numeric tabular dataset from CSV/TSV."""
-
     allowed = {
-        "path", "target", "sample_id", "features", "groups", "sample_weight", "sep",
+        "path",
+        "target",
+        "sample_id",
+        "features",
+        "groups",
+        "sample_weight",
+        "sep",
     }
     _reject_unknown(payload, allowed, "dataset")
     if "path" not in payload:
@@ -91,7 +95,6 @@ def load_prediction_frame(
     payload: Mapping[str, Any],
 ) -> tuple[pd.DataFrame, tuple[Any, ...] | None]:
     """Load features/sample IDs for prediction without requiring a target."""
-
     allowed = {"path", "target", "sample_id", "features", "groups", "sample_weight", "sep"}
     _reject_unknown(payload, allowed, "dataset")
     if "path" not in payload:
@@ -147,7 +150,16 @@ def build_partition_inputs(
         kwargs = {key: value for key, value in partition.items() if key != "path"}
         plan = load_partition_plan(config.resolve_path(partition["path"]), **kwargs)
     if partitioning is not None:
-        allowed = {"strategy", "params", "id_col", "label_col", "group_col", "seq_col", "cluster_col", "date_col"}
+        allowed = {
+            "strategy",
+            "params",
+            "id_col",
+            "label_col",
+            "group_col",
+            "seq_col",
+            "cluster_col",
+            "date_col",
+        }
         _reject_unknown(partitioning, allowed, "partitioning")
         if "strategy" not in partitioning:
             raise ConfigurationError("BioSieve partitioning requires 'strategy'.")
@@ -157,10 +169,24 @@ def build_partition_inputs(
 
 def build_tuning_config(payload: Mapping[str, Any]) -> TuningConfig:
     allowed = {
-        "optimizer", "metrics", "refit_metric", "refit", "n_jobs", "random_state",
-        "n_iter", "n_trials", "timeout", "factor", "resource", "max_resources",
-        "min_resources", "aggressive_elimination", "error_score", "optuna_storage",
-        "optuna_study_name", "optuna_load_if_exists",
+        "optimizer",
+        "metrics",
+        "refit_metric",
+        "refit",
+        "n_jobs",
+        "random_state",
+        "n_iter",
+        "n_trials",
+        "timeout",
+        "factor",
+        "resource",
+        "max_resources",
+        "min_resources",
+        "aggressive_elimination",
+        "error_score",
+        "optuna_storage",
+        "optuna_study_name",
+        "optuna_load_if_exists",
     }
     _reject_unknown(payload, allowed, "tuning")
     values = dict(payload)
@@ -170,8 +196,16 @@ def build_tuning_config(payload: Mapping[str, Any]) -> TuningConfig:
 
 def build_benchmark_config(payload: Mapping[str, Any]) -> BenchmarkConfig:
     allowed = {
-        "metrics", "seeds", "modes", "include_baselines", "fail_fast", "evaluation_role",
-        "require_complete", "return_estimators", "tuning", "metadata",
+        "metrics",
+        "seeds",
+        "modes",
+        "include_baselines",
+        "fail_fast",
+        "evaluation_role",
+        "require_complete",
+        "return_estimators",
+        "tuning",
+        "metadata",
     }
     _reject_unknown(payload, allowed, "benchmark")
     if "metrics" not in payload:

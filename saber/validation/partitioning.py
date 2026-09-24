@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any, Literal
 
 import numpy as np
 
@@ -21,7 +22,6 @@ def resolve_partition_plan(
     biosieve_extra_columns: Mapping[str, Sequence[Any]] | None,
 ) -> PartitionPlan:
     """Resolve supplied partitions or delegate generation exclusively to BioSieve."""
-
     if partition_plan is not None and partitioning is not None:
         raise ValidationContractError(
             "Provide either partition_plan (already partitioned data) or "
@@ -48,25 +48,18 @@ def resolve_evaluation_dataset(
     plan_kind: str,
 ):
     """Choose the held-out role while protecting a final test set by default."""
-
     if requested == "test":
         if resolved.test is None:
-            raise ValidationContractError(
-                f"Split '{resolved.name}' has no test membership."
-            )
+            raise ValidationContractError(f"Split '{resolved.name}' has no test membership.")
         return "test", resolved.test
 
     if requested == "validation":
         if resolved.validation is None:
-            raise ValidationContractError(
-                f"Split '{resolved.name}' has no validation membership."
-            )
+            raise ValidationContractError(f"Split '{resolved.name}' has no validation membership.")
         return "validation", resolved.validation
 
     if requested != "auto":
-        raise ValidationContractError(
-            "evaluation_role must be 'auto', 'validation', or 'test'."
-        )
+        raise ValidationContractError("evaluation_role must be 'auto', 'validation', or 'test'.")
 
     # BioSieve k-fold protocols expose the held-out fold as ``test``. For a
     # single holdout, however, an explicit validation set should be preferred
@@ -81,9 +74,7 @@ def resolve_evaluation_dataset(
             return "validation", resolved.validation
         if resolved.test is not None:
             return "test", resolved.test
-    raise ValidationContractError(
-        f"Split '{resolved.name}' does not define a held-out evaluation role."
-    )
+    raise ValidationContractError(f"Split '{resolved.name}' does not define a held-out evaluation role.")
 
 
 def build_explicit_cv(
@@ -100,7 +91,6 @@ def build_explicit_cv(
     set outside hyperparameter search/refit when a holdout provides validation
     and test memberships.
     """
-
     plan.validate_against(dataset, require_complete=require_complete)
 
     memberships: list[tuple[tuple[Any, ...], tuple[Any, ...], str]] = []
@@ -125,9 +115,7 @@ def build_explicit_cv(
 
     ordered_ids = tuple(sample_id for sample_id in dataset.sample_ids if sample_id in used_ids)
     search_dataset = dataset.subset(ordered_ids)
-    id_to_index = {
-        sample_id: index for index, sample_id in enumerate(search_dataset.sample_ids)
-    }
+    id_to_index = {sample_id: index for index, sample_id in enumerate(search_dataset.sample_ids)}
 
     cv: list[tuple[np.ndarray, np.ndarray]] = []
     roles: list[str] = []

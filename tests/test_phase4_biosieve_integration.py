@@ -31,10 +31,7 @@ class FakeFrame:
             return FakeSeries(self.payload[key])
         indices = list(key)
         return FakeFrame(
-            {
-                name: [values[index] for index in indices]
-                for name, values in self.payload.items()
-            }
+            {name: [values[index] for index in indices] for name, values in self.payload.items()}
         )
 
     def clone(self):

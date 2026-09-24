@@ -1,12 +1,9 @@
 """saber — classical supervised machine learning infrastructure."""
 
-from saber._version import __version__
-from saber.core.registry import MODEL_REGISTRY
-
 # Force core algorithm registration. Optional providers register lazily when available.
 import saber.classification
 import saber.regression
-
+from saber._version import __version__
 from saber.api import (
     benchmark,
     evaluate,
@@ -23,10 +20,11 @@ from saber.api import (
     verify_artifact,
 )
 from saber.config import dump_config, load_config, run_config
+from saber.core.registry import MODEL_REGISTRY
 
 __all__ = [
-    "__version__",
     "MODEL_REGISTRY",
+    "__version__",
     "benchmark",
     "dump_config",
     "evaluate",

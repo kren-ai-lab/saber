@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
 import pytest
-
 
 ROOT = Path(__file__).resolve().parents[1]
 NOTEBOOKS = sorted((ROOT / "examples").rglob("*.ipynb"))
@@ -16,11 +15,7 @@ NOTEBOOKS = sorted((ROOT / "examples").rglob("*.ipynb"))
 
 def _script_from_notebook(path: Path) -> str:
     payload = json.loads(path.read_text(encoding="utf-8"))
-    cells = [
-        "".join(cell.get("source", []))
-        for cell in payload["cells"]
-        if cell.get("cell_type") == "code"
-    ]
+    cells = ["".join(cell.get("source", [])) for cell in payload["cells"] if cell.get("cell_type") == "code"]
     return "\n\n# ---- notebook cell ----\n\n".join(cells)
 
 

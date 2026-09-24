@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from saber.exceptions import ConfigurationError
 
@@ -18,30 +19,78 @@ _COMMON_KEYS = {
     "output",
 }
 _ALLOWED_KEYS = {
-    "train": _COMMON_KEYS | {
-        "dataset", "algorithm", "preprocessing", "random_state", "model_params",
-        "artifact", "positive_class", "partition",
+    "train": _COMMON_KEYS
+    | {
+        "dataset",
+        "algorithm",
+        "preprocessing",
+        "random_state",
+        "model_params",
+        "artifact",
+        "positive_class",
+        "partition",
     },
-    "evaluate": _COMMON_KEYS | {
-        "dataset", "artifact", "metrics", "positive_class", "strict_environment",
+    "evaluate": _COMMON_KEYS
+    | {
+        "dataset",
+        "artifact",
+        "metrics",
+        "positive_class",
+        "strict_environment",
     },
-    "validate": _COMMON_KEYS | {
-        "dataset", "algorithm", "partition", "partitioning", "preprocessing",
-        "metrics", "evaluation_role", "positive_class", "random_state",
-        "return_estimators", "require_complete", "model_params", "biosieve_extra_columns",
+    "validate": _COMMON_KEYS
+    | {
+        "dataset",
+        "algorithm",
+        "partition",
+        "partitioning",
+        "preprocessing",
+        "metrics",
+        "evaluation_role",
+        "positive_class",
+        "random_state",
+        "return_estimators",
+        "require_complete",
+        "model_params",
+        "biosieve_extra_columns",
     },
-    "tune": _COMMON_KEYS | {
-        "dataset", "algorithm", "partition", "partitioning", "preprocessing",
-        "tuning", "search_space", "evaluation_role", "require_complete",
-        "model_params", "biosieve_extra_columns", "artifact",
+    "tune": _COMMON_KEYS
+    | {
+        "dataset",
+        "algorithm",
+        "partition",
+        "partitioning",
+        "preprocessing",
+        "tuning",
+        "search_space",
+        "evaluation_role",
+        "require_complete",
+        "model_params",
+        "biosieve_extra_columns",
+        "artifact",
     },
-    "benchmark": _COMMON_KEYS | {
-        "dataset", "datasets", "algorithms", "partitions", "partitioning",
-        "partitioning_reference", "biosieve_extra_columns", "preprocessing",
-        "benchmark", "model_params", "search_spaces", "positive_class", "artifact",
+    "benchmark": _COMMON_KEYS
+    | {
+        "dataset",
+        "datasets",
+        "algorithms",
+        "partitions",
+        "partitioning",
+        "partitioning_reference",
+        "biosieve_extra_columns",
+        "preprocessing",
+        "benchmark",
+        "model_params",
+        "search_spaces",
+        "positive_class",
+        "artifact",
     },
-    "predict": _COMMON_KEYS | {
-        "dataset", "artifact", "positive_class", "strict_environment",
+    "predict": _COMMON_KEYS
+    | {
+        "dataset",
+        "artifact",
+        "positive_class",
+        "strict_environment",
     },
 }
 _REQUIRED_KEYS = {
@@ -67,9 +116,7 @@ class WorkflowConfig:
     def __post_init__(self) -> None:
         workflow = str(self.workflow).strip().lower()
         if workflow not in WORKFLOWS:
-            raise ConfigurationError(
-                f"Unsupported workflow '{workflow}'. Supported: {sorted(WORKFLOWS)!r}."
-            )
+            raise ConfigurationError(f"Unsupported workflow '{workflow}'. Supported: {sorted(WORKFLOWS)!r}.")
         if self.schema_version != CONFIG_SCHEMA_VERSION:
             raise ConfigurationError(
                 f"Unsupported config schema '{self.schema_version}'. "
@@ -104,9 +151,7 @@ class WorkflowConfig:
         keys = set(self.payload) | {"workflow", "schema_version"}
         unknown = keys - _ALLOWED_KEYS[self.workflow]
         if unknown:
-            raise ConfigurationError(
-                f"Unknown keys for workflow '{self.workflow}': {sorted(unknown)!r}."
-            )
+            raise ConfigurationError(f"Unknown keys for workflow '{self.workflow}': {sorted(unknown)!r}.")
         missing = _REQUIRED_KEYS[self.workflow] - set(self.payload)
         if missing:
             raise ConfigurationError(
@@ -119,15 +164,11 @@ class WorkflowConfig:
                     f"Workflow '{self.workflow}' requires either 'partition' or 'partitioning'."
                 )
             if "partition" in self.payload and "partitioning" in self.payload:
-                raise ConfigurationError(
-                    "Provide only one of 'partition' or 'partitioning'."
-                )
+                raise ConfigurationError("Provide only one of 'partition' or 'partitioning'.")
 
         if self.workflow == "benchmark":
             if ("dataset" in self.payload) == ("datasets" in self.payload):
-                raise ConfigurationError(
-                    "Benchmark config requires exactly one of 'dataset' or 'datasets'."
-                )
+                raise ConfigurationError("Benchmark config requires exactly one of 'dataset' or 'datasets'.")
             if "partitions" in self.payload and "partitioning" in self.payload:
                 raise ConfigurationError(
                     "Benchmark config cannot define both 'partitions' and 'partitioning'."
@@ -151,7 +192,6 @@ def workflow_config_from_mapping(
     source: str | Path | None = None,
 ) -> WorkflowConfig:
     """Validate a raw mapping into a versioned WorkflowConfig."""
-
     payload = dict(mapping)
     workflow = payload.pop("workflow", None)
     if workflow is None:
@@ -174,17 +214,48 @@ def workflow_config_from_mapping(
 
 _DATASET_KEYS = {"path", "target", "sample_id", "features", "groups", "sample_weight", "sep"}
 _PARTITION_KEYS = {"path", "sample_id_col", "role_col", "split_col", "fold_col", "always_train_value"}
-_PARTITIONING_KEYS = {"strategy", "params", "id_col", "label_col", "group_col", "seq_col", "cluster_col", "date_col"}
+_PARTITIONING_KEYS = {
+    "strategy",
+    "params",
+    "id_col",
+    "label_col",
+    "group_col",
+    "seq_col",
+    "cluster_col",
+    "date_col",
+}
 _PREPROCESSING_KEYS = {"imputation", "scaler", "fill_value"}
 _TUNING_KEYS = {
-    "optimizer", "metrics", "refit_metric", "refit", "n_jobs", "random_state",
-    "n_iter", "n_trials", "timeout", "factor", "resource", "max_resources",
-    "min_resources", "aggressive_elimination", "error_score", "optuna_storage",
-    "optuna_study_name", "optuna_load_if_exists",
+    "optimizer",
+    "metrics",
+    "refit_metric",
+    "refit",
+    "n_jobs",
+    "random_state",
+    "n_iter",
+    "n_trials",
+    "timeout",
+    "factor",
+    "resource",
+    "max_resources",
+    "min_resources",
+    "aggressive_elimination",
+    "error_score",
+    "optuna_storage",
+    "optuna_study_name",
+    "optuna_load_if_exists",
 }
 _BENCHMARK_KEYS = {
-    "metrics", "seeds", "modes", "include_baselines", "fail_fast", "evaluation_role",
-    "require_complete", "return_estimators", "tuning", "metadata",
+    "metrics",
+    "seeds",
+    "modes",
+    "include_baselines",
+    "fail_fast",
+    "evaluation_role",
+    "require_complete",
+    "return_estimators",
+    "tuning",
+    "metadata",
 }
 _ARTIFACT_KEYS = {"path", "overwrite", "include_object"}
 _OUTPUT_KEYS = {"path", "directory", "summary"}

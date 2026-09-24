@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import joblib
 import pandas as pd
@@ -24,7 +23,6 @@ def inspect_artifact(
     verify: bool = True,
 ) -> ArtifactManifest:
     """Read and validate a manifest without deserializing joblib content."""
-
     root = _artifact_root(path)
     if verify:
         verify_checksums(root)
@@ -45,13 +43,10 @@ def load_model_artifact(
     ``joblib`` uses Python pickle semantics; only load artifacts from trusted
     sources. Checksum verification protects integrity, not trust/authenticity.
     """
-
     root = _artifact_root(path)
     manifest = inspect_artifact(root, verify=verify)
     if manifest.artifact_type != "model":
-        raise ArtifactIntegrityError(
-            f"Expected model artifact, found '{manifest.artifact_type}'."
-        )
+        raise ArtifactIntegrityError(f"Expected model artifact, found '{manifest.artifact_type}'.")
     _require_manifest_files(root, manifest, ("model", "environment", "feature_schema", "provenance"))
 
     environment = read_json(root / manifest.files["environment"])
@@ -66,9 +61,7 @@ def load_model_artifact(
 
     provenance = read_json(root / manifest.files["provenance"])
     if provenance.get("feature_schema_fingerprint") != schema.fingerprint:
-        raise ArtifactIntegrityError(
-            "Model provenance and feature schema fingerprints do not match."
-        )
+        raise ArtifactIntegrityError("Model provenance and feature schema fingerprints do not match.")
 
     model = joblib.load(root / manifest.files["model"])
     return LoadedModelArtifact(
@@ -90,13 +83,10 @@ def load_benchmark_artifact(
     load_object: bool = False,
 ) -> LoadedBenchmarkArtifact:
     """Load benchmark tables and optionally its trusted Python result object."""
-
     root = _artifact_root(path)
     manifest = inspect_artifact(root, verify=verify)
     if manifest.artifact_type != "benchmark":
-        raise ArtifactIntegrityError(
-            f"Expected benchmark artifact, found '{manifest.artifact_type}'."
-        )
+        raise ArtifactIntegrityError(f"Expected benchmark artifact, found '{manifest.artifact_type}'.")
     _require_manifest_files(root, manifest, ("environment", "benchmark_metadata"))
     environment = read_json(root / manifest.files["environment"])
     warnings = compatibility_warnings(environment, strict=strict_environment)
@@ -119,9 +109,7 @@ def load_benchmark_artifact(
     object_file = manifest.files.get("benchmark_object")
     if load_object:
         if object_file is None:
-            raise ArtifactIntegrityError(
-                "Benchmark artifact does not contain a serialized Python object."
-            )
+            raise ArtifactIntegrityError("Benchmark artifact does not contain a serialized Python object.")
         result = joblib.load(root / object_file)
 
     return LoadedBenchmarkArtifact(
@@ -137,7 +125,6 @@ def load_benchmark_artifact(
 
 def verify_artifact(path: str | Path) -> ArtifactManifest:
     """Verify checksums/schema and return the artifact manifest."""
-
     return inspect_artifact(path, verify=True)
 
 
@@ -156,10 +143,6 @@ def _require_manifest_files(
     for name in names:
         relative = manifest.files.get(name)
         if relative is None:
-            raise ArtifactIntegrityError(
-                f"Artifact manifest does not define required file '{name}'."
-            )
+            raise ArtifactIntegrityError(f"Artifact manifest does not define required file '{name}'.")
         if not (root / relative).is_file():
-            raise ArtifactIntegrityError(
-                f"Artifact required file is missing: '{relative}'."
-            )
+            raise ArtifactIntegrityError(f"Artifact required file is missing: '{relative}'.")

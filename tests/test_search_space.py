@@ -21,10 +21,7 @@ def test_search_space_creation() -> None:
 
     assert space.name == "rf"
 
-    assert (
-        "n_estimators"
-        in space.parameters
-    )
+    assert "n_estimators" in space.parameters
 
 
 def test_search_space_exists() -> None:
@@ -90,7 +87,4 @@ def test_search_space_dict_roundtrip() -> None:
 
     assert data["name"] == "rf"
 
-    assert (
-        "n_estimators"
-        in data["parameters"]
-    )
+    assert "n_estimators" in data["parameters"]

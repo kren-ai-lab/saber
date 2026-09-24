@@ -1,14 +1,20 @@
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pytest
-import warnings
 from sklearn.datasets import make_classification, make_regression
 
 from saber import MODEL_REGISTRY
-from saber.core.search_space import Categorical, Float, Integer, LogFloat, SearchSpace
+from saber.core.search_space import Categorical, Float, LogFloat, SearchSpace
 from saber.datasets import DatasetBundle, PartitionPlan
-from saber.exceptions import MetricProblemTypeError, MetricTaskMismatchError, OptimizationError, ValidationContractError
+from saber.exceptions import (
+    MetricProblemTypeError,
+    MetricTaskMismatchError,
+    OptimizationError,
+    ValidationContractError,
+)
 from saber.preprocessing import PreprocessingConfig
 from saber.tuning import TuningConfig, TuningEngine
 
@@ -67,8 +73,20 @@ def test_optuna_tuning_runs_typed_log_space_and_is_seed_reproducible():
         n_jobs=1,
     )
     engine = TuningEngine(MODEL_REGISTRY)
-    a = engine.run(dataset=dataset, algorithm="logistic_regression", config=config, partition_plan=_cv(dataset), search_space=space)
-    b = engine.run(dataset=dataset, algorithm="logistic_regression", config=config, partition_plan=_cv(dataset), search_space=space)
+    a = engine.run(
+        dataset=dataset,
+        algorithm="logistic_regression",
+        config=config,
+        partition_plan=_cv(dataset),
+        search_space=space,
+    )
+    b = engine.run(
+        dataset=dataset,
+        algorithm="logistic_regression",
+        config=config,
+        partition_plan=_cv(dataset),
+        search_space=space,
+    )
     assert a.best_params == b.best_params
     assert a.best_score == pytest.approx(b.best_score)
 

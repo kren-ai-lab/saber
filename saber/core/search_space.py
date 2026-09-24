@@ -1,5 +1,4 @@
-"""
-saber.core.search_space
+"""saber.core.search_space
 ========================
 
 Typed, backend-agnostic hyperparameter search-space contracts.
@@ -7,10 +6,11 @@ Typed, backend-agnostic hyperparameter search-space contracts.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
+from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Protocol
+from typing import Any, Protocol
 
 import numpy as np
 from scipy.stats import loguniform, uniform
@@ -180,8 +180,7 @@ def _coerce_domain(value: ParameterDomain) -> Categorical | Integer | Float | Lo
     if isinstance(value, (list, tuple)):
         return Categorical(value)
     raise TypeError(
-        "Search-space parameters must be Categorical, Integer, Float, LogFloat, "
-        "or a finite list/tuple."
+        "Search-space parameters must be Categorical, Integer, Float, LogFloat, or a finite list/tuple."
     )
 
 
@@ -238,17 +237,14 @@ class SearchSpace:
         cls,
         name: str,
         parameters: dict[str, ParameterDomain],
-    ) -> "SearchSpace":
+    ) -> SearchSpace:
         return cls(name=name, parameters=parameters)
 
     @classmethod
-    def from_json(cls, path: str | Path) -> "SearchSpace":
+    def from_json(cls, path: str | Path) -> SearchSpace:
         with open(path, encoding="utf-8") as handle:
             data = json.load(handle)
-        parameters = {
-            name: _domain_from_dict(domain)
-            for name, domain in data["parameters"].items()
-        }
+        parameters = {name: _domain_from_dict(domain) for name, domain in data["parameters"].items()}
         return cls(name=data["name"], parameters=parameters)
 
     def to_dict(self) -> dict[str, Any]:
@@ -276,7 +272,6 @@ class SearchSpace:
 
     def to_grid(self, *, prefix: str = "") -> dict[str, list[Any]]:
         """Translate the logical search space to sklearn grid domains."""
-
         return {
             f"{prefix}{name}": _coerce_domain(domain).grid_values()
             for name, domain in self.parameters.items()
@@ -284,7 +279,6 @@ class SearchSpace:
 
     def to_random(self, *, prefix: str = "") -> dict[str, Any]:
         """Translate the logical search space to sklearn random domains."""
-
         return {
             f"{prefix}{name}": _coerce_domain(domain).random_distribution()
             for name, domain in self.parameters.items()
@@ -292,15 +286,13 @@ class SearchSpace:
 
     def sample_optuna(self, trial: Any, *, prefix: str = "") -> dict[str, Any]:
         """Sample one parameter configuration using an Optuna trial."""
-
         return {
             name: _coerce_domain(domain).suggest(trial, f"{prefix}{name}")
             for name, domain in self.parameters.items()
         }
 
-    def prefixed(self, prefix: str) -> "SearchSpace":
+    def prefixed(self, prefix: str) -> SearchSpace:
         """Return an equivalent space with parameter names prefixed."""
-
         return SearchSpace(
             name=self.name,
             parameters={f"{prefix}{name}": domain for name, domain in self.parameters.items()},

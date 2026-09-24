@@ -10,10 +10,10 @@ from __future__ import annotations
 from saber.core.registry import MODEL_REGISTRY
 from saber.core.search_space import SearchSpace
 
-
 # ============================================================
 # Classification
 # ============================================================
+
 
 def test_random_forest_has_search_space() -> None:
 
@@ -30,15 +30,9 @@ def test_random_forest_has_search_space() -> None:
         SearchSpace,
     )
 
-    assert (
-        "n_estimators"
-        in space.parameters
-    )
+    assert "n_estimators" in space.parameters
 
-    assert (
-        "max_depth"
-        in space.parameters
-    )
+    assert "max_depth" in space.parameters
 
 
 def test_logistic_regression_has_search_space() -> None:
@@ -89,6 +83,7 @@ def test_lgbm_classifier_has_search_space() -> None:
 # ============================================================
 # Regression
 # ============================================================
+
 
 def test_random_forest_regressor_has_search_space() -> None:
 
@@ -167,6 +162,7 @@ def test_svr_has_search_space() -> None:
 # Generic API
 # ============================================================
 
+
 def test_search_space_is_accessible() -> None:
 
     spec = MODEL_REGISTRY.get(
@@ -193,10 +189,7 @@ def test_search_space_parameters_returns_dict() -> None:
         dict,
     )
 
-    assert (
-        "n_estimators"
-        in params
-    )
+    assert "n_estimators" in params
 
 
 def test_regression_search_space_parameters_returns_dict() -> None:
@@ -212,7 +205,4 @@ def test_regression_search_space_parameters_returns_dict() -> None:
         dict,
     )
 
-    assert (
-        "n_estimators"
-        in params
-    )
+    assert "n_estimators" in params

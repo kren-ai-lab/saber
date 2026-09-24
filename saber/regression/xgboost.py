@@ -1,5 +1,4 @@
-"""
-saber.regression.xgboost
+"""saber.regression.xgboost
 =========================
 
 XGBoost regression models and registry wiring.
@@ -18,17 +17,17 @@ from saber.core.capabilities import (
 )
 from saber.core.registry import MODEL_REGISTRY
 from saber.core.specs import AlgorithmSpec
-
 from saber.regression import search_spaces
 
-_ALIASES: dict[str, tuple[str, ...]] = {"xgb_regressor": ("xgboost_regressor",), "xgbrf_regressor": ("xgboost_rf_regressor",)}
+_ALIASES: dict[str, tuple[str, ...]] = {
+    "xgb_regressor": ("xgboost_regressor",),
+    "xgbrf_regressor": ("xgboost_rf_regressor",),
+}
 
 
 def register_xgboost_regression_models() -> None:
+    """Register all XGBoost regression models.
     """
-    Register all XGBoost regression models.
-    """
-
     models = [
         (
             "xgb_regressor",
@@ -57,7 +56,6 @@ def register_xgboost_regression_models() -> None:
     specs: list[AlgorithmSpec] = []
 
     for name, model_rgx, tags, search_space in models:
-
         spec = AlgorithmSpec(
             provider="xgboost",
             task="regression",

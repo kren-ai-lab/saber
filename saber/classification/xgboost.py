@@ -1,5 +1,4 @@
-"""
-saber.classification.xgboost_models
+"""saber.classification.xgboost_models
 ====================================
 
 XGBoost classification models and registry wiring.
@@ -12,36 +11,46 @@ from xgboost import (
     XGBRFClassifier,
 )
 
-
+from saber.classification import search_spaces
 from saber.core.capabilities import (
     EstimatorRequirements,
     infer_estimator_capabilities,
 )
 from saber.core.registry import MODEL_REGISTRY
 from saber.core.specs import AlgorithmSpec
-from saber.classification import search_spaces
 
-_ALIASES: dict[str, tuple[str, ...]] = {"xgb_classifier": ("xgboost_classifier",), "xgb_rf_classifier": ("xgboost_rf_classifier",)}
+_ALIASES: dict[str, tuple[str, ...]] = {
+    "xgb_classifier": ("xgboost_classifier",),
+    "xgb_rf_classifier": ("xgboost_rf_classifier",),
+}
 
 
 # ============================================================
 # Registration
 # ============================================================
 
-def register_xgboost_classification_models() -> None:
-    """
-    Register all XGBoost classification models.
-    """
 
+def register_xgboost_classification_models() -> None:
+    """Register all XGBoost classification models.
+    """
     models = [
-        ("xgb_classifier", XGBClassifier, ("classification", "xgboost", "tree", "boosting"), search_spaces.XGB_CLASSIFIER),
-        ("xgb_rf_classifier", XGBRFClassifier, ("classification", "xgboost", "tree", "boosting"), search_spaces.XGB_RF_CLASSIFIER),
+        (
+            "xgb_classifier",
+            XGBClassifier,
+            ("classification", "xgboost", "tree", "boosting"),
+            search_spaces.XGB_CLASSIFIER,
+        ),
+        (
+            "xgb_rf_classifier",
+            XGBRFClassifier,
+            ("classification", "xgboost", "tree", "boosting"),
+            search_spaces.XGB_RF_CLASSIFIER,
+        ),
     ]
 
     specs: list[AlgorithmSpec] = []
 
     for name, model_cls, tags, search_space in models:
-
         spec = AlgorithmSpec(
             provider="xgboost",
             task="classification",

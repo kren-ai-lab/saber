@@ -1,5 +1,4 @@
-"""
-saber.evaluation.regression
+"""saber.evaluation.regression
 ============================
 
 Regression evaluation metrics.
@@ -7,23 +6,17 @@ Regression evaluation metrics.
 
 from __future__ import annotations
 
-from typing import Any
-
 import numpy as np
-
-from scipy.stats import pearsonr
-from scipy.stats import spearmanr
-
+from scipy.stats import pearsonr, spearmanr
 from sklearn.metrics import (
     explained_variance_score,
     mean_absolute_error,
     mean_absolute_percentage_error,
     mean_squared_error,
-    root_mean_squared_error,
     median_absolute_error,
     r2_score,
+    root_mean_squared_error,
 )
-
 
 REGRESSION_METRICS = (
     "mae",
@@ -45,7 +38,6 @@ def evaluate_regression(
     metrics: tuple[str, ...] | list[str] | None = None,
 ) -> dict[str, float]:
     """Evaluate requested regression metrics without computing unused statistics."""
-
     requested = REGRESSION_METRICS if metrics is None else tuple(dict.fromkeys(metrics))
     unknown = set(requested) - set(REGRESSION_METRICS)
     if unknown:
@@ -78,8 +70,6 @@ def evaluate_regression(
 
 
 def metric_names() -> tuple[str, ...]:
+    """Return available metric names.
     """
-    Return available metric names.
-    """
-
     return REGRESSION_METRICS

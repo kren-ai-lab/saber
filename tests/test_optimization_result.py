@@ -114,13 +114,19 @@ def test_optimization_result_get_best_param() -> None:
         },
     )
 
-    assert result.get_best_param(
-        "n_estimators",
-    ) == 100
+    assert (
+        result.get_best_param(
+            "n_estimators",
+        )
+        == 100
+    )
 
-    assert result.get_best_param(
-        "max_depth",
-    ) == 5
+    assert (
+        result.get_best_param(
+            "max_depth",
+        )
+        == 5
+    )
 
 
 def test_optimization_result_get_history() -> None:

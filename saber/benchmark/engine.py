@@ -14,7 +14,7 @@ from saber.benchmark.config import BenchmarkConfig
 from saber.benchmark.results import BenchmarkResult, BenchmarkRun
 from saber.benchmark.specs import BenchmarkDataset, BenchmarkPartition
 from saber.core.registry import AlgorithmRegistry
-from saber.datasets import DatasetBundle, PartitionPlan, PartitionSplit
+from saber.datasets import DatasetBundle, PartitionPlan
 from saber.datasets.biosieve import BioSievePartitionConfig
 from saber.exceptions import BenchmarkContractError
 from saber.preprocessing import PreprocessingConfig
@@ -43,7 +43,11 @@ class BenchmarkEngine:
         datasets: DatasetBundle | BenchmarkDataset | Mapping[str, DatasetBundle] | Sequence[BenchmarkDataset],
         algorithms: Sequence[str],
         config: BenchmarkConfig,
-        partitions: PartitionPlan | BenchmarkPartition | Mapping[str, PartitionPlan] | Sequence[BenchmarkPartition] | None = None,
+        partitions: PartitionPlan
+        | BenchmarkPartition
+        | Mapping[str, PartitionPlan]
+        | Sequence[BenchmarkPartition]
+        | None = None,
         partitioning: BioSievePartitionConfig | None = None,
         partitioning_reference: str | None = None,
         biosieve_extra_columns: Mapping[str, Sequence[Any]] | None = None,
@@ -60,9 +64,7 @@ class BenchmarkEngine:
 
         task = _infer_benchmark_task(self.registry, algorithm_names)
         if task is None:
-            raise BenchmarkContractError(
-                "Cannot infer benchmark task from the requested algorithms."
-            )
+            raise BenchmarkContractError("Cannot infer benchmark task from the requested algorithms.")
 
         baseline_name = "dummy_classifier" if task == "classification" else "dummy_regressor"
         if config.include_baselines and baseline_name not in algorithm_names:
@@ -129,7 +131,11 @@ class BenchmarkEngine:
         self,
         *,
         datasets: tuple[BenchmarkDataset, ...],
-        partitions: PartitionPlan | BenchmarkPartition | Mapping[str, PartitionPlan] | Sequence[BenchmarkPartition] | None,
+        partitions: PartitionPlan
+        | BenchmarkPartition
+        | Mapping[str, PartitionPlan]
+        | Sequence[BenchmarkPartition]
+        | None,
         partitioning: BioSievePartitionConfig | None,
         partitioning_reference: str | None,
         biosieve_extra_columns: Mapping[str, Sequence[Any]] | None,
@@ -159,9 +165,7 @@ class BenchmarkEngine:
                 )
             return normalized
         if partitioning is None:
-            raise BenchmarkContractError(
-                "Unpartitioned benchmark data require BioSievePartitionConfig."
-            )
+            raise BenchmarkContractError("Unpartitioned benchmark data require BioSievePartitionConfig.")
 
         reference = _partition_reference(datasets, partitioning_reference)
         plan = resolve_partition_plan(
@@ -363,7 +367,6 @@ class BenchmarkEngine:
 
 def benchmark_models(registry: AlgorithmRegistry, **kwargs: Any) -> BenchmarkResult:
     """Functional convenience wrapper around :class:`BenchmarkEngine`."""
-
     return BenchmarkEngine(registry).run(**kwargs)
 
 
@@ -385,9 +388,7 @@ def _normalize_datasets(
     if not result:
         raise BenchmarkContractError("At least one benchmark dataset is required.")
     if any(not isinstance(item, BenchmarkDataset) for item in result):
-        raise BenchmarkContractError(
-            "Sequence benchmark inputs must contain BenchmarkDataset objects."
-        )
+        raise BenchmarkContractError("Sequence benchmark inputs must contain BenchmarkDataset objects.")
     labels = [item.label for item in result]
     if len(labels) != len(set(labels)):
         raise BenchmarkContractError("Benchmark dataset labels must be unique.")
@@ -395,25 +396,23 @@ def _normalize_datasets(
 
 
 def _normalize_partitions(
-    partitions: PartitionPlan | BenchmarkPartition | Mapping[str, PartitionPlan] | Sequence[BenchmarkPartition],
+    partitions: PartitionPlan
+    | BenchmarkPartition
+    | Mapping[str, PartitionPlan]
+    | Sequence[BenchmarkPartition],
 ) -> tuple[BenchmarkPartition, ...]:
     if isinstance(partitions, BenchmarkPartition):
         result = (partitions,)
     elif isinstance(partitions, PartitionPlan):
         result = (BenchmarkPartition(label="default", plan=partitions),)
     elif isinstance(partitions, Mapping):
-        result = tuple(
-            BenchmarkPartition(label=str(label), plan=plan)
-            for label, plan in partitions.items()
-        )
+        result = tuple(BenchmarkPartition(label=str(label), plan=plan) for label, plan in partitions.items())
     else:
         result = tuple(partitions)
     if not result:
         raise BenchmarkContractError("At least one benchmark partition is required.")
     if any(not isinstance(item, BenchmarkPartition) for item in result):
-        raise BenchmarkContractError(
-            "Sequence benchmark partitions must contain BenchmarkPartition objects."
-        )
+        raise BenchmarkContractError("Sequence benchmark partitions must contain BenchmarkPartition objects.")
     labels = [item.label for item in result]
     if len(labels) != len(set(labels)):
         raise BenchmarkContractError("Benchmark partition labels must be unique.")
@@ -427,9 +426,7 @@ def _validate_dataset_alignment(datasets: tuple[BenchmarkDataset, ...]) -> None:
     for item in datasets[1:]:
         current_targets = _targets_by_id(item.dataset)
         if set(current_targets) != reference_ids:
-            raise BenchmarkContractError(
-                "Representation datasets must contain the same sample IDs."
-            )
+            raise BenchmarkContractError("Representation datasets must contain the same sample IDs.")
         for sample_id, target in reference_targets.items():
             if not _target_equal(target, current_targets[sample_id]):
                 raise BenchmarkContractError(
@@ -461,9 +458,7 @@ def _infer_benchmark_task(registry: AlgorithmRegistry, algorithms: tuple[str, ..
         if task not in tasks:
             tasks.append(task)
     if len(tasks) > 1:
-        raise BenchmarkContractError(
-            f"A benchmark matrix cannot mix supervised tasks: {tasks!r}."
-        )
+        raise BenchmarkContractError(f"A benchmark matrix cannot mix supervised tasks: {tasks!r}.")
     return tasks[0] if tasks else None
 
 
@@ -487,9 +482,7 @@ def _partition_reference(
     for item in datasets:
         if item.label == label:
             return item
-    raise BenchmarkContractError(
-        f"partitioning_reference '{label}' is not a benchmark dataset label."
-    )
+    raise BenchmarkContractError(f"partitioning_reference '{label}' is not a benchmark dataset label.")
 
 
 def _bind_partition_plan(
@@ -499,7 +492,6 @@ def _bind_partition_plan(
     require_complete: bool,
 ) -> PartitionPlan:
     """Safely bind membership-identical plans across prepared representations."""
-
     if plan.dataset_fingerprint in {None, dataset.fingerprint}:
         plan.validate_against(dataset, require_complete=require_complete)
         return plan
@@ -517,18 +509,16 @@ def _bind_partition_plan(
     return rebound
 
 
-
 def _has_protected_test(plan: PartitionPlan) -> bool:
     """Whether a plan is the holdout shape required for final test reporting."""
-
     if plan.kind != "holdout" or len(plan.splits) != 1:
         return False
     split = plan.splits[0]
     return bool(split.validation_ids and split.test_ids)
 
+
 def _protected_test_plan(plan: PartitionPlan, dataset: DatasetBundle) -> PartitionPlan:
     """Create a final train+validation → test plan for unbiased tuned reporting."""
-
     if plan.kind != "holdout" or len(plan.splits) != 1:
         raise BenchmarkContractError(
             "Tuned benchmark reporting requires one holdout split with distinct "

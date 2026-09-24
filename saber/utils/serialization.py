@@ -13,7 +13,6 @@ import numpy as np
 
 def to_jsonable(value: Any) -> Any:
     """Convert common scientific Python values into strict JSON values."""
-
     if value is None or isinstance(value, (str, bool, int)):
         return value
     if isinstance(value, float):
@@ -35,7 +34,6 @@ def to_jsonable(value: Any) -> Any:
 
 def write_json(path: str | Path, payload: Any) -> None:
     """Write deterministic UTF-8 JSON with no non-standard NaN literals."""
-
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(
@@ -53,13 +51,11 @@ def write_json(path: str | Path, payload: Any) -> None:
 
 def read_json(path: str | Path) -> Any:
     """Read a UTF-8 JSON file."""
-
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
 def stable_json_dumps(payload: Any) -> str:
     """Return deterministic compact JSON for identifiers and table cells."""
-
     return json.dumps(
         to_jsonable(payload),
         sort_keys=True,

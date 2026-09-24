@@ -11,7 +11,6 @@ import pandas as pd
 from saber.datasets.folds import PartitionPlan, PartitionSplit
 from saber.exceptions import PartitionValidationError
 
-
 _ROLE_ALIASES = {
     "train": "train",
     "training": "train",
@@ -44,11 +43,8 @@ def partition_plan_from_frame(
     This is the BioSieve interoperability boundary: BioSieve only needs to
     export one of these tabular contracts; saber never imports BioSieve.
     """
-
     if sample_id_col not in frame.columns:
-        raise PartitionValidationError(
-            f"External partition table is missing '{sample_id_col}'."
-        )
+        raise PartitionValidationError(f"External partition table is missing '{sample_id_col}'.")
 
     inferred_fingerprint = _extract_dataset_fingerprint(
         frame,
@@ -56,16 +52,12 @@ def partition_plan_from_frame(
     )
     if dataset_fingerprint is not None and inferred_fingerprint is not None:
         if dataset_fingerprint != inferred_fingerprint:
-            raise PartitionValidationError(
-                "Explicit dataset_fingerprint disagrees with the partition table."
-            )
+            raise PartitionValidationError("Explicit dataset_fingerprint disagrees with the partition table.")
     resolved_fingerprint = dataset_fingerprint or inferred_fingerprint
 
     if fold_col is not None:
         if fold_col not in frame.columns:
-            raise PartitionValidationError(
-                f"External partition table is missing fold column '{fold_col}'."
-            )
+            raise PartitionValidationError(f"External partition table is missing fold column '{fold_col}'.")
         return PartitionPlan.from_predefined_folds(
             sample_ids=frame[sample_id_col].tolist(),
             fold_assignments=frame[fold_col].tolist(),
@@ -98,9 +90,7 @@ def partition_plan_from_frame(
             raw_role = str(row[role_col]).strip().lower()
             role = _ROLE_ALIASES.get(raw_role)
             if role is None:
-                raise PartitionValidationError(
-                    f"Unknown partition role '{row[role_col]}'."
-                )
+                raise PartitionValidationError(f"Unknown partition role '{row[role_col]}'.")
             memberships[role].append(row[sample_id_col])
 
         splits.append(
@@ -125,7 +115,6 @@ def load_partition_plan(
     **frame_kwargs: Any,
 ) -> PartitionPlan:
     """Load a partition plan from JSON mapping/file or a tabular frame/CSV."""
-
     if isinstance(source, PartitionPlan):
         return source
     if isinstance(source, dict):
@@ -163,7 +152,5 @@ def _extract_dataset_fingerprint(frame: pd.DataFrame, *, column: str) -> str | N
     if not values:
         return None
     if len(values) != 1:
-        raise PartitionValidationError(
-            f"Column '{column}' contains multiple dataset fingerprints."
-        )
+        raise PartitionValidationError(f"Column '{column}' contains multiple dataset fingerprints.")
     return values[0]

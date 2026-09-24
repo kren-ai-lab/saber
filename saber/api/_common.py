@@ -25,7 +25,6 @@ def fit_dataset(
     model_params: Mapping[str, Any] | None = None,
 ) -> TrainResult:
     """Fit one final model on all supplied prepared samples."""
-
     spec = registry.get(algorithm)
     dataset.validate(task=spec.task)
 
@@ -43,9 +42,7 @@ def fit_dataset(
     fit_kwargs: dict[str, Any] = {}
     if dataset.sample_weight is not None:
         if not spec.capabilities.sample_weight:
-            raise ValidationContractError(
-                f"Algorithm '{spec.name}' does not support sample weights."
-            )
+            raise ValidationContractError(f"Algorithm '{spec.name}' does not support sample weights.")
         fit_kwargs["estimator__sample_weight"] = np.asarray(dataset.sample_weight)
 
     pipeline.fit(dataset.X, dataset.y, **fit_kwargs)
@@ -81,7 +78,6 @@ def prediction_from_model(
     positive_class: Any | None = None,
 ) -> PredictionResult:
     """Generate a structured prediction from a high-level TrainResult."""
-
     if dataset is not None:
         X = dataset.X
         sample_ids = dataset.sample_ids

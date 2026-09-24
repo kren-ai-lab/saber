@@ -1,5 +1,4 @@
-"""
-saber.core.metrics
+"""saber.core.metrics
 ===================
 
 Canonical metric specifications used by optimization and evaluation layers.
@@ -12,8 +11,9 @@ them so every search backend can maximize a common objective.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Callable, Literal, Sequence
+from typing import Any, Literal
 
 import numpy as np
 from sklearn.metrics import (
@@ -67,6 +67,7 @@ class MetricSpec:
         use ``("regression",)``.
     description
         Human-readable summary.
+
     """
 
     name: str
@@ -80,7 +81,6 @@ class MetricSpec:
 
     def make_scorer(self):
         """Build a scikit-learn compatible scorer."""
-
         return make_scorer(
             self.score_func,
             response_method=self.response_method,
@@ -91,7 +91,6 @@ class MetricSpec:
     @property
     def is_loss(self) -> bool:
         """Whether lower natural values are better."""
-
         return not self.greater_is_better
 
     @property
@@ -101,12 +100,10 @@ class MetricSpec:
         Scikit-learn scorer objects negate loss metrics, therefore every
         scorer exposed by saber is optimized by maximization.
         """
-
         return "maximize"
 
     def to_natural_score(self, score: float) -> float:
         """Convert an optimization score into its natural user-facing value."""
-
         value = float(score)
         if self.is_loss:
             return -value
@@ -114,7 +111,6 @@ class MetricSpec:
 
     def validate_task(self, task: str) -> None:
         """Validate task compatibility."""
-
         if task != self.task:
             raise MetricTaskMismatchError(
                 metric=self.name,
@@ -124,7 +120,6 @@ class MetricSpec:
 
     def validate_problem_type(self, problem_type: ProblemType) -> None:
         """Validate binary/multiclass/regression compatibility."""
-
         if self.problem_types and problem_type not in self.problem_types:
             raise MetricProblemTypeError(
                 metric=self.name,
@@ -239,14 +234,12 @@ _REGRESSION_SPECS = (
 )
 
 METRIC_SPECS: dict[str, MetricSpec] = {
-    spec.name: spec
-    for spec in (*_CLASSIFICATION_SPECS, *_REGRESSION_SPECS)
+    spec.name: spec for spec in (*_CLASSIFICATION_SPECS, *_REGRESSION_SPECS)
 }
 
 
 def get_metric_spec(name: str) -> MetricSpec:
     """Retrieve a metric specification by canonical name."""
-
     try:
         return METRIC_SPECS[name]
     except KeyError as exc:
@@ -255,7 +248,6 @@ def get_metric_spec(name: str) -> MetricSpec:
 
 def list_metric_specs(*, task: str | None = None) -> list[MetricSpec]:
     """List metric specifications, optionally filtered by task."""
-
     specs = list(METRIC_SPECS.values())
     if task is not None:
         specs = [spec for spec in specs if spec.task == task]
@@ -264,7 +256,6 @@ def list_metric_specs(*, task: str | None = None) -> list[MetricSpec]:
 
 def infer_problem_type(*, task: str, y: Sequence[Any] | np.ndarray | None = None) -> ProblemType:
     """Infer the supervised problem regime needed by metric validation."""
-
     if task == "regression":
         return "regression"
 
@@ -294,7 +285,6 @@ def validate_metric(
     y: Sequence[Any] | np.ndarray | None = None,
 ) -> MetricSpec:
     """Retrieve and validate a metric against task and target regime."""
-
     spec = get_metric_spec(name)
     spec.validate_task(task)
 

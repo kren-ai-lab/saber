@@ -42,9 +42,7 @@ class PartitionSplit:
         object.__setattr__(self, "metadata", dict(self.metadata))
 
         if not train_ids:
-            raise PartitionValidationError(
-                f"Split '{self.name}' must contain at least one training sample."
-            )
+            raise PartitionValidationError(f"Split '{self.name}' must contain at least one training sample.")
 
         for role, values in (
             ("train", train_ids),
@@ -64,9 +62,7 @@ class PartitionSplit:
         }
         bad = {name: values for name, values in overlaps.items() if values}
         if bad:
-            details = "; ".join(
-                f"{pair}: {sorted(values, key=repr)!r}" for pair, values in bad.items()
-            )
+            details = "; ".join(f"{pair}: {sorted(values, key=repr)!r}" for pair, values in bad.items())
             raise PartitionValidationError(
                 f"Split '{self.name}' contains overlapping memberships ({details})."
             )
@@ -82,9 +78,7 @@ class PartitionSplit:
             return self.validation_ids
         if role == "test":
             return self.test_ids
-        raise PartitionValidationError(
-            "role must be 'train', 'validation', or 'test'."
-        )
+        raise PartitionValidationError("role must be 'train', 'validation', or 'test'.")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -96,7 +90,7 @@ class PartitionSplit:
         }
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "PartitionSplit":
+    def from_dict(cls, payload: dict[str, Any]) -> PartitionSplit:
         return cls(
             name=str(payload["name"]),
             train_ids=tuple(payload.get("train_ids", ())),
@@ -135,9 +129,7 @@ class PartitionPlan:
 
         valid_kinds = {"holdout", "cross_validation", "predefined", "external"}
         if self.kind not in valid_kinds:
-            raise PartitionValidationError(
-                f"Unsupported partition kind '{self.kind}'."
-            )
+            raise PartitionValidationError(f"Unsupported partition kind '{self.kind}'.")
 
         names = [split.name for split in splits]
         if len(names) != len(set(names)):
@@ -169,7 +161,6 @@ class PartitionPlan:
         verify_dataset_fingerprint: bool = True,
     ) -> None:
         """Validate memberships against a concrete dataset."""
-
         if (
             verify_dataset_fingerprint
             and self.dataset_fingerprint is not None
@@ -187,8 +178,7 @@ class PartitionPlan:
             unknown = split_ids - known_ids
             if unknown:
                 raise PartitionValidationError(
-                    f"Split '{split.name}' contains unknown sample IDs: "
-                    f"{sorted(unknown, key=repr)!r}."
+                    f"Split '{split.name}' contains unknown sample IDs: {sorted(unknown, key=repr)!r}."
                 )
 
             if require_complete:
@@ -207,7 +197,6 @@ class PartitionPlan:
         require_complete: bool = True,
     ) -> ResolvedPartition:
         """Resolve one split to identity-preserving dataset subsets."""
-
         self.validate_against(dataset, require_complete=require_complete)
         split = self.get_split(split_name)
 
@@ -236,13 +225,12 @@ class PartitionPlan:
         }
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "PartitionPlan":
+    def from_dict(cls, payload: dict[str, Any]) -> PartitionPlan:
         return cls(
             kind=payload.get("kind", "external"),
             dataset_fingerprint=payload.get("dataset_fingerprint"),
             splits=tuple(
-                PartitionSplit.from_dict(split_payload)
-                for split_payload in payload.get("splits", ())
+                PartitionSplit.from_dict(split_payload) for split_payload in payload.get("splits", ())
             ),
             metadata=dict(payload.get("metadata", {})),
         )
@@ -257,7 +245,7 @@ class PartitionPlan:
         dataset_fingerprint: str | None = None,
         name: str = "holdout",
         metadata: dict[str, Any] | None = None,
-    ) -> "PartitionPlan":
+    ) -> PartitionPlan:
         return cls(
             kind="holdout",
             dataset_fingerprint=dataset_fingerprint,
@@ -281,19 +269,16 @@ class PartitionPlan:
         always_train_value: Any = -1,
         dataset_fingerprint: str | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> "PartitionPlan":
+    ) -> PartitionPlan:
         """Build explicit CV splits from sklearn-style fold assignments.
 
         Samples assigned ``always_train_value`` are included in every training
         fold and never used as validation samples.
         """
-
         ids = tuple(sample_ids)
         assignments = tuple(fold_assignments)
         if len(ids) != len(assignments):
-            raise PartitionValidationError(
-                "sample_ids and fold_assignments must have identical lengths."
-            )
+            raise PartitionValidationError("sample_ids and fold_assignments must have identical lengths.")
         _validate_unique_ids(ids, split="predefined", role="sample_ids")
 
         fold_values = []
@@ -304,9 +289,7 @@ class PartitionPlan:
                 fold_values.append(fold)
 
         if not fold_values:
-            raise PartitionValidationError(
-                "Predefined folds must contain at least one validation fold."
-            )
+            raise PartitionValidationError("Predefined folds must contain at least one validation fold.")
 
         splits = []
         for fold in fold_values:
@@ -340,7 +323,6 @@ class PartitionPlan:
 
     def validation_counts(self) -> Counter[Any]:
         """Return how often each sample appears in validation roles."""
-
         counts: Counter[Any] = Counter()
         for split in self.splits:
             counts.update(split.validation_ids)
@@ -354,9 +336,7 @@ def _validate_unique_ids(values: tuple[Any, ...], *, split: str, role: str) -> N
                 f"Split '{split}' role '{role}' must use scalar str/int/float/bool sample IDs."
             )
         if isinstance(value, float) and not np.isfinite(value):
-            raise PartitionValidationError(
-                f"Split '{split}' role '{role}' contains a non-finite sample ID."
-            )
+            raise PartitionValidationError(f"Split '{split}' role '{role}' contains a non-finite sample ID.")
 
     try:
         unique = set(values)
@@ -366,9 +346,7 @@ def _validate_unique_ids(values: tuple[Any, ...], *, split: str, role: str) -> N
         ) from exc
 
     if len(unique) != len(values):
-        raise PartitionValidationError(
-            f"Split '{split}' role '{role}' contains duplicate sample IDs."
-        )
+        raise PartitionValidationError(f"Split '{split}' role '{role}' contains duplicate sample IDs.")
 
 
 def _to_python_scalar(value: Any) -> Any:

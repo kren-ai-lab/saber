@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 import shutil
 import tempfile
@@ -41,7 +40,6 @@ def save_model_artifact(
     overwrite: bool = False,
 ) -> Path:
     """Persist one fitted estimator/pipeline with reproducibility metadata."""
-
     if task not in {"classification", "regression"}:
         raise PersistenceError("task must be 'classification' or 'regression'.")
     if dataset is None and feature_schema is None:
@@ -56,25 +54,16 @@ def save_model_artifact(
         and feature_schema is not None
         and feature_schema.fingerprint != dataset.feature_schema.fingerprint
     ):
-        raise PersistenceError(
-            "Explicit feature_schema does not match the supplied dataset."
-        )
+        raise PersistenceError("Explicit feature_schema does not match the supplied dataset.")
     if partition_plan is not None and dataset is not None:
         partition_plan.validate_against(dataset, require_complete=False)
 
     observed_n_features = getattr(model, "n_features_in_", None)
     if observed_n_features is not None and int(observed_n_features) != schema.n_features:
-        raise PersistenceError(
-            "Fitted model feature count does not match the persisted FeatureSchema."
-        )
+        raise PersistenceError("Fitted model feature count does not match the persisted FeatureSchema.")
 
     classes = getattr(model, "classes_", None)
-    if (
-        task == "classification"
-        and positive_class is None
-        and classes is not None
-        and len(classes) == 2
-    ):
+    if task == "classification" and positive_class is None and classes is not None and len(classes) == 2:
         positive_class = classes[-1]
 
     target = Path(path)
@@ -101,9 +90,7 @@ def save_model_artifact(
         write_json(root / files["training_config"], training_config or {})
 
         dataset_fingerprint = dataset.fingerprint if dataset is not None else None
-        partition_fingerprint = (
-            partition_plan.fingerprint if partition_plan is not None else None
-        )
+        partition_fingerprint = partition_plan.fingerprint if partition_plan is not None else None
         provenance = {
             "algorithm": algorithm,
             "task": task,
@@ -153,7 +140,6 @@ def save_benchmark_artifact(
     benchmark artifact. ``include_object=True`` additionally stores the full
     Python result object with joblib for trusted same-ecosystem round trips.
     """
-
     target = Path(path)
     with _atomic_artifact_directory(target, overwrite=overwrite) as root:
         files = {
@@ -229,13 +215,9 @@ def _atomic_artifact_directory(target: Path, *, overwrite: bool):
     target = target.expanduser().resolve()
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists() and not overwrite:
-        raise PersistenceError(
-            f"Artifact path already exists: '{target}'. Use overwrite=True to replace it."
-        )
+        raise PersistenceError(f"Artifact path already exists: '{target}'. Use overwrite=True to replace it.")
 
-    temp = Path(
-        tempfile.mkdtemp(prefix=f".{target.name}.tmp-", dir=str(target.parent))
-    )
+    temp = Path(tempfile.mkdtemp(prefix=f".{target.name}.tmp-", dir=str(target.parent)))
     try:
         yield temp
         backup = None

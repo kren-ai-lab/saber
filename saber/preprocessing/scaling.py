@@ -9,7 +9,6 @@ from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 from saber.core.capabilities import EstimatorRequirements
 from saber.exceptions import PreprocessingContractError
 
-
 _ALLOWED_SCALERS = {"standard", "robust", "minmax"}
 
 
@@ -19,7 +18,6 @@ def resolve_scaler_name(
     requirements: EstimatorRequirements,
 ) -> str | None:
     """Resolve explicit/automatic scaler policy for an estimator."""
-
     if scaler is None or scaler == "none":
         return None
     if scaler == "auto":
@@ -30,9 +28,7 @@ def resolve_scaler_name(
         return None
     if scaler not in _ALLOWED_SCALERS:
         allowed = ", ".join(sorted(_ALLOWED_SCALERS))
-        raise PreprocessingContractError(
-            f"Unsupported scaler '{scaler}'. Supported: auto, {allowed}, none."
-        )
+        raise PreprocessingContractError(f"Unsupported scaler '{scaler}'. Supported: auto, {allowed}, none.")
     if requirements.non_negative_X and scaler in {"standard", "robust"}:
         raise PreprocessingContractError(
             "Standard/robust scaling can create negative values for an estimator "
@@ -47,7 +43,6 @@ def build_scaler(
     requirements: EstimatorRequirements,
 ) -> Any:
     """Build scaler or passthrough marker."""
-
     resolved = resolve_scaler_name(scaler, requirements=requirements)
     if resolved is None:
         return "passthrough"
