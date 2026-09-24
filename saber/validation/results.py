@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from saber.core.prediction import PredictionResult
-from saber.datasets.folds import PartitionPlan
-from saber.evaluation.results import EvaluationResult
+if TYPE_CHECKING:
+    from saber.core.prediction import PredictionResult
+    from saber.datasets.folds import PartitionPlan
+    from saber.evaluation.results import EvaluationResult
 
 
 @dataclass(slots=True)
@@ -42,10 +43,12 @@ class ValidationResult:
 
     @property
     def n_splits(self) -> int:
+        """Return the number of folds in this result."""
         return len(self.folds)
 
     @property
     def total_fit_seconds(self) -> float:
+        """Return the summed fit time across all folds."""
         return float(sum(fold.fit_seconds for fold in self.folds))
 
 

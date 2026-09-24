@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
-from saber.datasets import DatasetBundle, PartitionPlan
-from saber.datasets.biosieve import BioSievePartitionConfig, partition_with_biosieve
+from saber.datasets.biosieve import partition_with_biosieve
 from saber.exceptions import ValidationContractError
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+    from saber.datasets import DatasetBundle, PartitionPlan
+    from saber.datasets.biosieve import BioSievePartitionConfig
 
 EvaluationRole = Literal["auto", "validation", "test"]
 
@@ -46,7 +50,7 @@ def resolve_evaluation_dataset(
     *,
     requested: EvaluationRole,
     plan_kind: str,
-):
+) -> tuple[EvaluationRole, Any]:
     """Choose the held-out role while protecting a final test set by default."""
     if requested == "test":
         if resolved.test is None:

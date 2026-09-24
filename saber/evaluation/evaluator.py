@@ -1,19 +1,19 @@
-"""saber.evaluation.evaluator
-===========================
-
-Evaluation entry point for structured prediction results.
-"""
+"""Evaluation entry point for structured prediction results."""
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 import numpy as np
 
-from saber.core.prediction import PredictionResult
 from saber.evaluation.classification import evaluate_classification
 from saber.evaluation.regression import evaluate_regression
 from saber.evaluation.results import EvaluationResult
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from saber.core.prediction import PredictionResult
 
 
 def evaluate_prediction(

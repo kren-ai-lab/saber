@@ -1,12 +1,9 @@
-"""saber.evaluation.regression
-============================
-
-Regression evaluation metrics.
-"""
+"""Regression evaluation metrics."""
 
 from __future__ import annotations
 
-import numpy as np
+from typing import TYPE_CHECKING
+
 from scipy.stats import pearsonr, spearmanr
 from sklearn.metrics import (
     explained_variance_score,
@@ -17,6 +14,9 @@ from sklearn.metrics import (
     r2_score,
     root_mean_squared_error,
 )
+
+if TYPE_CHECKING:
+    import numpy as np
 
 REGRESSION_METRICS = (
     "mae",
@@ -70,6 +70,5 @@ def evaluate_regression(
 
 
 def metric_names() -> tuple[str, ...]:
-    """Return available metric names.
-    """
+    """Return available metric names."""
     return REGRESSION_METRICS

@@ -1,13 +1,8 @@
-"""saber.evaluation.classification
-================================
-
-Classification evaluation utilities with explicit binary class semantics.
-"""
+"""Classification evaluation utilities with explicit binary class semantics."""
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from sklearn.metrics import (
@@ -23,6 +18,9 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
 
 
 def _resolve_binary_classes(
@@ -90,7 +88,7 @@ def specificity_score(
     classes: np.ndarray | Sequence[Any] | None = None,
 ) -> float:
     """Compute binary specificity for an explicit positive class."""
-    resolved, positive_class, negative_class = _resolve_binary_classes(
+    _, positive_class, negative_class = _resolve_binary_classes(
         y_true,
         y_pred=y_pred,
         classes=classes,

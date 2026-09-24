@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from time import perf_counter
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from saber.core.prediction import PredictionResult
-from saber.core.registry import AlgorithmRegistry
-from saber.datasets import DatasetBundle, PartitionPlan
-from saber.datasets.biosieve import BioSievePartitionConfig
 from saber.evaluation import evaluate_prediction
 from saber.exceptions import DatasetValidationError, ValidationContractError
 from saber.preprocessing import PreprocessingConfig, build_model_pipeline, pipeline_input
@@ -26,11 +22,19 @@ from saber.validation.results import (
     aggregate_fold_metrics,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+    from saber.core.registry import AlgorithmRegistry
+    from saber.datasets import DatasetBundle, PartitionPlan
+    from saber.datasets.biosieve import BioSievePartitionConfig
+
 
 class ValidationEngine:
     """Execute explicit partition plans with fold-local preprocessing."""
 
     def __init__(self, registry: AlgorithmRegistry) -> None:
+        """Store the algorithm registry used to resolve validation specs."""
         self.registry = registry
 
     def run(

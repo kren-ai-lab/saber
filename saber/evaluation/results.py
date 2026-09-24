@@ -1,16 +1,13 @@
-"""saber.evaluation.results
-=========================
-
-Structured evaluation result objects.
-"""
+"""Structured evaluation result objects."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from saber.core.prediction import PredictionResult
-from saber.core.task import TaskType
+if TYPE_CHECKING:
+    from saber.core.prediction import PredictionResult
+    from saber.core.task import TaskType
 
 
 @dataclass(slots=True)
