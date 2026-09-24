@@ -1,6 +1,6 @@
-# mlcore executable examples
+# Saber executable examples
 
-These notebooks are **advanced executable demonstrations**, not screenshots. They are executed in clean subprocesses by the notebook integration suite. Plotting/reporting stays outside the `mlcore` core.
+These notebooks are **advanced executable demonstrations**, not screenshots. They are executed in clean subprocesses by the notebook integration suite. Plotting/reporting stays outside the `saber` core.
 
 ## Classification
 - `classification/01_binary_classification.ipynb` — imbalanced binary validation, sample weights, extended metrics, OOF threshold diagnostics and error audit.
@@ -12,7 +12,7 @@ These notebooks are **advanced executable demonstrations**, not screenshots. The
 
 ## Validation and partitions
 - `validation/01_biosieve_validation.ipynb` — live BioSieve integration when installed, provenance and fold diagnostics.
-- `validation/02_partition_strategy_comparison.ipynb` — compare balanced vs group-blocked external partition regimes without reimplementing splitting in mlcore.
+- `validation/02_partition_strategy_comparison.ipynb` — compare balanced vs group-blocked external partition regimes without reimplementing splitting in saber.
 
 ## Hyperparameter optimization
 - `tuning/01_hyperparameter_optimization.ipynb` — grid search, multi-metric candidate report, untuned vs tuned protected test.
@@ -30,7 +30,7 @@ These notebooks are **advanced executable demonstrations**, not screenshots. The
 - `end_to_end/01_data_centric_benchmark.ipynb` — representation comparison with untuned/tuned models and a protected final test.
 
 ### Test mode
-The test suite sets `MLCORE_DEMO_TEST=1` to reduce dataset sizes/trial counts while exercising the same workflows. Running notebooks normally uses the fuller demonstration settings.
+The test suite sets `SABER_DEMO_TEST=1` to reduce dataset sizes/trial counts while exercising the same workflows. Running notebooks normally uses the fuller demonstration settings.
 
 
 ## Recommended learning paths

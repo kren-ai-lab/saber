@@ -5,25 +5,25 @@ This page documents the intentionally small high-level surface. Lower-level cont
 ## Package-root functions
 
 ```python
-import mlcore
+import saber
 ```
 
-### `mlcore.train(...)`
+### `saber.train(...)`
 Fit one final estimator/pipeline on all samples supplied in a `DatasetBundle`. This is a final-fit operation, not model assessment.
 
-### `mlcore.validate(...)`
+### `saber.validate(...)`
 Run holdout/CV validation from an explicit `PartitionPlan` or a `BioSievePartitionConfig`. Returns `ValidationResult` with fold results, aggregate summaries, and OOF predictions when defined.
 
-### `mlcore.evaluate(...)`
+### `saber.evaluate(...)`
 Evaluate a fitted `TrainResult`, loaded model artifact, or persisted artifact path on labeled data through structured `PredictionResult` semantics.
 
-### `mlcore.tune(...)` / `mlcore.optimize(...)`
+### `saber.tune(...)` / `saber.optimize(...)`
 Run partition-driven hyperparameter optimization with `TuningConfig` and `SearchSpace`.
 
-### `mlcore.benchmark(...)`
+### `saber.benchmark(...)`
 Execute an experiment matrix across prepared datasets/representations, algorithms, partitions, seeds, and tuning modes. Returns `BenchmarkResult`.
 
-### `mlcore.predict(...)`
+### `saber.predict(...)`
 Run inference through a persisted model artifact with feature-schema validation.
 
 ### Persistence helpers
@@ -48,7 +48,7 @@ run_config
 ## Important data contracts
 
 ```python
-from mlcore.datasets import (
+from saber.datasets import (
     DatasetBundle,
     FeatureSchema,
     PartitionPlan,
@@ -60,7 +60,7 @@ from mlcore.datasets import (
 ## Preprocessing
 
 ```python
-from mlcore.preprocessing import PreprocessingConfig
+from saber.preprocessing import PreprocessingConfig
 ```
 
 Numerical imputation/scaling can be explicit or `auto`; fitted preprocessing remains inside fold-specific pipelines.
@@ -68,20 +68,20 @@ Numerical imputation/scaling can be explicit or `auto`; fitted preprocessing rem
 ## Tuning
 
 ```python
-from mlcore.tuning import TuningConfig
-from mlcore.core.search_space import SearchSpace, Categorical, Integer, Float, LogFloat
+from saber.tuning import TuningConfig
+from saber.core.search_space import SearchSpace, Categorical, Integer, Float, LogFloat
 ```
 
 ## Benchmarking
 
 ```python
-from mlcore.benchmark import BenchmarkConfig, BenchmarkDataset, BenchmarkPartition
+from saber.benchmark import BenchmarkConfig, BenchmarkDataset, BenchmarkPartition
 ```
 
 ## Registry
 
 ```python
-from mlcore import MODEL_REGISTRY
+from saber import MODEL_REGISTRY
 
 MODEL_REGISTRY.providers()
 MODEL_REGISTRY.filter(task="classification", provider="sklearn")

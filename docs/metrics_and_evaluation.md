@@ -64,7 +64,7 @@ Losses keep their natural positive values in user-facing results while sklearn s
 
 ## Fold-local undefined metrics
 
-A valid global binary task may have a held-out fold containing only one observed class. Prediction metrics such as accuracy remain defined, while ranking metrics such as ROC-AUC do not. When such a metric is explicitly requested, `mlcore` fails clearly rather than returning a misleading number.
+A valid global binary task may have a held-out fold containing only one observed class. Prediction metrics such as accuracy remain defined, while ranking metrics such as ROC-AUC do not. When such a metric is explicitly requested, `saber` fails clearly rather than returning a misleading number.
 
 ## OOF predictions
 

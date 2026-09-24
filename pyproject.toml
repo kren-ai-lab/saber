@@ -3,21 +3,20 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mlcore"
+name = "saberlib"
 dynamic = ["version"]
-
 description = "Domain-agnostic classical supervised machine learning for classification, regression, tuning, and benchmarking."
-
-readme = "README.md"
-
-license = { text = "MIT" }
-
-requires-python = ">=3.11,<3.14"
-
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.11,<3.15"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Kren AI Lab", email = "krenai@umag.cl" },
 ]
-
+maintainers = [
+    { name = "David Medina-Ortiz" },
+    { name = "Diego Alvarez-Saravia" },
+]
 keywords = [
     "machine-learning",
     "supervised-learning",
@@ -25,95 +24,145 @@ keywords = [
     "classification",
     "regression",
     "benchmarking",
-    "optuna",
-    "xgboost",
-    "lightgbm",
+    "hyperparameter-optimization",
     "reproducibility",
+    "scientific-software",
 ]
-
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
     "Operating System :: OS Independent",
-    "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
 ]
 
 dependencies = [
-    "numpy>=2.0,<3.0",
-    "pandas>=2.0,<3.0",
-    "scikit-learn>=1.8,<2.0",
-    "scipy>=1.10,<2.0",
-    "joblib>=1.3,<2.0",
-    "rich>=13.0,<16.0",
-    "pyyaml>=6.0,<7.0",
-]
-
-[project.optional-dependencies]
-biosieve = [
-    "biosieve>=0.1.2,<0.2",
-]
-
-xgboost = [
-    "xgboost>=2.0,<4.0",
-]
-
-lightgbm = [
-    "lightgbm>=4.0,<5.0",
-]
-
-optuna = [
-    "optuna>=4.0,<5.0",
-]
-
-all = [
-    "biosieve>=0.1.2,<0.2",
-    "xgboost>=2.0,<4.0",
-    "lightgbm>=4.0,<5.0",
-    "optuna>=4.0,<5.0",
-]
-
-dev = [
-    "biosieve>=0.1.2,<0.2",
-    "pytest~=9.0.2",
-    "pytest-cov~=7.1.0",
-    "matplotlib>=3.8,<4.0",
-    "xgboost>=2.0,<4.0",
-    "lightgbm>=4.0,<5.0",
-    "optuna>=4.0,<5.0",
-]
-
-
-tests = [
-    "biosieve>=0.1.2,<0.2",
-    "pytest~=9.0.2",
-    "pytest-cov~=7.1.0",
-    "matplotlib>=3.8,<4.0",
-    "xgboost>=2.0,<4.0",
-    "lightgbm>=4.0,<5.0",
-    "optuna>=4.0,<5.0",
+    "numpy>=2.0,<3",
+    "pandas>=2.2.2,<3",
+    "scikit-learn>=1.8,<2",
+    "scipy>=1.16,<2",
+    "joblib>=1.3,<2",
+    "rich>=13.0,<16",
+    "pyyaml>=6.0,<7",
+    "typer>=0.27,<1",
 ]
 
 [project.scripts]
-mlcore = "mlcore.cli.main:main"
+saber = "saber.cli.main:main"
+
+[project.optional-dependencies]
+biosieve = ["biosieve>=0.1.2,<0.2"]
+xgboost = ["xgboost>=2.0,<4"]
+lightgbm = ["lightgbm>=4.6,<5"]
+optuna = ["optuna>=4.6,<5"]
+all = [
+    "biosieve>=0.1.2,<0.2",
+    "xgboost>=2.0,<4",
+    "lightgbm>=4.6,<5",
+    "optuna>=4.6,<5",
+]
 
 [project.urls]
-Documentation = "https://github.com/kren-ai-lab/mlcore#readme"
-Homepage = "https://github.com/kren-ai-lab/mlcore"
-Issues = "https://github.com/kren-ai-lab/mlcore/issues"
-Source = "https://github.com/kren-ai-lab/mlcore"
+Homepage = "https://github.com/kren-ai-lab/saber"
+Repository = "https://github.com/kren-ai-lab/saber"
+Issues = "https://github.com/kren-ai-lab/saber/issues"
+Documentation = "https://github.com/kren-ai-lab/saber#readme"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0",
+    "pytest-cov>=7.1",
+    "ruff>=0.16",
+    "pyrefly>1.0",
+    "taskipy>=1.14",
+    "prek",
+    "matplotlib>=3.10.7",
+]
 
 [tool.hatch.version]
-path = "mlcore/__init__.py"
-pattern = "__version__ = \"(?P<version>[^\"]+)\""
+path = "saber/_version.py"
+pattern = '__version__ = "(?P<version>[^"]+)"'
 
 [tool.hatch.build.targets.sdist]
-include = [
-    "/mlcore",
+include = ["/saber"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["saber"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "COM812",
+    "CPY001",
+    "D203",
+    "D213",
+    "N803",
+    "N806",
+    "PLR0913",
+    # Deliberate exceptions, not pending work.
+    "TRY003",  # a raise names the offending data, not a class per failure mode
+    "EM101",
+    "EM102",
+    "ANN401",  # coercion helpers take anything; `object` only moves it to pyrefly
+    "PLR2004", # `if n < 3` reads better than a named constant
+    "C901",    # workflows branch on contracts; splitting them hides the execution path
+    "PLR0911",
+    "PLR0912",
+    "PLR0915",
+    "PLR0917",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"saber/cli/*" = [
+    "FBT001",  # bool flags are standard in CLI functions
+    "FBT002",
+    "FBT003",
+    "TC001",   # typer resolves annotations at runtime, so they stay imported
+    "TC002",
+    "TC003",
+]
+"tests/*" = [
+    "ANN",     # test helpers are not part of the typed public surface
+    "D",       # docstrings are not required in tests
+    "INP001",  # test packages are intentionally implicit namespaces
+    "PLC0415",
+    "PT011",
+    "PT017",
+    "PT018",
+    "S101",    # assert is how a test asserts
+    "TC003",   # pytest resolves fixture annotations at runtime
+]
+"examples/*" = [
+    "INP001",  # example scripts are intentionally standalone modules
+    "T201",    # examples print result snippets by design
+]
+
+[tool.pyrefly]
+# Without a config section Pyrefly falls back to the `basic` preset, which
+# silences most of its checks; `default` is the real baseline.
+preset = "default"
+project-includes = ["saber", "tests"]
+
+[tool.taskipy.tasks]
+sort-imports = "ruff check --fix --select I,F401 saber/ tests/"
+format = "task sort-imports && ruff format saber/ tests/"
+lint = "ruff check saber/ tests/"
+lint-fix = "ruff check --fix saber/ tests/"
+test = "pytest -q"
+test-v = "pytest -v"
+test-cov = "pytest --cov=saber --cov-report=html"
+pyrefly = "pyrefly check saber/ tests/"

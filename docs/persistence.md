@@ -1,6 +1,6 @@
 # Persistence and reproducibility
 
-`mlcore` persists model artifacts as auditable directories with structured metadata and checksums.
+`Saber` persists model artifacts as auditable directories with structured metadata and checksums.
 
 ## Model artifacts
 
@@ -20,16 +20,16 @@ artifact/
 └── checksums.sha256
 ```
 
-The manifest format has its own schema version, independent of the `mlcore` package version.
+The manifest format has its own schema version, independent of the `saber` package version.
 
 ## Saving
 
-Use `mlcore.save_model()` / `save_model_artifact()` after final fitting. Provenance can include algorithm/provider, parameters, metrics, dataset fingerprint, partition fingerprint, class order, positive class, and training configuration.
+Use `saber.save_model()` / `save_model_artifact()` after final fitting. Provenance can include algorithm/provider, parameters, metrics, dataset fingerprint, partition fingerprint, class order, positive class, and training configuration.
 
 ## Loading and inference
 
 ```python
-artifact = mlcore.load_model("artifacts/model")
+artifact = saber.load_model("artifacts/model")
 
 prediction = artifact.predict_result(
     X_new,

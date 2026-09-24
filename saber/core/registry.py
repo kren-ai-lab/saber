@@ -1,0 +1,457 @@
+"""saber.core.registry
+====================
+
+Central registry for machine learning algorithms.
+
+This module provides the registry infrastructure used to
+register, query, filter, and retrieve algorithm specifications
+throughout the saber ecosystem.
+"""
+
+from __future__ import annotations
+
+from collections import defaultdict
+from collections.abc import Iterator, Sequence
+from typing import Any
+
+from saber.core.specs import AlgorithmSpec
+from saber.exceptions import (
+    AlgorithmAlreadyRegisteredError,
+    AlgorithmNotFoundError,
+)
+
+
+class AlgorithmRegistry:
+    """Registry for algorithm specifications.
+
+    Notes
+    -----
+    The registry acts as the central discovery mechanism
+    for all machine learning algorithms available in saber.
+
+    Algorithms are registered using an AlgorithmSpec object.
+
+    """
+
+    def __init__(self) -> None:
+        self._algorithms: dict[str, AlgorithmSpec] = {}
+        self._aliases: dict[str, str] = {}
+
+    def register(
+        self,
+        spec: AlgorithmSpec,
+        overwrite: bool = False,
+    ) -> None:
+        """Register a single algorithm.
+
+        Parameters
+        ----------
+        spec : AlgorithmSpec
+            Algorithm specification.
+
+        overwrite : bool, default=False
+            Whether to overwrite existing entries.
+
+        Raises
+        ------
+        AlgorithmAlreadyRegisteredError
+
+        """
+        if spec.name in self._algorithms and not overwrite:
+            raise AlgorithmAlreadyRegisteredError(f"Algorithm '{spec.name}' is already registered.")
+
+        if spec.name in self._aliases and not overwrite:
+            raise AlgorithmAlreadyRegisteredError(f"Algorithm name '{spec.name}' already exists as alias.")
+
+        for alias in spec.aliases:
+            if alias in self._algorithms and not overwrite:
+                raise AlgorithmAlreadyRegisteredError(f"Alias '{alias}' already exists as algorithm name.")
+
+            if alias in self._aliases and not overwrite:
+                raise AlgorithmAlreadyRegisteredError(f"Alias '{alias}' is already registered.")
+
+        self._algorithms[spec.name] = spec
+
+        for alias in spec.aliases:
+            self._aliases[alias] = spec.name
+
+    def register_many(
+        self,
+        specs: Sequence[AlgorithmSpec],
+        overwrite: bool = False,
+    ) -> None:
+        """Register multiple algorithm specifications.
+
+        Parameters
+        ----------
+        specs : Sequence[AlgorithmSpec]
+            Algorithm specifications.
+
+        overwrite : bool, default=False
+            Whether to overwrite existing entries.
+
+        """
+        for spec in specs:
+            self.register(
+                spec=spec,
+                overwrite=overwrite,
+            )
+
+    def get(
+        self,
+        name: str,
+    ) -> AlgorithmSpec:
+        """Retrieve an algorithm specification.
+
+        Parameters
+        ----------
+        name : str
+            Algorithm name or alias.
+
+        Returns
+        -------
+        AlgorithmSpec
+
+        Raises
+        ------
+        AlgorithmNotFoundError
+
+        """
+        if name in self._algorithms:
+            return self._algorithms[name]
+
+        if name in self._aliases:
+            canonical_name = self._aliases[name]
+            return self._algorithms[canonical_name]
+
+        raise AlgorithmNotFoundError(f"Algorithm '{name}' not found.")
+
+    def exists(
+        self,
+        name: str,
+    ) -> bool:
+        """Check whether an algorithm exists.
+
+        Parameters
+        ----------
+        name : str
+            Algorithm name or alias.
+
+        Returns
+        -------
+        bool
+
+        """
+        try:
+            self.get(name)
+            return True
+
+        except AlgorithmNotFoundError:
+            return False
+
+    def filter(
+        self,
+        *,
+        task: str | None = None,
+        provider: str | None = None,
+        tags: Sequence[str] | None = None,
+    ) -> list[AlgorithmSpec]:
+        """Filter registered algorithms.
+
+        Parameters
+        ----------
+        task : str, optional
+            Task type.
+
+        provider : str, optional
+            Provider identifier.
+
+        tags : Sequence[str], optional
+            Required tags.
+
+        Returns
+        -------
+        list[AlgorithmSpec]
+
+        """
+        results: list[AlgorithmSpec] = []
+
+        for spec in self._algorithms.values():
+            if task is not None and spec.task != task:
+                continue
+
+            if provider is not None and spec.provider != provider:
+                continue
+
+            if tags is not None:
+                if not all(tag in spec.tags for tag in tags):
+                    continue
+
+            results.append(spec)
+
+        return results
+
+    def get_by_task(
+        self,
+        task: str,
+    ) -> list[AlgorithmSpec]:
+        """Retrieve algorithms by task.
+        """
+        return self.filter(task=task)
+
+    def get_by_provider(
+        self,
+        provider: str,
+    ) -> list[AlgorithmSpec]:
+        """Retrieve algorithms by provider."""
+        return self.filter(provider=provider)
+
+    def get_by_tag(
+        self,
+        tag: str,
+    ) -> list[AlgorithmSpec]:
+        """Retrieve algorithms by tag.
+        """
+        return self.filter(tags=[tag])
+
+    def list(
+        self,
+        *,
+        task: str | None = None,
+        provider: str | None = None,
+    ) -> list[str]:
+        """List algorithm names.
+
+        Parameters
+        ----------
+        task : str, optional
+            Task filter.
+
+        provider : str, optional
+            Provider filter.
+
+        Returns
+        -------
+        list[str]
+
+        """
+        return sorted(
+            spec.name
+            for spec in self.filter(
+                task=task,
+                provider=provider,
+            )
+        )
+
+    def count(self) -> int:
+        """Return the number of registered algorithms.
+
+        Returns
+        -------
+        int
+
+        """
+        return len(self._algorithms)
+
+    def tasks(self) -> set[str]:
+        """Return registered tasks.
+
+        Returns
+        -------
+        set[str]
+
+        """
+        return {spec.task for spec in self._algorithms.values()}
+
+    def providers(self) -> set[str]:
+        """Return registered estimator providers."""
+        return {spec.provider for spec in self._algorithms.values()}
+
+    def tags(self) -> set[str]:
+        """Return all registered tags.
+
+        Returns
+        -------
+        set[str]
+
+        """
+        tags: set[str] = set()
+
+        for spec in self._algorithms.values():
+            tags.update(spec.tags)
+
+        return tags
+
+    def aliases_for(
+        self,
+        name: str,
+    ) -> tuple[str, ...]:
+        """Retrieve aliases associated with an algorithm.
+
+        Parameters
+        ----------
+        name : str
+            Algorithm name.
+
+        Returns
+        -------
+        tuple[str, ...]
+
+        """
+        spec = self.get(name)
+
+        return spec.aliases
+
+    def to_dict(self) -> dict[str, Any]:
+        """Export registry metadata for all registered algorithms."""
+        return {name: spec.metadata() for name, spec in self._algorithms.items()}
+
+    def describe(
+        self,
+        name: str,
+    ) -> dict[str, Any]:
+        """Return metadata for one algorithm or alias."""
+        return self.get(name).metadata()
+
+    def get_factory(
+        self,
+        name: str,
+    ):
+        """Return the canonical estimator factory for an algorithm."""
+        spec = self.get(name)
+
+        if spec.estimator_factory is None:
+            raise ValueError(f"Algorithm '{spec.name}' does not define an estimator factory.")
+
+        return spec.estimator_factory
+
+    def build_estimator(
+        self,
+        name: str,
+        *,
+        random_state: int | None = None,
+        **params: Any,
+    ):
+        """Construct an estimator through the registry's canonical path."""
+        return self.get(name).build_estimator(
+            random_state=random_state,
+            **params,
+        )
+
+    def summary(self) -> dict[str, Any]:
+        """Generate registry summary.
+
+        Returns
+        -------
+        dict[str, Any]
+
+        """
+        by_task = defaultdict(int)
+        by_provider = defaultdict(int)
+
+        for spec in self._algorithms.values():
+            by_task[spec.task] += 1
+            by_provider[spec.provider] += 1
+
+        return {
+            "n_algorithms": self.count(),
+            "n_aliases": len(self._aliases),
+            "n_with_estimator_factory": sum(
+                spec.has_estimator_factory() for spec in self._algorithms.values()
+            ),
+            "tasks": dict(by_task),
+            "providers": dict(by_provider),
+            "available_tasks": sorted(self.tasks()),
+            "available_providers": sorted(self.providers()),
+            "available_tags": sorted(self.tags()),
+        }
+
+    def clear(self) -> None:
+        """Remove all registered algorithms.
+        """
+        self._algorithms.clear()
+        self._aliases.clear()
+
+    def remove(
+        self,
+        name: str,
+        missing_ok: bool = False,
+    ) -> None:
+        """Remove an algorithm from the registry.
+
+        Parameters
+        ----------
+        name : str
+            Algorithm name or alias.
+
+        missing_ok : bool, default=False
+            If True, silently ignore missing algorithms.
+
+        Raises
+        ------
+        AlgorithmNotFoundError
+            If the algorithm does not exist and
+            ``missing_ok=False``.
+
+        """
+        try:
+            spec = self.get(name)
+
+        except AlgorithmNotFoundError:
+            if missing_ok:
+                return
+
+            raise
+
+        for alias in spec.aliases:
+            self._aliases.pop(alias, None)
+
+        self._algorithms.pop(spec.name, None)
+
+    @property
+    def algorithms(self) -> dict[str, AlgorithmSpec]:
+        """Registered algorithms.
+
+        Returns
+        -------
+        dict[str, AlgorithmSpec]
+
+        """
+        return dict(self._algorithms)
+
+    @property
+    def aliases(self) -> dict[str, str]:
+        """Registered aliases.
+
+        Returns
+        -------
+        dict[str, str]
+
+        """
+        return dict(self._aliases)
+
+    def __len__(self) -> int:
+        return len(self._algorithms)
+
+    def __contains__(
+        self,
+        item: str,
+    ) -> bool:
+        return self.exists(item)
+
+    def __iter__(
+        self,
+    ) -> Iterator[AlgorithmSpec]:
+        return iter(self._algorithms.values())
+
+    def __repr__(
+        self,
+    ) -> str:
+        return f"{self.__class__.__name__}(n_algorithms={len(self)})"
+
+
+# ============================================================
+# Global registry
+# ============================================================
+
+MODEL_REGISTRY = AlgorithmRegistry()

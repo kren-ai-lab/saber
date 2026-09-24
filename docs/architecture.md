@@ -5,7 +5,7 @@
 
 ## Status
 
-This document defines the current architecture and stable subsystem boundaries of `mlcore`.
+This document defines the current architecture and stable subsystem boundaries of `saber`.
 
 ## Architectural target
 
@@ -60,12 +60,12 @@ The core must not depend on persistence, CLI, plotting, domain-specific data cod
 Canonical provider modules are:
 
 ```text
-mlcore/classification/sklearn.py
-mlcore/classification/xgboost.py
-mlcore/classification/lightgbm.py
-mlcore/regression/sklearn.py
-mlcore/regression/xgboost.py
-mlcore/regression/lightgbm.py
+saber/classification/sklearn.py
+saber/classification/xgboost.py
+saber/classification/lightgbm.py
+saber/regression/sklearn.py
+saber/regression/xgboost.py
+saber/regression/lightgbm.py
 ```
 
 Provider registration belongs beside the task-specific estimator definitions in the task-specific provider modules.
@@ -74,7 +74,7 @@ Provider registration belongs beside the task-specific estimator definitions in 
 
 ### 3. Data and partitions
 
-`mlcore.datasets` defines validated dataset and partition contracts. `mlcore.validation` executes model-validation workflows. Partition generation and partition consumption are distinct concerns.
+`saber.datasets` defines validated dataset and partition contracts. `saber.validation` executes model-validation workflows. Partition generation and partition consumption are distinct concerns.
 
 `DatasetBundle` is the canonical supervised data container:
 
@@ -97,7 +97,7 @@ Dataset fingerprints are deterministic hashes of scientific content (`X`, `y`, s
 
 Predefined fold assignments are converted once into explicit memberships. External JSON/CSV/TSV/DataFrame partition tables can be ingested through a normalized interchange contract.
 
-BioSieve is the **canonical partition-generation engine** when a dataset is not already partitioned. `mlcore` does not reimplement random, stratified, group, distance-aware, homology-aware, or k-fold split generation. Instead, the optional `mlcore[biosieve]` adapter converts `DatasetBundle` into a BioSieve-compatible table, executes the requested BioSieve splitter, preserves BioSieve strategy/parameter/statistics provenance, and converts returned memberships into `PartitionPlan`. Already-partitioned datasets bypass BioSieve and are consumed exactly as supplied. Redundancy reduction remains fully outside `mlcore`; BioSieve reduction, if desired, occurs upstream before `DatasetBundle` creation.
+BioSieve is the **canonical partition-generation engine** when a dataset is not already partitioned. `saber` does not reimplement random, stratified, group, distance-aware, homology-aware, or k-fold split generation. Instead, the optional `saberlib[biosieve]` adapter converts `DatasetBundle` into a BioSieve-compatible table, executes the requested BioSieve splitter, preserves BioSieve strategy/parameter/statistics provenance, and converts returned memberships into `PartitionPlan`. Already-partitioned datasets bypass BioSieve and are consumed exactly as supplied. Redundancy reduction remains fully outside `saber`; BioSieve reduction, if desired, occurs upstream before `DatasetBundle` creation.
 
 ### 4. Preprocessing
 
@@ -147,7 +147,7 @@ matrix crosses prepared numerical representations, registered algorithms, named
 partition scenarios, seeds, and untuned/tuned modes. `DummyClassifier` and
 `DummyRegressor` provide deterministic scientific baselines.
 
-Prepared representations are described by `BenchmarkDataset`; mlcore never
+Prepared representations are described by `BenchmarkDataset`; saber never
 generates those representations. Multiple representations in one comparison
 must contain the same sample IDs and targets. A partition membership generated
 from one benchmark representation can then be rebound to another representation
@@ -215,7 +215,7 @@ Persistence saves fitted estimators/pipelines together with sufficient metadata 
 
 Persistence uses a versioned directory artifact rather than an opaque single blob. Model artifacts contain a joblib-serialized fitted estimator/pipeline plus human-readable JSON files for the manifest, environment, feature schema, provenance, parameters, metrics, training configuration, and optional explicit `PartitionPlan`. Every artifact file is covered by a SHA-256 checksum manifest before joblib deserialization. Checksum verification establishes integrity, not authenticity; pickle/joblib artifacts must still originate from a trusted source.
 
-The artifact schema version is independent from the mlcore package version. Loading validates schema compatibility, feature-schema fingerprints, required files, checksums, and environment differences. Environment differences are surfaced as warnings by default and can be promoted to hard compatibility errors. Inference through a loaded model revalidates feature identity/order before calling the persisted pipeline and can reconstruct the canonical `PredictionResult`, including class order and positive-class semantics.
+The artifact schema version is independent from the saber package version. Loading validates schema compatibility, feature-schema fingerprints, required files, checksums, and environment differences. Environment differences are surfaced as warnings by default and can be promoted to hard compatibility errors. Inference through a loaded model revalidates feature identity/order before calling the persisted pipeline and can reconstruct the canonical `PredictionResult`, including class order and positive-class semantics.
 
 Benchmark persistence is table-first: run, metric, held-out prediction, failure, and optimization-history tables are stored as analysis-ready CSV together with benchmark metadata and environment provenance. Serializing the full Python `BenchmarkResult` is optional because fold estimators and backend-specific studies may be large and less portable.
 
@@ -254,8 +254,8 @@ does not reintroduce sklearn splitters.
 The public API is intentionally small:
 
 ```python
-import mlcore
-from mlcore import MODEL_REGISTRY
+import saber
+from saber import MODEL_REGISTRY
 ```
 
 The stable high-level functions `train`, `validate`, `evaluate`, `tune`/`optimize`, `benchmark`, and `predict` are exposed from the package root together with persistence and config helpers.

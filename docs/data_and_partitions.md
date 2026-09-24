@@ -45,7 +45,7 @@ The contract rejects duplicate membership, within-split overlap, unknown IDs, an
 ### Holdout
 
 ```python
-from mlcore.datasets import PartitionPlan
+from saber.datasets import PartitionPlan
 
 plan = PartitionPlan.holdout(
     train_ids=train_ids,
@@ -74,7 +74,7 @@ plan = PartitionPlan.from_predefined_folds(
 When the data are not already partitioned, **BioSieve is the canonical partition-generation engine**.
 
 ```python
-from mlcore.datasets import BioSievePartitionConfig
+from saber.datasets import BioSievePartitionConfig
 
 partitioning = BioSievePartitionConfig(
     strategy="stratified_kfold",
@@ -99,10 +99,10 @@ prepared numerical representation
                                            ▼
                                       PartitionPlan
                                            ▼
-                                         mlcore
+                                         saber
 ```
 
-`mlcore` does **not** implement redundancy reduction, sequence identity, MMseqs2 reduction, clustering for representative selection, or parallel fallback splitters.
+`Saber` does **not** implement redundancy reduction, sequence identity, MMseqs2 reduction, clustering for representative selection, or parallel fallback splitters.
 
 ## External partitions
 

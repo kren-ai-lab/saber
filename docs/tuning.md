@@ -17,7 +17,7 @@ optuna
 ## Typed search spaces
 
 ```python
-from mlcore.core.search_space import (
+from saber.core.search_space import (
     SearchSpace,
     Categorical,
     Integer,
@@ -40,7 +40,7 @@ Finite lists remain valid categorical domains. Grid search requires enumerable d
 ## Multi-metric tuning
 
 ```python
-from mlcore.tuning import TuningConfig
+from saber.tuning import TuningConfig
 
 config = TuningConfig(
     optimizer="optuna",
