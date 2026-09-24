@@ -6,10 +6,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
+import polars as pl
 
 from saber.datasets.folds import PartitionPlan, PartitionSplit
 from saber.exceptions import PartitionValidationError
+from saber.utils.tabular import as_frame, read_table
 
 _ROLE_ALIASES = {
     "train": "train",
@@ -23,7 +24,7 @@ _ROLE_ALIASES = {
 
 
 def partition_plan_from_frame(
-    frame: pd.DataFrame,
+    frame: Any,
     *,
     sample_id_col: str = "sample_id",
     role_col: str | None = "role",
@@ -43,6 +44,7 @@ def partition_plan_from_frame(
     This is the BioSieve interoperability boundary: BioSieve only needs to
     export one of these tabular contracts; saber never imports BioSieve.
     """
+    frame = as_frame(frame)
     if sample_id_col not in frame.columns:
         raise PartitionValidationError(f"External partition table is missing '{sample_id_col}'.")
 
@@ -59,8 +61,8 @@ def partition_plan_from_frame(
         if fold_col not in frame.columns:
             raise PartitionValidationError(f"External partition table is missing fold column '{fold_col}'.")
         return PartitionPlan.from_predefined_folds(
-            sample_ids=frame[sample_id_col].tolist(),
-            fold_assignments=frame[fold_col].tolist(),
+            sample_ids=frame[sample_id_col].to_list(),
+            fold_assignments=frame[fold_col].to_list(),
             always_train_value=always_train_value,
             dataset_fingerprint=resolved_fingerprint,
             metadata={"source": "external_frame", "layout": "fold_assignment"},
@@ -71,22 +73,23 @@ def partition_plan_from_frame(
             "Membership partition tables require a role column, or provide fold_col."
         )
 
-    working = frame.copy()
-    if split_col is None or split_col not in working.columns:
+    if split_col is None or split_col not in frame.columns:
         internal_split_col = "__saber_split__"
-        working[internal_split_col] = "split_0"
+        working = frame.with_columns(pl.lit("split_0").alias(internal_split_col))
     else:
         internal_split_col = split_col
+        working = frame
 
     splits: list[PartitionSplit] = []
-    for split_name, split_frame in working.groupby(internal_split_col, sort=False, dropna=False):
+    for key, split_frame in working.group_by(internal_split_col, maintain_order=True):
+        split_name = key[0]
         memberships: dict[str, list[Any]] = {
             "train": [],
             "validation": [],
             "test": [],
         }
 
-        for _, row in split_frame.iterrows():
+        for row in split_frame.iter_rows(named=True):
             raw_role = str(row[role_col]).strip().lower()
             role = _ROLE_ALIASES.get(raw_role)
             if role is None:
@@ -111,7 +114,7 @@ def partition_plan_from_frame(
 
 
 def load_partition_plan(
-    source: str | Path | dict[str, Any] | pd.DataFrame,
+    source: str | Path | dict[str, Any] | PartitionPlan | pl.DataFrame,
     **frame_kwargs: Any,
 ) -> PartitionPlan:
     """Load a partition plan from JSON mapping/file or a tabular frame/CSV."""
@@ -119,7 +122,8 @@ def load_partition_plan(
         return source
     if isinstance(source, dict):
         return PartitionPlan.from_dict(source)
-    if isinstance(source, pd.DataFrame):
+    source = as_frame(source)
+    if isinstance(source, pl.DataFrame):
         return partition_plan_from_frame(source, **frame_kwargs)
 
     path = Path(source)
@@ -136,19 +140,19 @@ def load_partition_plan(
 
     if suffix in {".csv", ".tsv"}:
         separator = "\t" if suffix == ".tsv" else ","
-        frame = pd.read_csv(path, sep=separator)
+        frame = read_table(path, separator=separator)
         return partition_plan_from_frame(frame, **frame_kwargs)
 
     raise PartitionValidationError(
-        "Unsupported partition source. Use JSON, CSV, TSV, dict, or pandas DataFrame."
+        "Unsupported partition source. Use JSON, CSV, TSV, dict, or a Polars/pandas DataFrame."
     )
 
 
-def _extract_dataset_fingerprint(frame: pd.DataFrame, *, column: str) -> str | None:
+def _extract_dataset_fingerprint(frame: pl.DataFrame, *, column: str) -> str | None:
     if column not in frame.columns:
         return None
 
-    values = [str(value) for value in frame[column].dropna().unique()]
+    values = [str(value) for value in frame[column].drop_nulls().unique(maintain_order=True).to_list()]
     if not values:
         return None
     if len(values) != 1:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 import pandas as pd
+import polars as pl
 import pytest
 
 from saber.datasets import load_partition_plan, partition_plan_from_frame
@@ -113,3 +114,24 @@ def test_csv_partition_loader(tmp_path):
     plan = load_partition_plan(path)
     assert plan.get_split("split_0").train_ids == ("a",)
     assert plan.get_split("split_0").test_ids == ("c",)
+
+
+def test_membership_table_polars_and_pandas_give_same_plan():
+    rows = {
+        "sample_id": ["a", "b", "c", "d"],
+        "role": ["train", "train", "val", "test"],
+        "split": ["s0", "s0", "s0", "s0"],
+    }
+    from_polars = partition_plan_from_frame(pl.DataFrame(rows))
+    from_pandas = partition_plan_from_frame(pd.DataFrame(rows))
+    assert from_polars.fingerprint == from_pandas.fingerprint
+    assert from_polars.splits[0].validation_ids == ("c",)
+
+
+def test_csv_partition_plan_matches_frame(tmp_path):
+    path = tmp_path / "plan.csv"
+    path.write_text("sample_id,fold\n1,0\n2,1\n3,0\n4,1\n", encoding="utf-8")
+    from_csv = load_partition_plan(path, fold_col="fold")
+    frame = pl.DataFrame({"sample_id": [1, 2, 3, 4], "fold": [0, 1, 0, 1]})
+    from_frame = load_partition_plan(frame, fold_col="fold")
+    assert from_csv.fingerprint == from_frame.fingerprint

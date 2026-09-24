@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+import numpy as np
 import pandas as pd
 import pytest
 import yaml
@@ -9,8 +10,10 @@ from sklearn.datasets import make_classification, make_regression
 
 import saber
 from saber.config import CONFIG_SCHEMA_VERSION, dump_config, load_config, run_config
+from saber.config.builders import load_dataset
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.exceptions import ConfigurationError
+from saber.utils.tabular import read_table
 
 
 def _write_classification_inputs(tmp_path):
@@ -21,11 +24,11 @@ def _write_classification_inputs(tmp_path):
     data_path = tmp_path / "data.csv"
     frame.to_csv(data_path, index=False)
 
-    loaded = pd.read_csv(data_path)
+    loaded = read_table(data_path, separator=",")
     bundle = DatasetBundle(
-        loaded[[f"f{i}" for i in range(5)]],
+        loaded.select([f"f{i}" for i in range(5)]),
         loaded["label"].to_numpy(),
-        sample_ids=loaded["sample_id"].tolist(),
+        sample_ids=loaded["sample_id"].to_list(),
     )
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=bundle.sample_ids,
@@ -244,6 +247,43 @@ def test_evaluate_yaml_uses_persisted_artifact(tmp_path):
     )
     assert execution.summary["workflow"] == "evaluate"
     assert set(execution.result.metrics) == {"rmse", "mae"}
+
+
+def test_csv_and_tsv_dataset_loading_give_same_fingerprint(tmp_path):
+    rows = [
+        "sample_id,target,group,weight,f0,f1",
+        "s0,0,g1,1.0,0.5,NA",
+        "s1,1,g1,2.0,1.5,3.0",
+        "s2,0,g2,1.0,2.5,4.0",
+    ]
+    csv_path = tmp_path / "data.csv"
+    csv_path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    tsv_path = tmp_path / "data.tsv"
+    tsv_path.write_text("\n".join(line.replace(",", "\t") for line in rows) + "\n", encoding="utf-8")
+
+    def _bundle(path):
+        config = load_config(
+            {
+                "workflow": "train",
+                "dataset": {
+                    "path": str(path),
+                    "target": "target",
+                    "sample_id": "sample_id",
+                    "groups": "group",
+                    "sample_weight": "weight",
+                },
+                "algorithm": "ridge_regressor",
+            }
+        )
+        return load_dataset(config, config.payload["dataset"])
+
+    csv_bundle = _bundle(csv_path)
+    tsv_bundle = _bundle(tsv_path)
+
+    assert csv_bundle.fingerprint == tsv_bundle.fingerprint
+    assert csv_bundle.feature_names == ("f0", "f1")
+    assert np.isnan(csv_bundle.X["f1"].to_numpy()[0])
+    assert np.isnan(tsv_bundle.X["f1"].to_numpy()[0])
 
 
 def test_benchmark_config_requires_partitions_or_biosieve():

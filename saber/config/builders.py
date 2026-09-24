@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any
-
-import pandas as pd
+from typing import TYPE_CHECKING, Any
 
 from saber.benchmark import BenchmarkConfig
 from saber.config.schema import WorkflowConfig
@@ -19,6 +17,10 @@ from saber.datasets import (
 from saber.exceptions import ConfigurationError
 from saber.preprocessing import PreprocessingConfig
 from saber.tuning import TuningConfig
+from saber.utils.tabular import read_table
+
+if TYPE_CHECKING:
+    import polars as pl
 
 
 def load_dataset(
@@ -52,7 +54,7 @@ def load_dataset(
         separator = "\t" if suffix == ".tsv" else ","
     if suffix not in {".csv", ".tsv", ".txt"}:
         raise ConfigurationError("CLI/YAML dataset files currently support CSV, TSV, or TXT.")
-    frame = pd.read_csv(path, sep=separator)
+    frame = read_table(path, separator=separator)
 
     target_col = payload.get("target")
     id_col = payload.get("sample_id")
@@ -80,11 +82,11 @@ def load_dataset(
         raise ConfigurationError("Internal error: use load_prediction_frame for unlabeled data.")
 
     return DatasetBundle(
-        X=frame.loc[:, feature_cols].copy(),
+        X=frame.select(feature_cols),
         y=frame[target_col].to_numpy(),
-        sample_ids=None if id_col is None else frame[id_col].tolist(),
+        sample_ids=None if id_col is None else frame[id_col].to_list(),
         feature_names=feature_cols,
-        groups=None if group_col is None else frame[group_col].tolist(),
+        groups=None if group_col is None else frame[group_col].to_list(),
         sample_weight=None if weight_col is None else frame[weight_col].to_numpy(),
         metadata={"source": str(path)},
     )
@@ -93,7 +95,7 @@ def load_dataset(
 def load_prediction_frame(
     config: WorkflowConfig,
     payload: Mapping[str, Any],
-) -> tuple[pd.DataFrame, tuple[Any, ...] | None]:
+) -> tuple[pl.DataFrame, tuple[Any, ...] | None]:
     """Load features/sample IDs for prediction without requiring a target."""
     allowed = {"path", "target", "sample_id", "features", "groups", "sample_weight", "sep"}
     _reject_unknown(payload, allowed, "dataset")
@@ -102,7 +104,7 @@ def load_prediction_frame(
     path = config.resolve_path(payload["path"])
     suffix = path.suffix.lower()
     separator = payload.get("sep") or ("\t" if suffix == ".tsv" else ",")
-    frame = pd.read_csv(path, sep=separator)
+    frame = read_table(path, separator=separator)
     id_col = payload.get("sample_id")
     excluded = {
         name
@@ -118,8 +120,8 @@ def load_prediction_frame(
     missing = set(feature_cols) - set(frame.columns)
     if missing:
         raise ConfigurationError(f"Prediction data are missing features: {sorted(missing)!r}.")
-    sample_ids = None if id_col is None else tuple(frame[id_col].tolist())
-    return frame.loc[:, feature_cols].copy(), sample_ids
+    sample_ids = None if id_col is None else tuple(frame[id_col].to_list())
+    return frame.select(feature_cols), sample_ids
 
 
 def build_preprocessing(payload: Mapping[str, Any] | None) -> PreprocessingConfig:

@@ -12,6 +12,7 @@ import saber
 from saber.cli.main import EXIT_CONFIG, EXIT_OK, main
 from saber.config import load_config, run_config
 from saber.datasets import DatasetBundle, PartitionPlan
+from saber.utils.tabular import read_table
 
 
 def _write_classification_case(tmp_path: Path):
@@ -22,11 +23,11 @@ def _write_classification_case(tmp_path: Path):
     frame["label"] = y
     data_path = tmp_path / "data.csv"
     frame.to_csv(data_path, index=False)
-    loaded = pd.read_csv(data_path)
+    loaded = read_table(data_path, separator=",")
     dataset = DatasetBundle(
-        loaded[[f"f{i}" for i in range(5)]],
+        loaded.select([f"f{i}" for i in range(5)]),
         loaded["label"].to_numpy(),
-        sample_ids=loaded["sample_id"].tolist(),
+        sample_ids=loaded["sample_id"].to_list(),
     )
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=ids,

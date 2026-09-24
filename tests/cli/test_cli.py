@@ -13,6 +13,7 @@ from saber.cli.main import EXIT_CONFIG, EXIT_OK, main
 from saber.config import run_config
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.persistence import save_model_artifact
+from saber.utils.tabular import read_table
 
 
 def _workflow_files(tmp_path):
@@ -21,11 +22,11 @@ def _workflow_files(tmp_path):
     frame.insert(0, "sample_id", [f"s{i}" for i in range(45)])
     frame["label"] = y
     frame.to_csv(tmp_path / "data.csv", index=False)
-    loaded = pd.read_csv(tmp_path / "data.csv")
+    loaded = read_table(tmp_path / "data.csv", separator=",")
     bundle = DatasetBundle(
-        loaded[["f0", "f1", "f2", "f3"]],
+        loaded.select(["f0", "f1", "f2", "f3"]),
         loaded["label"].to_numpy(),
-        sample_ids=loaded["sample_id"],
+        sample_ids=loaded["sample_id"].to_list(),
     )
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=bundle.sample_ids,

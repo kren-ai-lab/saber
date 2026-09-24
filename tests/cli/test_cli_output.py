@@ -13,6 +13,7 @@ from sklearn.datasets import make_classification
 import saber
 from saber.cli.main import EXIT_CONFIG, EXIT_OK, _doctor_payload, main
 from saber.datasets import DatasetBundle, PartitionPlan
+from saber.utils.tabular import read_table
 
 ROOT = Path(__file__).parents[2]
 
@@ -31,11 +32,11 @@ def _validate_config(tmp_path: Path) -> Path:
     data_path = tmp_path / "data.csv"
     frame.to_csv(data_path, index=False)
 
-    loaded = pd.read_csv(data_path)
+    loaded = read_table(data_path, separator=",")
     dataset = DatasetBundle(
-        loaded[[f"f{i}" for i in range(5)]],
+        loaded.select([f"f{i}" for i in range(5)]),
         loaded["label"].to_numpy(),
-        sample_ids=loaded["sample_id"].tolist(),
+        sample_ids=loaded["sample_id"].to_list(),
     )
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=dataset.sample_ids,
