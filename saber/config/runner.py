@@ -5,8 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import polars as pl
@@ -23,12 +22,16 @@ from saber.config.builders import (
     load_prediction_frame,
 )
 from saber.config.io import load_config
-from saber.config.schema import WorkflowConfig
 from saber.exceptions import ConfigurationError
 from saber.persistence import load_model_artifact, save_benchmark_artifact, save_model_artifact
 from saber.utils.serialization import to_jsonable
 from saber.utils.tabular import records_frame
 from saber.validation import ValidationResult
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from saber.config.schema import WorkflowConfig
 
 
 @dataclass(slots=True)

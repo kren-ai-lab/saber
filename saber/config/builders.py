@@ -6,7 +6,6 @@ from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 from saber.benchmark import BenchmarkConfig
-from saber.config.schema import WorkflowConfig
 from saber.core import Categorical, Float, Integer, LogFloat, SearchSpace
 from saber.datasets import (
     BioSievePartitionConfig,
@@ -21,6 +20,8 @@ from saber.utils.tabular import read_table
 
 if TYPE_CHECKING:
     import polars as pl
+
+    from saber.config.schema import WorkflowConfig
 
 
 def load_dataset(
@@ -127,6 +128,7 @@ def load_prediction_frame(
 
 
 def build_preprocessing(payload: Mapping[str, Any] | None) -> PreprocessingConfig:
+    """Build a PreprocessingConfig from a validated preprocessing payload."""
     if payload is None:
         return PreprocessingConfig()
     allowed = {"imputation", "scaler", "fill_value"}
@@ -144,6 +146,7 @@ def build_partition_inputs(
     partition: Mapping[str, Any] | None,
     partitioning: Mapping[str, Any] | None,
 ) -> tuple[PartitionPlan | None, BioSievePartitionConfig | None]:
+    """Build a partition plan and/or BioSieve partitioning config from validated payloads."""
     plan = None
     biosieve = None
     if partition is not None:
@@ -172,6 +175,7 @@ def build_partition_inputs(
 
 
 def build_tuning_config(payload: Mapping[str, Any]) -> TuningConfig:
+    """Build a TuningConfig from a validated tuning payload."""
     allowed = {
         "optimizer",
         "metrics",
@@ -199,6 +203,7 @@ def build_tuning_config(payload: Mapping[str, Any]) -> TuningConfig:
 
 
 def build_benchmark_config(payload: Mapping[str, Any]) -> BenchmarkConfig:
+    """Build a BenchmarkConfig from a validated benchmark payload."""
     allowed = {
         "metrics",
         "seeds",
@@ -226,6 +231,7 @@ def build_benchmark_config(payload: Mapping[str, Any]) -> BenchmarkConfig:
 
 
 def build_search_space(name: str, payload: Mapping[str, Any] | None) -> SearchSpace | None:
+    """Build a SearchSpace from a validated search-space payload, or None if absent."""
     if payload is None:
         return None
     parameters: dict[str, Any] = {}

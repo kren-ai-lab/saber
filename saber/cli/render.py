@@ -73,6 +73,7 @@ def render_preflight(console: Console, config: WorkflowConfig) -> None:
 
 
 def render_dry_run(console: Console, config: WorkflowConfig) -> None:
+    """Render the execution plan followed by a dry-run confirmation."""
     render_preflight(console, config)
     console.print("[green]✓[/green] Configuration is valid. No workflow was executed.")
 
@@ -103,6 +104,7 @@ def render_execution(console: Console, execution: WorkflowExecution) -> None:
 
 
 def render_model_list(console: Console, rows: Sequence[Mapping[str, Any]]) -> None:
+    """Render a table listing registered models and their capabilities."""
     table = Table(title=f"Registered models ({len(rows)})", header_style="bold cyan")
     table.add_column("Name", style="bold")
     table.add_column("Task")
@@ -127,6 +129,7 @@ def render_model_list(console: Console, rows: Sequence[Mapping[str, Any]]) -> No
 
 
 def render_model(console: Console, metadata: Mapping[str, Any]) -> None:
+    """Render detailed metadata for a single registered model."""
     title = f"{metadata.get('name')}  [{metadata.get('provider')}]"
     basics = Table.grid(padding=(0, 2))
     basics.add_column(style="bold cyan")
@@ -153,11 +156,13 @@ def render_model(console: Console, metadata: Mapping[str, Any]) -> None:
 
     defaults = metadata.get("default_params") or {}
     search = "available" if metadata.get("has_search_space") else "not defined"
-    footer = f"Default params: {len(defaults)}  •  Search space: {search}  •  CV: {_yes_no(metadata.get('supports_cv', False))}"
+    cv_supported = _yes_no(metadata.get("supports_cv", False))
+    footer = f"Default params: {len(defaults)}  •  Search space: {search}  •  CV: {cv_supported}"
     console.print(footer)
 
 
 def render_artifact(console: Console, payload: Mapping[str, Any], path: str) -> None:
+    """Render a summary panel for a persisted model artifact."""
     table = Table.grid(padding=(0, 2))
     table.add_column(style="bold cyan")
     table.add_column()
@@ -171,6 +176,7 @@ def render_artifact(console: Console, payload: Mapping[str, Any], path: str) -> 
 
 
 def render_doctor(console: Console, payload: Mapping[str, Any]) -> None:
+    """Render the environment/dependency status table for `saber doctor`."""
     table = Table(title="saber doctor", header_style="bold cyan")
     table.add_column("Component")
     table.add_column("Status")
@@ -284,7 +290,7 @@ def _render_metric_table(
             cells.extend(
                 [
                     _format_number(stats.get("std")),
-                    f"{_format_number(stats.get('min'))} – {_format_number(stats.get('max'))}",
+                    f"{_format_number(stats.get('min'))} - {_format_number(stats.get('max'))}",
                 ]
             )
         table.add_row(*cells)

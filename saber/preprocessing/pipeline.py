@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sklearn.base import clone
 from sklearn.pipeline import Pipeline
 
-from saber.core.specs import AlgorithmSpec
-from saber.datasets.schemas import DatasetBundle
 from saber.preprocessing.imputation import build_imputer
 from saber.preprocessing.scaling import build_scaler, resolve_scaler_name
 from saber.preprocessing.validation import validate_estimator_dataset_requirements
 from saber.utils.tabular import as_frame, to_numpy
+
+if TYPE_CHECKING:
+    from saber.core.specs import AlgorithmSpec
+    from saber.datasets.schemas import DatasetBundle
 
 
 @dataclass(frozen=True, slots=True)

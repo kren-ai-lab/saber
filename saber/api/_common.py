@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -11,14 +10,15 @@ import polars as pl
 from saber.core.prediction import PredictionResult
 from saber.core.registry import MODEL_REGISTRY, AlgorithmRegistry
 from saber.core.results import TrainResult
-from saber.datasets import DatasetBundle
 from saber.datasets.validation import validate_feature_matrix
 from saber.exceptions import FeatureSchemaMismatchError, ValidationContractError
 from saber.preprocessing import PreprocessingConfig, build_model_pipeline, pipeline_input
 from saber.utils.tabular import as_frame
 
 if TYPE_CHECKING:
-    from saber.datasets import FeatureSchema
+    from collections.abc import Mapping, Sequence
+
+    from saber.datasets import DatasetBundle, FeatureSchema
 
 
 def fit_dataset(

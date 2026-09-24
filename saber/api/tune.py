@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from saber.core import SearchSpace
 from saber.core.registry import MODEL_REGISTRY, AlgorithmRegistry
-from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
-from saber.preprocessing import PreprocessingConfig
 from saber.tuning import OptimizationResult, TuningConfig, TuningEngine
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+    from saber.core import SearchSpace
+    from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
+    from saber.preprocessing import PreprocessingConfig
 
 
 def tune(

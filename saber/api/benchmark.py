@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from saber.benchmark import (
     BenchmarkConfig,
@@ -13,8 +12,12 @@ from saber.benchmark import (
     BenchmarkResult,
 )
 from saber.core.registry import MODEL_REGISTRY, AlgorithmRegistry
-from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
-from saber.preprocessing import PreprocessingConfig
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+    from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
+    from saber.preprocessing import PreprocessingConfig
 
 
 def benchmark(

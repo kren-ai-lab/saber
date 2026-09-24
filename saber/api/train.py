@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from saber.api._common import fit_dataset
 from saber.core.registry import MODEL_REGISTRY, AlgorithmRegistry
-from saber.core.results import TrainResult
-from saber.datasets import DatasetBundle, PartitionPlan
 from saber.persistence import save_model_artifact
 from saber.preprocessing import PreprocessingConfig
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from pathlib import Path
+
+    from saber.core.results import TrainResult
+    from saber.datasets import DatasetBundle, PartitionPlan
 
 
 def train(

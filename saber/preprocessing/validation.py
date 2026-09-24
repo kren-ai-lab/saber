@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from saber.core.specs import AlgorithmSpec
-from saber.datasets.schemas import DatasetBundle
 from saber.exceptions import PreprocessingContractError
 from saber.utils.tabular import to_numpy
+
+if TYPE_CHECKING:
+    from saber.core.specs import AlgorithmSpec
+    from saber.datasets.schemas import DatasetBundle
 
 
 def has_missing_features(X: Any) -> bool:

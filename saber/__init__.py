@@ -2,7 +2,7 @@
 
 # Force core algorithm registration. Optional providers register lazily when available.
 import saber.classification
-import saber.regression
+import saber.regression  # noqa: F401  # side-effect import registers regression models
 from saber._version import __version__
 from saber.api import (
     benchmark,
