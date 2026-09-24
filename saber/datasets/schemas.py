@@ -32,6 +32,7 @@ class FeatureSchema:
     dtypes: tuple[str, ...]
 
     def __post_init__(self) -> None:
+        """Validate that names and dtypes are non-empty, aligned, and unique."""
         if not self.names:
             raise DatasetValidationError("FeatureSchema must contain at least one feature.")
         if len(self.names) != len(self.dtypes):
@@ -43,13 +44,16 @@ class FeatureSchema:
 
     @property
     def n_features(self) -> int:
+        """Return the number of features in the schema."""
         return len(self.names)
 
     @property
     def fingerprint(self) -> str:
+        """Return a content fingerprint of the feature names and dtypes."""
         return feature_schema_fingerprint(names=self.names, dtypes=self.dtypes)
 
     def to_dict(self) -> dict[str, Any]:
+        """Return the schema as a plain JSON-serializable dictionary."""
         return {
             "names": list(self.names),
             "dtypes": list(self.dtypes),
@@ -64,6 +68,7 @@ class FeatureSchema:
         *,
         feature_names: tuple[str, ...] | list[str] | None = None,
     ) -> FeatureSchema:
+        """Infer a feature schema from a feature matrix and optional names."""
         X = as_frame(X)
         _, n_features = validate_feature_matrix(X)
 
@@ -121,6 +126,7 @@ class DatasetBundle:
     _generated_sample_ids: bool = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
+        """Validate and normalize the dataset's features, target, and identifiers."""
         self.X = as_frame(self.X)
         n_samples, _ = validate_feature_matrix(self.X)
         self.y = validate_target(self.y, n_samples=n_samples)
@@ -150,18 +156,22 @@ class DatasetBundle:
 
     @property
     def n_samples(self) -> int:
+        """Return the number of samples in the dataset."""
         return len(self.y)
 
     @property
     def n_features(self) -> int:
+        """Return the number of features in the dataset."""
         return self._feature_schema.n_features
 
     @property
     def feature_schema(self) -> FeatureSchema:
+        """Return the dataset's feature schema."""
         return self._feature_schema
 
     @property
     def generated_sample_ids(self) -> bool:
+        """Return whether sample identifiers were auto-generated."""
         return self._generated_sample_ids
 
     @property

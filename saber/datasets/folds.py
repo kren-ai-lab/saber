@@ -4,16 +4,18 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
 from saber.datasets._fingerprint import partition_fingerprint
-from saber.datasets.schemas import DatasetBundle
 from saber.exceptions import (
     DatasetFingerprintMismatchError,
     PartitionValidationError,
 )
+
+if TYPE_CHECKING:
+    from saber.datasets.schemas import DatasetBundle
 
 PartitionKind = Literal["holdout", "cross_validation", "predefined", "external"]
 
@@ -29,6 +31,7 @@ class PartitionSplit:
     metadata: dict[str, Any] = field(default_factory=dict, compare=False)
 
     def __post_init__(self) -> None:
+        """Normalize identifiers and validate uniqueness and role membership."""
         if not self.name.strip():
             raise PartitionValidationError("Partition split names cannot be empty.")
 
@@ -69,9 +72,11 @@ class PartitionSplit:
 
     @property
     def all_ids(self) -> tuple[Any, ...]:
+        """Return the union of train, validation, and test identifiers."""
         return self.train_ids + self.validation_ids + self.test_ids
 
     def ids_for(self, role: str) -> tuple[Any, ...]:
+        """Return the identifiers for the given role."""
         if role == "train":
             return self.train_ids
         if role in {"validation", "val"}:
@@ -81,6 +86,7 @@ class PartitionSplit:
         raise PartitionValidationError("role must be 'train', 'validation', or 'test'.")
 
     def to_dict(self) -> dict[str, Any]:
+        """Return the split as a plain JSON-serializable dictionary."""
         return {
             "name": self.name,
             "train_ids": list(self.train_ids),
@@ -91,6 +97,7 @@ class PartitionSplit:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> PartitionSplit:
+        """Build a split from a dictionary produced by :meth:`to_dict`."""
         return cls(
             name=str(payload["name"]),
             train_ids=tuple(payload.get("train_ids", ())),
@@ -120,6 +127,7 @@ class PartitionPlan:
     metadata: dict[str, Any] = field(default_factory=dict, compare=False)
 
     def __post_init__(self) -> None:
+        """Normalize splits and validate the partition kind and split names."""
         splits = tuple(self.splits)
         object.__setattr__(self, "splits", splits)
         object.__setattr__(self, "metadata", dict(self.metadata))
@@ -137,6 +145,7 @@ class PartitionPlan:
 
     @property
     def fingerprint(self) -> str:
+        """Return a content fingerprint of the partition plan."""
         return partition_fingerprint(
             kind=self.kind,
             splits=[split.to_dict() for split in self.splits],
@@ -145,9 +154,11 @@ class PartitionPlan:
 
     @property
     def n_splits(self) -> int:
+        """Return the number of splits in the plan."""
         return len(self.splits)
 
     def get_split(self, name: str) -> PartitionSplit:
+        """Return the split with the given name."""
         for split in self.splits:
             if split.name == name:
                 return split
@@ -216,6 +227,7 @@ class PartitionPlan:
         )
 
     def to_dict(self) -> dict[str, Any]:
+        """Return the plan as a plain JSON-serializable dictionary."""
         return {
             "kind": self.kind,
             "dataset_fingerprint": self.dataset_fingerprint,
@@ -226,6 +238,7 @@ class PartitionPlan:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> PartitionPlan:
+        """Build a plan from a dictionary produced by :meth:`to_dict`."""
         return cls(
             kind=payload.get("kind", "external"),
             dataset_fingerprint=payload.get("dataset_fingerprint"),
@@ -246,6 +259,7 @@ class PartitionPlan:
         name: str = "holdout",
         metadata: dict[str, Any] | None = None,
     ) -> PartitionPlan:
+        """Build a single train/validation/test holdout partition."""
         return cls(
             kind="holdout",
             dataset_fingerprint=dataset_fingerprint,

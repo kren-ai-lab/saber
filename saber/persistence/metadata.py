@@ -24,12 +24,14 @@ class ArtifactManifest:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        """Validate the artifact type and file listing."""
         if self.artifact_type not in {"model", "benchmark"}:
             raise ArtifactCompatibilityError(f"Unsupported artifact type '{self.artifact_type}'.")
         if not self.files:
             raise ArtifactCompatibilityError("Artifact manifest must list files.")
 
     def to_dict(self) -> dict[str, Any]:
+        """Return the manifest as a plain JSON-serializable dictionary."""
         return {
             "schema_version": self.schema_version,
             "artifact_type": self.artifact_type,
@@ -41,6 +43,7 @@ class ArtifactManifest:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> ArtifactManifest:
+        """Build a manifest from a dictionary produced by :meth:`to_dict`."""
         schema_version = str(payload.get("schema_version", ""))
         if schema_version != ARTIFACT_SCHEMA_VERSION:
             raise ArtifactCompatibilityError(

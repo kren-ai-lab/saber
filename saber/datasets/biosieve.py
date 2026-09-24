@@ -7,18 +7,21 @@ public BioSieve splitting protocol.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import polars as pl
 
 from saber.datasets.folds import PartitionPlan, PartitionSplit
-from saber.datasets.schemas import DatasetBundle
 from saber.exceptions import OptionalDependencyError, PartitionIntegrationError
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+    from saber.datasets.schemas import DatasetBundle
 
 _STRATEGIES: dict[str, tuple[str, str]] = {
     "random": ("biosieve.splitting.random", "RandomSplitter"),
@@ -88,6 +91,7 @@ class BioSievePartitionConfig:
     date_col: str | None = None
 
     def __post_init__(self) -> None:
+        """Normalize the strategy name and validate that it is supported."""
         strategy = str(self.strategy).strip().lower()
         if not strategy:
             raise PartitionIntegrationError("BioSieve strategy cannot be empty.")
@@ -156,7 +160,9 @@ def partition_with_biosieve(
         elif hasattr(active_splitter, "run"):
             raw_results = [active_splitter.run(frame, columns)]
         else:
-            raise PartitionIntegrationError("BioSieve splitter must implement run(...) or run_folds(...).")
+            raise PartitionIntegrationError(  # noqa: TRY301  # re-raised unchanged by the except clause below
+                "BioSieve splitter must implement run(...) or run_folds(...)."
+            )
     except PartitionIntegrationError:
         raise
     except Exception as exc:
@@ -192,7 +198,7 @@ def partition_with_biosieve(
     return plan
 
 
-def _import_biosieve_runtime():
+def _import_biosieve_runtime() -> tuple[Any, Any]:
     try:
         pl = import_module("polars")
         types = import_module("biosieve.types")
@@ -205,7 +211,7 @@ def _import_biosieve_runtime():
     return pl, types.Columns
 
 
-def _build_splitter(strategy: str, params: Mapping[str, Any]):
+def _build_splitter(strategy: str, params: Mapping[str, Any]) -> Any:
     module_name, class_name = _STRATEGIES[strategy]
     try:
         module = import_module(module_name)
@@ -260,7 +266,7 @@ def _dataset_to_polars(
     extra_columns: Mapping[str, Sequence[Any]] | None,
     polars_module: Any,
     include_features: bool,
-):
+) -> pl.DataFrame:
     reserved = {config.id_col, config.label_col, config.group_col}
     feature_names = tuple(dataset.feature_names)
     collisions = reserved & set(feature_names)

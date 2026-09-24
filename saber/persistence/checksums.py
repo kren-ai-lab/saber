@@ -11,6 +11,7 @@ CHECKSUM_FILENAME = "checksums.sha256"
 
 
 def sha256_file(path: str | Path) -> str:
+    """Return the SHA-256 hex digest of the file at ``path``."""
     digest = sha256()
     with Path(path).open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
@@ -19,6 +20,7 @@ def sha256_file(path: str | Path) -> str:
 
 
 def write_checksums(root: str | Path) -> Path:
+    """Write a checksums file covering every file under ``root`` and return its path."""
     base = Path(root)
     entries: list[tuple[str, str]] = []
     for path in sorted(base.rglob("*")):
@@ -36,6 +38,7 @@ def write_checksums(root: str | Path) -> Path:
 
 
 def verify_checksums(root: str | Path) -> None:
+    """Verify every file under ``root`` against its recorded checksum."""
     base = Path(root)
     checksum_path = base / CHECKSUM_FILENAME
     if not checksum_path.is_file():

@@ -52,9 +52,12 @@ def partition_plan_from_frame(
         frame,
         column=dataset_fingerprint_col,
     )
-    if dataset_fingerprint is not None and inferred_fingerprint is not None:
-        if dataset_fingerprint != inferred_fingerprint:
-            raise PartitionValidationError("Explicit dataset_fingerprint disagrees with the partition table.")
+    if (
+        dataset_fingerprint is not None
+        and inferred_fingerprint is not None
+        and dataset_fingerprint != inferred_fingerprint
+    ):
+        raise PartitionValidationError("Explicit dataset_fingerprint disagrees with the partition table.")
     resolved_fingerprint = dataset_fingerprint or inferred_fingerprint
 
     if fold_col is not None:
