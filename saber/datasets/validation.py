@@ -126,6 +126,13 @@ def validate_sample_ids(sample_ids: Sequence[Any], *, n_samples: int) -> tuple[A
         if not isinstance(sample_id, (str, int, float, bool)):
             raise DatasetValidationError("sample_ids must use scalar str/int/float/bool identifiers.")
 
+    classes = {_type_class(sample_id) for sample_id in ids}
+    if len(classes) > 1:
+        found = ", ".join(sorted(cls.__name__ for cls in classes))
+        raise DatasetValidationError(
+            f"sample_ids must all share one type (str, int, float or bool); found: {found}."
+        )
+
     return ids
 
 
@@ -209,3 +216,12 @@ def _to_python_scalar(value: Any) -> Any:
     if isinstance(value, np.generic):
         return value.item()
     return value
+
+
+def _type_class(value: Any) -> type:
+    """Classify a validated scalar into one of {bool, int, float, str}."""
+    if isinstance(value, bool):
+        return bool
+    if isinstance(value, int):
+        return int
+    return type(value)

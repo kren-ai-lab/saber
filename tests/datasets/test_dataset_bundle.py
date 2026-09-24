@@ -69,6 +69,19 @@ def test_sample_ids_must_be_unique_and_aligned():
         _dataset(sample_ids=("s1", "s2"))
 
 
+def test_mixed_type_sample_ids_are_rejected():
+    with pytest.raises(DatasetValidationError) as exc_info:
+        _dataset(sample_ids=(1, "2", 3, 4))
+    assert "sample_ids must all share one type" in str(exc_info.value)
+    assert "found: int, str" in str(exc_info.value)
+
+
+def test_homogeneous_sample_id_types_are_accepted():
+    assert _dataset(sample_ids=(1, 2, 3, 4)).sample_ids == (1, 2, 3, 4)
+    assert _dataset(sample_ids=(1.0, 2.0, 3.0, 4.0)).sample_ids == (1.0, 2.0, 3.0, 4.0)
+    assert _dataset(sample_ids=np.array([1, 2, 3, 4], dtype=np.int64)).sample_ids == (1, 2, 3, 4)
+
+
 def test_groups_and_sample_weights_are_validated():
     dataset = _dataset(groups=("g1", "g1", "g2", "g2"), sample_weight=[1, 2, 1, 3])
     assert dataset.groups == ("g1", "g1", "g2", "g2")
