@@ -3,10 +3,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from mlcore import MODEL_REGISTRY
-from mlcore.datasets import DatasetBundle, PartitionPlan
-from mlcore.exceptions import PreprocessingContractError
-from mlcore.preprocessing import PreprocessingConfig, build_model_pipeline
+from saber import MODEL_REGISTRY
+from saber.datasets import DatasetBundle, PartitionPlan
+from saber.exceptions import PreprocessingContractError
+from saber.preprocessing import PreprocessingConfig, build_model_pipeline
 
 
 def _dataset(X):

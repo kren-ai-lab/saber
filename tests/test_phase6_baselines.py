@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sklearn.dummy import DummyClassifier, DummyRegressor
 
-from mlcore import MODEL_REGISTRY
+from saber import MODEL_REGISTRY
 
 
 def test_classification_baseline_is_registered_with_deterministic_default() -> None:

@@ -5,8 +5,8 @@ import json
 import pandas as pd
 import pytest
 
-from mlcore.datasets import load_partition_plan, partition_plan_from_frame
-from mlcore.exceptions import PartitionValidationError
+from saber.datasets import load_partition_plan, partition_plan_from_frame
+from saber.exceptions import PartitionValidationError
 
 
 def test_membership_frame_supports_external_biosieve_style_contract():

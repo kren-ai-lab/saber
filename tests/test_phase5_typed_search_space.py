@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from optuna.trial import FixedTrial
 
-from mlcore.core.search_space import (
+from saber.core.search_space import (
     Categorical,
     Float,
     Integer,

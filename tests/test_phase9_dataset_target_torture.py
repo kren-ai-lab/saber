@@ -5,11 +5,11 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification, make_regression
 
-from mlcore import MODEL_REGISTRY
-from mlcore.datasets import DatasetBundle, PartitionPlan
-from mlcore.exceptions import DatasetValidationError, PreprocessingContractError
-from mlcore.preprocessing import PreprocessingConfig
-from mlcore.validation import ValidationEngine
+from saber import MODEL_REGISTRY
+from saber.datasets import DatasetBundle, PartitionPlan
+from saber.exceptions import DatasetValidationError, PreprocessingContractError
+from saber.preprocessing import PreprocessingConfig
+from saber.validation import ValidationEngine
 
 
 def _cv_plan(dataset: DatasetBundle, n_splits: int = 3) -> PartitionPlan:

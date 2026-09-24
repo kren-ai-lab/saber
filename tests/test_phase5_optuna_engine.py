@@ -5,10 +5,10 @@ from sklearn.datasets import make_classification
 
 pytest.importorskip("optuna")
 
-from mlcore import MODEL_REGISTRY
-from mlcore.core.search_space import LogFloat, SearchSpace
-from mlcore.datasets import DatasetBundle, PartitionPlan
-from mlcore.tuning import TuningConfig, TuningEngine
+from saber import MODEL_REGISTRY
+from saber.core.search_space import LogFloat, SearchSpace
+from saber.datasets import DatasetBundle, PartitionPlan
+from saber.tuning import TuningConfig, TuningEngine
 
 
 def _inputs():

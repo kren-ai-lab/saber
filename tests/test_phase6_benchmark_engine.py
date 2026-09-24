@@ -5,17 +5,17 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification, make_regression
 
-from mlcore import MODEL_REGISTRY
-from mlcore.benchmark import (
+from saber import MODEL_REGISTRY
+from saber.benchmark import (
     BenchmarkConfig,
     BenchmarkDataset,
     BenchmarkEngine,
     BenchmarkPartition,
 )
-from mlcore.core.search_space import SearchSpace
-from mlcore.datasets import DatasetBundle, PartitionPlan
-from mlcore.exceptions import BenchmarkContractError
-from mlcore.tuning import TuningConfig
+from saber.core.search_space import SearchSpace
+from saber.datasets import DatasetBundle, PartitionPlan
+from saber.exceptions import BenchmarkContractError
+from saber.tuning import TuningConfig
 
 
 def _classification_dataset(seed: int = 42, *, scale: float = 1.0) -> DatasetBundle:

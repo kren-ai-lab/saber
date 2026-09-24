@@ -3,8 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from mlcore.datasets import DatasetBundle, PartitionPlan, PartitionSplit
-from mlcore.exceptions import DatasetFingerprintMismatchError, PartitionValidationError
+from saber.datasets import DatasetBundle, PartitionPlan, PartitionSplit
+from saber.exceptions import DatasetFingerprintMismatchError, PartitionValidationError
 
 
 def _dataset():

@@ -8,10 +8,10 @@ import pytest
 import yaml
 from sklearn.datasets import make_classification, make_regression
 
-import mlcore
-from mlcore.config import CONFIG_SCHEMA_VERSION, dump_config, load_config, run_config
-from mlcore.datasets import DatasetBundle, PartitionPlan
-from mlcore.exceptions import ConfigurationError
+import saber
+from saber.config import CONFIG_SCHEMA_VERSION, dump_config, load_config, run_config
+from saber.datasets import DatasetBundle, PartitionPlan
+from saber.exceptions import ConfigurationError
 
 
 def _write_classification_inputs(tmp_path):
@@ -64,7 +64,7 @@ def test_yaml_validation_workflow_matches_direct_python_api(tmp_path):
     )
 
     execution = run_config(config_path)
-    direct = mlcore.validate(
+    direct = saber.validate(
         dataset=bundle,
         algorithm="logistic_regression",
         partition_plan=plan,
@@ -195,10 +195,10 @@ def test_benchmark_yaml_runs_same_public_engine(tmp_path):
         },
     }
     execution = run_config(config)
-    direct = mlcore.benchmark(
+    direct = saber.benchmark(
         datasets={"rep_a": bundle},
         algorithms=("logistic_regression",),
-        config=__import__("mlcore.benchmark", fromlist=["BenchmarkConfig"]).BenchmarkConfig(
+        config=__import__("saber.benchmark", fromlist=["BenchmarkConfig"]).BenchmarkConfig(
             metrics=("accuracy",), seeds=(42,), modes=("untuned",), include_baselines=False
         ),
         partitions={"cv": plan},

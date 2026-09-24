@@ -10,22 +10,22 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification
 
-from mlcore import MODEL_REGISTRY
-from mlcore.datasets import DatasetBundle, PartitionPlan
-from mlcore.exceptions import (
+from saber import MODEL_REGISTRY
+from saber.datasets import DatasetBundle, PartitionPlan
+from saber.exceptions import (
     ArtifactIntegrityError,
     DatasetFingerprintMismatchError,
     FeatureSchemaMismatchError,
     PersistenceError,
 )
-from mlcore.persistence import (
+from saber.persistence import (
     ARTIFACT_SCHEMA_VERSION,
     inspect_artifact,
     load_model_artifact,
     save_model_artifact,
     verify_artifact,
 )
-from mlcore.preprocessing import build_model_pipeline
+from saber.preprocessing import build_model_pipeline
 
 
 def _fitted_fixture():
@@ -200,7 +200,7 @@ def test_round_trip_works_in_fresh_python_process(tmp_path):
     code = f"""
 import numpy as np
 import pandas as pd
-from mlcore.persistence import load_model_artifact
+from saber.persistence import load_model_artifact
 artifact = load_model_artifact(r'{artifact_path}')
 X = pd.read_csv(r'{data_path}')
 expected = np.load(r'{expected_path}')

@@ -7,7 +7,7 @@ Tests for OptimizationResult.
 
 from __future__ import annotations
 
-from mlcore.tuning.results import OptimizationResult
+from saber.tuning.results import OptimizationResult
 
 
 def test_optimization_result_creation() -> None:

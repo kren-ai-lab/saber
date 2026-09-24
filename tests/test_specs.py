@@ -5,9 +5,9 @@ from __future__ import annotations
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 
-from mlcore.core.capabilities import EstimatorRequirements
-from mlcore.core.search_space import SearchSpace
-from mlcore.core.specs import AlgorithmSpec
+from saber.core.capabilities import EstimatorRequirements
+from saber.core.search_space import SearchSpace
+from saber.core.specs import AlgorithmSpec
 
 
 def test_algorithm_spec_builds_factory_and_metadata() -> None:
@@ -41,7 +41,7 @@ def test_algorithm_spec_builds_factory_and_metadata() -> None:
 
 
 def test_explicit_factory_class_mismatch_is_rejected() -> None:
-    from mlcore.core.estimator import EstimatorFactory
+    from saber.core.estimator import EstimatorFactory
 
     factory = EstimatorFactory(RandomForestClassifier)
     try:

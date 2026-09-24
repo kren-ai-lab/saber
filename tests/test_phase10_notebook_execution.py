@@ -33,7 +33,7 @@ def test_notebook_executes_in_clean_subprocess(notebook: Path) -> None:
         env = os.environ.copy()
         env["PYTHONPATH"] = str(ROOT) + os.pathsep + env.get("PYTHONPATH", "")
         env["MPLBACKEND"] = "Agg"
-        env["MLCORE_DEMO_TEST"] = "1"
+        env["SABER_DEMO_TEST"] = "1"
         env["PYTHONWARNINGS"] = "error"
         completed = subprocess.run(
             [sys.executable, str(script_path)],

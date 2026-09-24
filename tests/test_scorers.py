@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from mlcore.tuning.scorers import (
+from saber.tuning.scorers import (
     CLASSIFICATION_SCORERS,
     REGRESSION_SCORERS,
     SCORERS,

@@ -45,8 +45,8 @@ def test_every_demo_has_assertions_visualization_and_phase_metadata() -> None:
     for relative in sorted(EXPECTED_NOTEBOOKS):
         nb = _load(ROOT / relative)
         code = _source(nb)
-        assert nb["metadata"]["mlcore"]["phase"] == 10
-        assert nb["metadata"]["mlcore"]["level"] == "advanced"
+        assert nb["metadata"]["saber"]["phase"] == 10
+        assert nb["metadata"]["saber"]["level"] == "advanced"
         assert len(nb["cells"]) >= 6
         assert "DEMO_CHECKS" in code
         assert "assert all(DEMO_CHECKS.values())" in code

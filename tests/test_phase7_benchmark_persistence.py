@@ -4,10 +4,10 @@ from pathlib import Path
 
 from sklearn.datasets import make_classification
 
-from mlcore import MODEL_REGISTRY
-from mlcore.benchmark import BenchmarkConfig, BenchmarkEngine
-from mlcore.datasets import DatasetBundle, PartitionPlan
-from mlcore.persistence import load_benchmark_artifact, save_benchmark_artifact
+from saber import MODEL_REGISTRY
+from saber.benchmark import BenchmarkConfig, BenchmarkEngine
+from saber.datasets import DatasetBundle, PartitionPlan
+from saber.persistence import load_benchmark_artifact, save_benchmark_artifact
 
 
 def _benchmark_result():

@@ -6,10 +6,10 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from mlcore.datasets import DatasetBundle
-from mlcore.datasets import biosieve as adapter
-from mlcore.datasets.biosieve import BioSievePartitionConfig, partition_with_biosieve
-from mlcore.exceptions import OptionalDependencyError, PartitionIntegrationError
+from saber.datasets import DatasetBundle
+from saber.datasets import biosieve as adapter
+from saber.datasets.biosieve import BioSievePartitionConfig, partition_with_biosieve
+from saber.exceptions import OptionalDependencyError, PartitionIntegrationError
 
 
 class FakeSeries:
@@ -59,7 +59,7 @@ class FakeKFoldSplitter:
     strategy = "random_kfold"
 
     def run_folds(self, frame, cols):
-        assert cols.id_col == "__mlcore_sample_id__"
+        assert cols.id_col == "__saber_sample_id__"
         results = []
         folds = ([0, 1], [2, 3], [4, 5])
         all_indices = set(range(6))
@@ -82,7 +82,7 @@ class FakeSingleSplitter:
     strategy = "group"
 
     def run(self, frame, cols):
-        assert cols.group_col == "__mlcore_group__"
+        assert cols.group_col == "__saber_group__"
         return SimpleNamespace(
             train=frame[[0, 1, 2, 3]],
             test=frame[[4, 5]],
@@ -175,7 +175,7 @@ def test_missing_biosieve_dependency_has_actionable_error(monkeypatch):
         return original(name)
 
     monkeypatch.setattr(adapter, "import_module", fail)
-    with pytest.raises(OptionalDependencyError, match="mlcore\\[biosieve\\]"):
+    with pytest.raises(OptionalDependencyError, match="saber\\[biosieve\\]"):
         adapter._import_biosieve_runtime()
 
 
@@ -211,8 +211,8 @@ def test_regular_biosieve_partition_does_not_copy_full_feature_matrix(fake_runti
         splitter=splitter,
     )
     assert splitter.columns_seen == (
-        "__mlcore_sample_id__",
-        "__mlcore_target__",
+        "__saber_sample_id__",
+        "__saber_target__",
     )
 
 

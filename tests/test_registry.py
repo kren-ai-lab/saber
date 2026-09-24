@@ -6,9 +6,9 @@ import pytest
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 
-from mlcore.core.registry import AlgorithmRegistry
-from mlcore.core.specs import AlgorithmSpec
-from mlcore.exceptions import AlgorithmAlreadyRegisteredError, AlgorithmNotFoundError
+from saber.core.registry import AlgorithmRegistry
+from saber.core.specs import AlgorithmSpec
+from saber.exceptions import AlgorithmAlreadyRegisteredError, AlgorithmNotFoundError
 
 
 def _spec(name: str = "random_forest", aliases: tuple[str, ...] = ("rf",)) -> AlgorithmSpec:

@@ -4,12 +4,12 @@ import numpy as np
 import pytest
 from sklearn.datasets import make_classification, make_regression
 
-from mlcore import MODEL_REGISTRY
-from mlcore.benchmark import BenchmarkConfig, BenchmarkEngine
-from mlcore.core.search_space import SearchSpace
-from mlcore.datasets import DatasetBundle, PartitionPlan
-from mlcore.exceptions import BenchmarkContractError
-from mlcore.tuning import TuningConfig
+from saber import MODEL_REGISTRY
+from saber.benchmark import BenchmarkConfig, BenchmarkEngine
+from saber.core.search_space import SearchSpace
+from saber.datasets import DatasetBundle, PartitionPlan
+from saber.exceptions import BenchmarkContractError
+from saber.tuning import TuningConfig
 
 
 def _classification(n=60, seed=5):

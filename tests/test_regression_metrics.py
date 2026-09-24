@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from mlcore.evaluation.regression import (
+from saber.evaluation.regression import (
     REGRESSION_METRICS,
     evaluate_regression,
     metric_names,

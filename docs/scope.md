@@ -1,16 +1,16 @@
-# mlcore Scope Contract
+# Saber Scope Contract
 
 ## Purpose
 
-`mlcore` is a domain-agnostic library for **classical supervised machine learning** on numerical tabular feature matrices. It provides a common execution layer for model discovery, training, validation, hyperparameter optimization, benchmarking, persistence, and reproducible inference.
+`Saber` is a domain-agnostic library for **classical supervised machine learning** on numerical tabular feature matrices. It provides a common execution layer for model discovery, training, validation, hyperparameter optimization, benchmarking, persistence, and reproducible inference.
 
 The library consumes already constructed features. It does not know whether those features came from protein embeddings, molecular descriptors, fingerprints, one-hot encodings, experimental measurements, PCA coordinates, or another upstream representation system.
 
 ## Canonical identity
 
-- Distribution name: `mlcore`
-- Python import package: `mlcore`
-- Canonical project name in documentation: **mlcore**
+- Distribution name: `saberlib`
+- Python import package: `saber`
+- Canonical project name in documentation: **Saber**
 - Current repository directory names are not part of the public API and may be renamed independently.
 
 ## Supported learning problems
@@ -86,14 +86,14 @@ pyyaml
 Optional providers/features are installed explicitly:
 
 ```text
-mlcore[xgboost]
-mlcore[lightgbm]
-mlcore[optuna]
-mlcore[biosieve]
-mlcore[all]
+saber[xgboost]
+saber[lightgbm]
+saber[optuna]
+saber[biosieve]
+saber[all]
 ```
 
-Importing `mlcore` must succeed without any optional dependency installed. Optional estimator providers register only when their Python package is available.
+Importing `saber` must succeed without any optional dependency installed. Optional estimator providers register only when their Python package is available.
 
 ## Scientific design principles
 

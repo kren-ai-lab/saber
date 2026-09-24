@@ -9,8 +9,8 @@ import pandas as pd
 import yaml
 from sklearn.datasets import make_classification
 
-from mlcore.cli.main import EXIT_CONFIG, EXIT_OK, _doctor_payload, main
-from mlcore.datasets import DatasetBundle, PartitionPlan
+from saber.cli.main import EXIT_CONFIG, EXIT_OK, _doctor_payload, main
+from saber.datasets import DatasetBundle, PartitionPlan
 
 
 ROOT = Path(__file__).parents[1]
@@ -118,11 +118,11 @@ def test_model_show_human_output_includes_capabilities(capsys):
 def test_doctor_payload_and_cli(capsys):
     payload = _doctor_payload()
     names = {item["name"] for item in payload["components"]}
-    assert {"mlcore", "python", "scikit-learn", "biosieve", "xgboost", "lightgbm", "optuna"} <= names
+    assert {"saber", "python", "scikit-learn", "biosieve", "xgboost", "lightgbm", "optuna"} <= names
 
     assert main(["doctor", "--json"]) == EXIT_OK
     rendered = json.loads(capsys.readouterr().out)
-    assert rendered["components"][0]["name"] == "mlcore"
+    assert rendered["components"][0]["name"] == "saber"
 
 
 def test_wrong_workflow_still_uses_configuration_exit_code(tmp_path):
@@ -132,7 +132,7 @@ def test_wrong_workflow_still_uses_configuration_exit_code(tmp_path):
 
 def test_module_help_contains_cli2_commands(tmp_path):
     completed = subprocess.run(
-        [sys.executable, "-m", "mlcore", "--help"],
+        [sys.executable, "-m", "saber", "--help"],
         cwd=tmp_path,
         env={**__import__("os").environ, "PYTHONPATH": str(ROOT)},
         capture_output=True,
@@ -142,12 +142,12 @@ def test_module_help_contains_cli2_commands(tmp_path):
     assert completed.returncode == 0
     for token in ("doctor", "models", "artifact", "config", "benchmark"):
         assert token in completed.stdout
-    assert "mlcore benchmark study.yaml --dry-run" in completed.stdout
+    assert "saber benchmark study.yaml --dry-run" in completed.stdout
 
 
 def test_cli2_contains_no_scientific_engine_imports_or_splitters():
-    source = (ROOT / "mlcore" / "cli" / "main.py").read_text(encoding="utf-8")
-    renderer = (ROOT / "mlcore" / "cli" / "render.py").read_text(encoding="utf-8")
+    source = (ROOT / "saber" / "cli" / "main.py").read_text(encoding="utf-8")
+    renderer = (ROOT / "saber" / "cli" / "render.py").read_text(encoding="utf-8")
     combined = source + renderer
     forbidden = (
         "train_test_split",
@@ -163,7 +163,7 @@ def test_cli2_contains_no_scientific_engine_imports_or_splitters():
 
 def test_top_level_help_uses_rich_cli2_layout(tmp_path):
     completed = subprocess.run(
-        [sys.executable, "-m", "mlcore", "--help"],
+        [sys.executable, "-m", "saber", "--help"],
         cwd=tmp_path,
         env={**__import__("os").environ, "PYTHONPATH": str(ROOT)},
         capture_output=True,
@@ -171,17 +171,17 @@ def test_top_level_help_uses_rich_cli2_layout(tmp_path):
         check=False,
     )
     assert completed.returncode == 0
-    assert "mlcore  CLI" in completed.stdout
+    assert "saber  CLI" in completed.stdout
     assert "Commands" in completed.stdout
     assert "Options" in completed.stdout
     assert "Examples" in completed.stdout
-    assert "Run mlcore COMMAND --help" in completed.stdout
+    assert "Run saber COMMAND --help" in completed.stdout
     assert "usage:" not in completed.stdout.lower()
 
 
 def test_subcommand_help_uses_rich_cli2_layout(tmp_path):
     completed = subprocess.run(
-        [sys.executable, "-m", "mlcore", "benchmark", "--help"],
+        [sys.executable, "-m", "saber", "benchmark", "--help"],
         cwd=tmp_path,
         env={**__import__("os").environ, "PYTHONPATH": str(ROOT)},
         capture_output=True,
@@ -189,7 +189,7 @@ def test_subcommand_help_uses_rich_cli2_layout(tmp_path):
         check=False,
     )
     assert completed.returncode == 0
-    assert "mlcore benchmark  CLI" in completed.stdout
+    assert "saber benchmark  CLI" in completed.stdout
     assert "Arguments" in completed.stdout
     assert "Options" in completed.stdout
     assert "--dry-run" in completed.stdout
@@ -200,7 +200,7 @@ def test_subcommand_help_uses_rich_cli2_layout(tmp_path):
 
 def test_invalid_command_uses_rich_usage_error(tmp_path):
     completed = subprocess.run(
-        [sys.executable, "-m", "mlcore", "definitely-not-a-command"],
+        [sys.executable, "-m", "saber", "definitely-not-a-command"],
         cwd=tmp_path,
         env={**__import__("os").environ, "PYTHONPATH": str(ROOT)},
         capture_output=True,
@@ -210,5 +210,5 @@ def test_invalid_command_uses_rich_usage_error(tmp_path):
     assert completed.returncode == 2
     assert "CLI usage error" in completed.stderr
     assert "invalid choice" in completed.stderr
-    assert "Run mlcore --help for details" in completed.stderr
+    assert "Run saber --help for details" in completed.stderr
     assert "usage:" not in completed.stderr.lower()

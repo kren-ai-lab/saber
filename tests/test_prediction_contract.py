@@ -4,11 +4,11 @@ import numpy as np
 import pytest
 from sklearn.datasets import make_classification
 
-import mlcore
-from mlcore.core.prediction import PredictionResult
-from mlcore.datasets import DatasetBundle
-from mlcore.evaluation import evaluate_prediction
-from mlcore.exceptions import PredictionContractError
+import saber
+from saber.core.prediction import PredictionResult
+from saber.datasets import DatasetBundle
+from saber.evaluation import evaluate_prediction
+from saber.exceptions import PredictionContractError
 
 
 def test_binary_prediction_result_extracts_positive_probability() -> None:
@@ -48,8 +48,8 @@ def _dataset(seed: int) -> DatasetBundle:
 
 def test_public_prediction_result_is_directly_evaluable() -> None:
     dataset = _dataset(42)
-    trained = mlcore.train(dataset=dataset, algorithm="logistic_regression", random_state=42)
-    prediction = mlcore.predict(trained, dataset=dataset)
+    trained = saber.train(dataset=dataset, algorithm="logistic_regression", random_state=42)
+    prediction = saber.predict(trained, dataset=dataset)
     evaluation = evaluate_prediction(dataset.y, prediction)
 
     assert prediction.classes is not None
@@ -61,8 +61,8 @@ def test_public_prediction_result_is_directly_evaluable() -> None:
 
 def test_decision_function_only_classifier_is_directly_evaluable() -> None:
     dataset = _dataset(7)
-    trained = mlcore.train(dataset=dataset, algorithm="linear_svc", random_state=7)
-    prediction = mlcore.predict(trained, dataset=dataset)
+    trained = saber.train(dataset=dataset, algorithm="linear_svc", random_state=7)
+    prediction = saber.predict(trained, dataset=dataset)
     evaluation = evaluate_prediction(dataset.y, prediction)
 
     assert prediction.probabilities is None

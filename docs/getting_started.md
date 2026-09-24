@@ -4,13 +4,13 @@ This guide uses an explicit fold assignment so it runs with the core installatio
 
 ## 1. Prepare numerical features
 
-`mlcore` expects a two-dimensional numerical matrix and one supervised target.
+`Saber` expects a two-dimensional numerical matrix and one supervised target.
 
 ```python
 import numpy as np
 from sklearn.datasets import make_classification
 
-from mlcore.datasets import DatasetBundle
+from saber.datasets import DatasetBundle
 
 X, y = make_classification(
     n_samples=200,
@@ -34,7 +34,7 @@ Prefer explicit `sample_ids` in scientific workflows. They are the identity key 
 ## 2. Attach partitions
 
 ```python
-from mlcore.datasets import PartitionPlan
+from saber.datasets import PartitionPlan
 
 folds = np.arange(dataset.n_samples) % 5
 plan = PartitionPlan.from_predefined_folds(
@@ -49,9 +49,9 @@ The plan stores memberships by sample ID, not by fragile row positions.
 ## 3. Validate a model
 
 ```python
-import mlcore
+import saber
 
-result = mlcore.validate(
+result = saber.validate(
     dataset=dataset,
     algorithm="logistic_regression",
     partition_plan=plan,
@@ -68,9 +68,9 @@ For complete CV, `result.oof_prediction` contains sample-aligned out-of-fold pre
 ## 4. Discover other algorithms
 
 ```bash
-mlcore models list --task classification
-mlcore models search forest
-mlcore models show random_forest
+saber models list --task classification
+saber models search forest
+saber models show random_forest
 ```
 
 The registry exposes provider, aliases, capabilities, preprocessing requirements, and search-space metadata.

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from mlcore.evaluation.classification import (
+from saber.evaluation.classification import (
     evaluate_binary_classification,
     evaluate_multiclass_classification,
     evaluate_classification,

@@ -1,6 +1,6 @@
 <div align="center">
 
-# mlcore
+# Saber
 
 **Reproducible classical supervised machine learning, from prepared features to auditable benchmarks.**
 
@@ -9,17 +9,17 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tasks](https://img.shields.io/badge/tasks-classification%20%7C%20regression-5b5bd6)
 
-`mlcore` is a domain-agnostic framework for **classical supervised machine learning** on numerical tabular representations. It unifies model discovery, leakage-safe validation, BioSieve partitioning, hyperparameter optimization, benchmarking, persistence, configuration, and a polished CLI behind one scientific execution model.
+`Saber` is a domain-agnostic framework for **classical supervised machine learning** on numerical tabular representations. It unifies model discovery, leakage-safe validation, BioSieve partitioning, hyperparameter optimization, benchmarking, persistence, configuration, and a polished CLI behind one scientific execution model.
 
 </div>
 
 ---
 
-## Why mlcore?
+## Why Saber?
 
 A machine-learning result is more than `model.fit(X, y)`. Scientific workflows also need stable sample identity, explicit partitions, preprocessing that cannot leak across folds, comparable tuning and validation semantics, traceable benchmark runs, and artifacts that can be inspected and reused later.
 
-`mlcore` is built around those requirements.
+`Saber` is built around those requirements.
 
 | Principle | What it means in practice |
 |---|---|
@@ -28,7 +28,7 @@ A machine-learning result is more than `model.fit(X, y)`. Scientific workflows a
 | **Explicit partitions** | Existing splits are preserved exactly; unpartitioned data are delegated to **BioSieve**. |
 | **Structured results** | Metrics, OOF predictions, failures, runtimes, tuning histories, and provenance remain reusable data. |
 | **Reproducible artifacts** | Feature schemas, versions, checksums, parameters, dataset/partition fingerprints, and environment metadata travel with persisted models. |
-| **Domain agnostic** | `mlcore` consumes prepared numerical features; representation generation and redundancy reduction stay upstream. |
+| **Domain agnostic** | `saber` consumes prepared numerical features; representation generation and redundancy reduction stay upstream. |
 
 ## What is in scope?
 
@@ -80,7 +80,7 @@ pip install -e '.[dev]'
 Check the environment at any time:
 
 ```bash
-mlcore doctor
+saber doctor
 ```
 
 ---
@@ -94,8 +94,8 @@ The smallest scientifically explicit workflow is: create a `DatasetBundle`, prov
 import numpy as np
 from sklearn.datasets import make_classification
 
-import mlcore
-from mlcore.datasets import DatasetBundle, PartitionPlan
+import saber
+from saber.datasets import DatasetBundle, PartitionPlan
 
 X, y = make_classification(
     n_samples=120,
@@ -115,7 +115,7 @@ plan = PartitionPlan.from_predefined_folds(
     dataset_fingerprint=dataset.fingerprint,
 )
 
-result = mlcore.validate(
+result = saber.validate(
     dataset=dataset,
     algorithm="logistic_regression",
     partition_plan=plan,
@@ -131,14 +131,14 @@ assert result.metadata["oof_complete"] is True
 If the dataset is **not partitioned**, delegate split generation to BioSieve:
 
 ```python
-from mlcore.datasets import BioSievePartitionConfig
+from saber.datasets import BioSievePartitionConfig
 
 partitioning = BioSievePartitionConfig(
     strategy="stratified_kfold",
     params={"n_splits": 5, "seed": 42},
 )
 
-result = mlcore.validate(
+result = saber.validate(
     dataset=dataset,
     algorithm="random_forest",
     partitioning=partitioning,
@@ -147,7 +147,7 @@ result = mlcore.validate(
 )
 ```
 
-> `mlcore` never substitutes its own splitter when BioSieve is requested. Redundancy reduction is also **not** performed by `mlcore`; if needed, it belongs upstream before `DatasetBundle` creation.
+> `Saber` never substitutes its own splitter when BioSieve is requested. Redundancy reduction is also **not** performed by `saber`; if needed, it belongs upstream before `DatasetBundle` creation.
 
 ---
 
@@ -167,14 +167,14 @@ prepared numerical data
 The package root intentionally stays small:
 
 ```python
-import mlcore
+import saber
 
-mlcore.train(...)
-mlcore.validate(...)
-mlcore.evaluate(...)
-mlcore.tune(...)
-mlcore.benchmark(...)
-mlcore.predict(...)
+saber.train(...)
+saber.validate(...)
+saber.evaluate(...)
+saber.tune(...)
+saber.benchmark(...)
+saber.predict(...)
 ```
 
 `optimize` is an alias for `tune`.
@@ -186,8 +186,8 @@ mlcore.predict(...)
 Search spaces are backend-neutral and typed:
 
 ```python
-from mlcore.core.search_space import SearchSpace, Categorical, Integer, LogFloat
-from mlcore.tuning import TuningConfig
+from saber.core.search_space import SearchSpace, Categorical, Integer, LogFloat
+from saber.tuning import TuningConfig
 
 space = SearchSpace(
     name="svc",
@@ -227,9 +227,9 @@ prepared representations
 and keeps every score connected to its run, split, configuration, runtime, and sample-level prediction.
 
 ```python
-from mlcore.benchmark import BenchmarkConfig
+from saber.benchmark import BenchmarkConfig
 
-benchmark = mlcore.benchmark(
+benchmark = saber.benchmark(
     datasets={"representation_a": dataset_a, "representation_b": dataset_b},
     algorithms=("logistic_regression", "random_forest", "svc"),
     partitions={"cluster_disjoint": plan},
@@ -245,7 +245,7 @@ leaderboard_data = benchmark.aggregate_metrics_frame()
 predictions = benchmark.predictions_frame()
 ```
 
-For tuned benchmarks, `mlcore` protects the final test membership and rejects ordinary-CV shortcuts that would report optimistically selected performance. Read [Benchmarking](docs/benchmarking.md).
+For tuned benchmarks, `saber` protects the final test membership and rejects ordinary-CV shortcuts that would report optimistically selected performance. Read [Benchmarking](docs/benchmarking.md).
 
 ---
 
@@ -268,7 +268,7 @@ model_artifact/
 ```
 
 ```python
-artifact = mlcore.load_model("artifacts/final_model")
+artifact = saber.load_model("artifacts/final_model")
 artifact.validate_features(X_new, feature_names=feature_names)
 prediction = artifact.predict_result(
     X_new,
@@ -286,21 +286,21 @@ Checksums are verified before model deserialization. As with every joblib/pickle
 The CLI is a presentation layer over the same configuration/API engine:
 
 ```bash
-mlcore --help
-mlcore doctor
-mlcore models list --task classification
-mlcore models search forest --provider sklearn
-mlcore models show random_forest
+saber --help
+saber doctor
+saber models list --task classification
+saber models search forest --provider sklearn
+saber models show random_forest
 ```
 
 Run or inspect workflows:
 
 ```bash
-mlcore validate experiment.yaml
-mlcore benchmark study.yaml --dry-run
-mlcore tune optimization.yaml --json
-mlcore config show experiment.yaml
-mlcore artifact verify artifacts/model
+saber validate experiment.yaml
+saber benchmark study.yaml --dry-run
+saber tune optimization.yaml --json
+saber config show experiment.yaml
+saber artifact verify artifacts/model
 ```
 
 Human-readable Rich output is the default; `--json` provides machine-readable summaries for automation. Read the [CLI guide](docs/cli.md) and [configuration reference](docs/configuration.md).
@@ -349,7 +349,7 @@ Start at [`examples/README.md`](examples/README.md).
 
 ## Scientific guarantees and non-guarantees
 
-`mlcore` helps enforce **workflow correctness**, not scientific validity by fiat. It can prevent overlap inside declared partitions, keep preprocessing inside folds, preserve sample identity, protect a final test in supported workflows, and retain provenance. It cannot decide whether a representation is biologically appropriate, whether a partition strategy answers the right scientific question, or whether the supplied data contain upstream leakage.
+`Saber` helps enforce **workflow correctness**, not scientific validity by fiat. It can prevent overlap inside declared partitions, keep preprocessing inside folds, preserve sample identity, protect a final test in supported workflows, and retain provenance. It cannot decide whether a representation is biologically appropriate, whether a partition strategy answers the right scientific question, or whether the supplied data contain upstream leakage.
 
 Use the partitioning strategy, metrics, and experimental design that match the scientific claim you want to make.
 
@@ -357,6 +357,6 @@ Use the partitioning strategy, metrics, and experimental design that match the s
 
 ## Project status
 
-`mlcore` is currently **Alpha**. The scientific architecture, public workflows, advanced executable demos, and CLI are already extensively tested; packaging/distribution hardening remains separate from the scientific core.
+`Saber` is currently **Alpha**. The scientific architecture, public workflows, advanced executable demos, and CLI are already extensively tested; packaging/distribution hardening remains separate from the scientific core.
 
-Repository: <https://github.com/kren-ai-lab/mlcore>
+Repository: <https://github.com/kren-ai-lab/saber>

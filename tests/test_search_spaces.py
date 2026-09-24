@@ -7,8 +7,8 @@ Tests for search space integration.
 
 from __future__ import annotations
 
-from mlcore.core.registry import MODEL_REGISTRY
-from mlcore.core.search_space import SearchSpace
+from saber.core.registry import MODEL_REGISTRY
+from saber.core.search_space import SearchSpace
 
 
 # ============================================================

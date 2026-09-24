@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import pytest
 
-from mlcore.exceptions import ArtifactCompatibilityError
-from mlcore.persistence.environment import compatibility_warnings, environment_snapshot
-from mlcore.persistence.metadata import ARTIFACT_SCHEMA_VERSION, ArtifactManifest
+from saber.exceptions import ArtifactCompatibilityError
+from saber.persistence.environment import compatibility_warnings, environment_snapshot
+from saber.persistence.metadata import ARTIFACT_SCHEMA_VERSION, ArtifactManifest
 
 
 def test_environment_snapshot_contains_reproducibility_core():
     snapshot = environment_snapshot()
     assert "version" in snapshot["python"]
-    assert "mlcore" in snapshot["packages"]
+    assert "saberlib" in snapshot["packages"]
     assert "scikit-learn" in snapshot["packages"]
     assert "numpy" in snapshot["packages"]
 

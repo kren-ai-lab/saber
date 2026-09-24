@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mlcore"
+name = "saberlib"
 dynamic = ["version"]
 
 description = "Domain-agnostic classical supervised machine learning for classification, regression, tuning, and benchmarking."
@@ -101,19 +101,22 @@ tests = [
 ]
 
 [project.scripts]
-mlcore = "mlcore.cli.main:main"
+saber = "saber.cli.main:main"
 
 [project.urls]
-Documentation = "https://github.com/kren-ai-lab/mlcore#readme"
-Homepage = "https://github.com/kren-ai-lab/mlcore"
-Issues = "https://github.com/kren-ai-lab/mlcore/issues"
-Source = "https://github.com/kren-ai-lab/mlcore"
+Documentation = "https://github.com/kren-ai-lab/saber#readme"
+Homepage = "https://github.com/kren-ai-lab/saber"
+Issues = "https://github.com/kren-ai-lab/saber/issues"
+Source = "https://github.com/kren-ai-lab/saber"
 
 [tool.hatch.version]
-path = "mlcore/__init__.py"
+path = "saber/__init__.py"
 pattern = "__version__ = \"(?P<version>[^\"]+)\""
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "/mlcore",
+    "/saber",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["saber"]

@@ -6,13 +6,13 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from mlcore import MODEL_REGISTRY
-from mlcore.datasets import DatasetBundle
-from mlcore.datasets import biosieve as adapter
-from mlcore.datasets.biosieve import BioSievePartitionConfig, partition_with_biosieve
-from mlcore.exceptions import PartitionIntegrationError, PartitionValidationError
-from mlcore.validation import ValidationEngine
-import mlcore.validation.partitioning as partitioning_module
+from saber import MODEL_REGISTRY
+from saber.datasets import DatasetBundle
+from saber.datasets import biosieve as adapter
+from saber.datasets.biosieve import BioSievePartitionConfig, partition_with_biosieve
+from saber.exceptions import PartitionIntegrationError, PartitionValidationError
+from saber.validation import ValidationEngine
+import saber.validation.partitioning as partitioning_module
 
 
 class FakeSeries:
@@ -172,7 +172,7 @@ def test_biosieve_extra_column_cannot_override_reserved_target(fake_runtime):
         partition_with_biosieve(
             dataset,
             BioSievePartitionConfig(strategy="random"),
-            extra_columns={"__mlcore_target__": np.zeros(dataset.n_samples)},
+            extra_columns={"__saber_target__": np.zeros(dataset.n_samples)},
             splitter=CompleteKFoldSplitter(),
         )
 
@@ -181,7 +181,7 @@ def test_biosieve_feature_name_collision_with_reserved_columns_is_rejected(fake_
     dataset = DatasetBundle(
         X=np.ones((8, 2)),
         y=[0, 1] * 4,
-        feature_names=["__mlcore_sample_id__", "x"],
+        feature_names=["__saber_sample_id__", "x"],
         sample_ids=[f"s{i}" for i in range(8)],
     )
     with pytest.raises(PartitionIntegrationError, match="collide"):

@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from mlcore.datasets import DatasetBundle, FeatureSchema
-from mlcore.exceptions import DatasetValidationError, FeatureSchemaMismatchError
+from saber.datasets import DatasetBundle, FeatureSchema
+from saber.exceptions import DatasetValidationError, FeatureSchemaMismatchError
 
 
 def _dataset(**overrides):

@@ -7,7 +7,7 @@ Tests for SearchSpace.
 
 from __future__ import annotations
 
-from mlcore.core.search_space import SearchSpace
+from saber.core.search_space import SearchSpace
 
 
 def test_search_space_creation() -> None:

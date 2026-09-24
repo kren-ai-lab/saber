@@ -5,7 +5,7 @@ This page is a compact recipe book. For concepts and guarantees, follow the link
 ## Validate prepared data
 
 ```python
-result = mlcore.validate(
+result = saber.validate(
     dataset=dataset,
     algorithm="logistic_regression",
     partition_plan=plan,
@@ -19,7 +19,7 @@ Use `partitioning=BioSievePartitionConfig(...)` instead of `partition_plan` when
 ## Final fit
 
 ```python
-trained = mlcore.train(
+trained = saber.train(
     dataset=dataset,
     algorithm="random_forest",
     random_state=42,
@@ -31,7 +31,7 @@ Assessment belongs to `validate`/`evaluate`; `train` fits a final model on the s
 ## Tune
 
 ```python
-optimized = mlcore.tune(
+optimized = saber.tune(
     dataset=dataset,
     algorithm="logistic_regression",
     config=tuning_config,
@@ -43,7 +43,7 @@ optimized = mlcore.tune(
 ## Benchmark
 
 ```python
-result = mlcore.benchmark(
+result = saber.benchmark(
     datasets={"repr_a": dataset_a, "repr_b": dataset_b},
     algorithms=("logistic_regression", "random_forest"),
     partitions={"shared_cv": plan},
@@ -57,7 +57,7 @@ predictions = result.predictions_frame()
 ## Persist and reload
 
 ```python
-mlcore.save_model(
+saber.save_model(
     "artifacts/model",
     model=trained.model,
     algorithm=trained.spec.name,
@@ -67,22 +67,22 @@ mlcore.save_model(
     parameters=trained.parameters,
 )
 
-artifact = mlcore.load_model("artifacts/model")
+artifact = saber.load_model("artifacts/model")
 y_pred = artifact.predict(X_new, feature_names=feature_names)
 ```
 
 ## Declarative workflow
 
 ```bash
-mlcore validate experiment.yaml --dry-run
-mlcore validate experiment.yaml
+saber validate experiment.yaml --dry-run
+saber validate experiment.yaml
 ```
 
 Or from Python:
 
 ```python
-config = mlcore.load_config("experiment.yaml")
-execution = mlcore.run_config(config)
+config = saber.load_config("experiment.yaml")
+execution = saber.run_config(config)
 ```
 
 ## Next

@@ -8,11 +8,11 @@ import pandas as pd
 import yaml
 from sklearn.datasets import make_classification
 
-from mlcore.cli.main import EXIT_CONFIG, EXIT_OK, main
-from mlcore.config import run_config
-from mlcore.datasets import DatasetBundle, PartitionPlan
-from mlcore.persistence import save_model_artifact
-from mlcore import train
+from saber.cli.main import EXIT_CONFIG, EXIT_OK, main
+from saber.config import run_config
+from saber.datasets import DatasetBundle, PartitionPlan
+from saber.persistence import save_model_artifact
+from saber import train
 
 
 def _workflow_files(tmp_path):
@@ -68,7 +68,7 @@ def test_cli_validate_uses_same_config_runner(tmp_path):
 
 def test_python_module_entry_point(tmp_path):
     completed = subprocess.run(
-        [sys.executable, "-m", "mlcore", "--version"],
+        [sys.executable, "-m", "saber", "--version"],
         cwd=str(tmp_path),
         env={**__import__("os").environ, "PYTHONPATH": str(__import__("pathlib").Path(__file__).parents[1])},
         capture_output=True,
@@ -76,7 +76,7 @@ def test_python_module_entry_point(tmp_path):
         check=False,
     )
     assert completed.returncode == 0
-    assert "mlcore 0.1.0" in completed.stdout
+    assert "saber 0.1.0" in completed.stdout
 
 
 def test_cli_artifact_inspection_and_verification(tmp_path):

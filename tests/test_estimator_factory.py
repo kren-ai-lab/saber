@@ -5,7 +5,7 @@ from __future__ import annotations
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 
-from mlcore.core.estimator import EstimatorFactory
+from saber.core.estimator import EstimatorFactory
 
 
 def test_factory_applies_default_and_override_params() -> None:
@@ -52,7 +52,7 @@ def test_factory_does_not_inject_unsupported_random_state() -> None:
 
 
 def test_all_registered_algorithms_use_canonical_factories() -> None:
-    from mlcore import MODEL_REGISTRY
+    from saber import MODEL_REGISTRY
 
     for spec in MODEL_REGISTRY:
         assert spec.estimator_factory is not None

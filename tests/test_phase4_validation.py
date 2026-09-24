@@ -4,12 +4,12 @@ import numpy as np
 import pytest
 from sklearn.datasets import make_classification, make_regression
 
-from mlcore import MODEL_REGISTRY
-from mlcore.datasets import DatasetBundle, PartitionPlan
-from mlcore.datasets.biosieve import BioSievePartitionConfig
-from mlcore.exceptions import ValidationContractError
-from mlcore.preprocessing import PreprocessingConfig
-from mlcore.validation import ValidationEngine
+from saber import MODEL_REGISTRY
+from saber.datasets import DatasetBundle, PartitionPlan
+from saber.datasets.biosieve import BioSievePartitionConfig
+from saber.exceptions import ValidationContractError
+from saber.preprocessing import PreprocessingConfig
+from saber.validation import ValidationEngine
 
 
 def test_validation_fits_scaler_only_on_training_partition():
@@ -220,7 +220,7 @@ def test_cross_validation_auto_role_uses_biosieve_style_test_fold():
     ids = [f"s{i}" for i in range(30)]
     dataset = DatasetBundle(X=X, y=y, sample_ids=ids)
     splits = []
-    from mlcore.datasets import PartitionSplit
+    from saber.datasets import PartitionSplit
 
     for fold in range(3):
         test_ids = tuple(ids[fold * 10 : (fold + 1) * 10])

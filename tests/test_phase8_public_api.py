@@ -4,12 +4,12 @@ import numpy as np
 import pandas as pd
 from sklearn.datasets import make_classification, make_regression
 
-import mlcore
-from mlcore.benchmark import BenchmarkConfig
-from mlcore.core import Categorical, SearchSpace
-from mlcore.datasets import DatasetBundle, PartitionPlan
-from mlcore.preprocessing import PreprocessingConfig
-from mlcore.tuning import TuningConfig
+import saber
+from saber.benchmark import BenchmarkConfig
+from saber.core import Categorical, SearchSpace
+from saber.datasets import DatasetBundle, PartitionPlan
+from saber.preprocessing import PreprocessingConfig
+from saber.tuning import TuningConfig
 
 
 def _classification_dataset(n=72):
@@ -37,19 +37,19 @@ def test_top_level_public_api_exports():
         "train", "validate", "evaluate", "tune", "benchmark", "predict",
         "load_config", "run_config", "save_model", "load_model",
     ):
-        assert hasattr(mlcore, name)
+        assert hasattr(saber, name)
 
 
 def test_train_predict_and_evaluate_share_prediction_contract():
     dataset = _classification_dataset()
-    result = mlcore.train(
+    result = saber.train(
         dataset=dataset,
         algorithm="logistic_regression",
         preprocessing=PreprocessingConfig(scaler="standard"),
         random_state=42,
     )
-    prediction = mlcore.predict(result, dataset=dataset)
-    evaluation = mlcore.evaluate(dataset=dataset, model=result, metrics=("accuracy", "roc_auc"))
+    prediction = saber.predict(result, dataset=dataset)
+    evaluation = saber.evaluate(dataset=dataset, model=result, metrics=("accuracy", "roc_auc"))
 
     assert prediction.n_samples == dataset.n_samples
     assert prediction.sample_ids.tolist() == list(dataset.sample_ids)
@@ -60,7 +60,7 @@ def test_train_predict_and_evaluate_share_prediction_contract():
 def test_public_validate_matches_engine_contract():
     dataset = _classification_dataset()
     plan = _cv_plan(dataset)
-    result = mlcore.validate(
+    result = saber.validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,
@@ -76,7 +76,7 @@ def test_public_validate_matches_engine_contract():
 def test_public_tune_uses_explicit_partition_plan_and_typed_space():
     dataset = _classification_dataset()
     plan = _cv_plan(dataset)
-    result = mlcore.tune(
+    result = saber.tune(
         dataset=dataset,
         algorithm="logistic_regression",
         config=TuningConfig(
@@ -96,7 +96,7 @@ def test_public_tune_uses_explicit_partition_plan_and_typed_space():
 def test_public_benchmark_runs_matrix_without_reimplementing_engines():
     dataset = _classification_dataset(60)
     plan = _cv_plan(dataset)
-    result = mlcore.benchmark(
+    result = saber.benchmark(
         datasets={"prepared": dataset},
         algorithms=("logistic_regression",),
         config=BenchmarkConfig(
@@ -118,7 +118,7 @@ def test_public_api_regression_end_to_end():
         y,
         sample_ids=[f"r{i}" for i in range(60)],
     )
-    result = mlcore.train(dataset=dataset, algorithm="ridge_regressor", random_state=42)
-    evaluation = mlcore.evaluate(dataset=dataset, model=result, metrics=("rmse", "mae"))
+    result = saber.train(dataset=dataset, algorithm="ridge_regressor", random_state=42)
+    evaluation = saber.evaluate(dataset=dataset, model=result, metrics=("rmse", "mae"))
     assert evaluation.metrics["rmse"] >= 0.0
     assert evaluation.metrics["mae"] >= 0.0

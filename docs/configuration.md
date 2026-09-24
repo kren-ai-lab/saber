@@ -116,9 +116,9 @@ benchmark:
 ## Validation and normalization
 
 ```bash
-mlcore config validate experiment.yaml
-mlcore config show experiment.yaml
-mlcore config normalize experiment.yaml -o normalized.yaml
+saber config validate experiment.yaml
+saber config show experiment.yaml
+saber config normalize experiment.yaml -o normalized.yaml
 ```
 
 `--dry-run` on workflow commands validates and renders the plan without executing the experiment.

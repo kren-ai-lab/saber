@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 import sys
 
-from mlcore import MODEL_REGISTRY
+from saber import MODEL_REGISTRY
 
 
 def test_only_frozen_task_families_are_registered() -> None:
@@ -39,11 +39,11 @@ def core_only_find_spec(name, package=None):
 
 importlib.util.find_spec = core_only_find_spec
 
-import mlcore
+import saber
 
-assert mlcore.MODEL_REGISTRY.providers() == {"sklearn"}
-assert "xgb_classifier" not in mlcore.MODEL_REGISTRY
-assert "lgbm_classifier" not in mlcore.MODEL_REGISTRY
+assert saber.MODEL_REGISTRY.providers() == {"sklearn"}
+assert "xgb_classifier" not in saber.MODEL_REGISTRY
+assert "lgbm_classifier" not in saber.MODEL_REGISTRY
 '''
 
     completed = subprocess.run(  # noqa: S603

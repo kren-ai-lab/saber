@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 from sklearn.datasets import make_classification, make_regression
 
-import mlcore
-from mlcore.datasets import DatasetBundle
-from mlcore.preprocessing import PreprocessingConfig
+import saber
+from saber.datasets import DatasetBundle
+from saber.preprocessing import PreprocessingConfig
 
 
 CLASSIFIERS = (
@@ -101,14 +101,14 @@ def test_public_api_classification_family_smoke_matrix(algorithm):
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        result = mlcore.train(
+        result = saber.train(
             dataset=dataset,
             algorithm=algorithm,
             random_state=42,
             model_params=params,
         )
-        prediction = mlcore.predict(result, dataset=dataset)
-        evaluation = mlcore.evaluate(dataset=dataset, model=result, metrics=("accuracy",))
+        prediction = saber.predict(result, dataset=dataset)
+        evaluation = saber.evaluate(dataset=dataset, model=result, metrics=("accuracy",))
 
     assert prediction.n_samples == dataset.n_samples
     assert 0.0 <= evaluation.metrics["accuracy"] <= 1.0
@@ -130,14 +130,14 @@ def test_public_api_regression_family_smoke_matrix(algorithm):
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        result = mlcore.train(
+        result = saber.train(
             dataset=dataset,
             algorithm=algorithm,
             random_state=42,
             model_params=params,
         )
-        prediction = mlcore.predict(result, dataset=dataset)
-        evaluation = mlcore.evaluate(dataset=dataset, model=result, metrics=("rmse", "mae"))
+        prediction = saber.predict(result, dataset=dataset)
+        evaluation = saber.evaluate(dataset=dataset, model=result, metrics=("rmse", "mae"))
 
     assert prediction.n_samples == dataset.n_samples
     assert evaluation.metrics["rmse"] >= 0.0
@@ -149,12 +149,12 @@ def test_categorical_nb_runs_on_prepared_nonnegative_integer_features_without_sc
     X = rng.integers(0, 4, size=(60, 6))
     y = np.array([0, 1] * 30)
     dataset = DatasetBundle(X=X, y=y, sample_ids=[f"s{i}" for i in range(60)])
-    result = mlcore.train(
+    result = saber.train(
         dataset=dataset,
         algorithm="categorical_nb",
         preprocessing=PreprocessingConfig(imputation=None, scaler=None),
     )
-    evaluation = mlcore.evaluate(dataset=dataset, model=result, metrics=("accuracy",))
+    evaluation = saber.evaluate(dataset=dataset, model=result, metrics=("accuracy",))
     assert 0.0 <= evaluation.metrics["accuracy"] <= 1.0
 
 
@@ -163,8 +163,8 @@ def test_gamma_regression_runs_on_strictly_positive_target():
     X = rng.normal(size=(60, 5))
     y = np.exp(0.2 * X[:, 0] - 0.1 * X[:, 1]) + 0.1
     dataset = DatasetBundle(X=X, y=y, sample_ids=[f"g{i}" for i in range(60)])
-    result = mlcore.train(dataset=dataset, algorithm="gamma_regression")
-    evaluation = mlcore.evaluate(dataset=dataset, model=result, metrics=("rmse",))
+    result = saber.train(dataset=dataset, algorithm="gamma_regression")
+    evaluation = saber.evaluate(dataset=dataset, model=result, metrics=("rmse",))
     assert np.isfinite(evaluation.metrics["rmse"])
 
 
@@ -181,13 +181,13 @@ def test_optional_provider_public_api_end_to_end(module_name, classifier, regres
     classification = _classification_dataset()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        trained_classifier = mlcore.train(
+        trained_classifier = saber.train(
             dataset=classification,
             algorithm=classifier,
             random_state=42,
             model_params=class_params,
         )
-        classification_eval = mlcore.evaluate(
+        classification_eval = saber.evaluate(
             dataset=classification,
             model=trained_classifier,
             metrics=("accuracy",),
@@ -197,13 +197,13 @@ def test_optional_provider_public_api_end_to_end(module_name, classifier, regres
     regression = _regression_dataset()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        trained_regressor = mlcore.train(
+        trained_regressor = saber.train(
             dataset=regression,
             algorithm=regressor,
             random_state=42,
             model_params=reg_params,
         )
-        regression_eval = mlcore.evaluate(
+        regression_eval = saber.evaluate(
             dataset=regression,
             model=trained_regressor,
             metrics=("rmse",),

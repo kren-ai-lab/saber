@@ -19,7 +19,7 @@ Multiple representations must contain the same sample IDs and targets. Partition
 ## Configuration
 
 ```python
-from mlcore.benchmark import BenchmarkConfig
+from saber.benchmark import BenchmarkConfig
 
 config = BenchmarkConfig(
     metrics=("mcc", "balanced_accuracy"),

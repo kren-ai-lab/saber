@@ -6,11 +6,11 @@ import warnings
 from sklearn.datasets import make_classification, make_regression
 from sklearn.pipeline import Pipeline
 
-from mlcore import MODEL_REGISTRY
-from mlcore.core.search_space import LogFloat, SearchSpace
-from mlcore.datasets import DatasetBundle, PartitionPlan
-from mlcore.exceptions import ValidationContractError
-from mlcore.tuning import TuningConfig, TuningEngine
+from saber import MODEL_REGISTRY
+from saber.core.search_space import LogFloat, SearchSpace
+from saber.datasets import DatasetBundle, PartitionPlan
+from saber.exceptions import ValidationContractError
+from saber.tuning import TuningConfig, TuningEngine
 
 
 def _classification_dataset(n: int = 60, *, sample_weight: bool = False):

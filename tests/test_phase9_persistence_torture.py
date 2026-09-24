@@ -8,18 +8,18 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification
 
-import mlcore
-from mlcore.datasets import DatasetBundle
-from mlcore.exceptions import ArtifactIntegrityError, FeatureSchemaMismatchError, PersistenceError, PredictionContractError
-from mlcore.persistence import inspect_artifact, load_model_artifact, save_model_artifact, verify_artifact
-from mlcore.persistence.checksums import write_checksums
+import saber
+from saber.datasets import DatasetBundle
+from saber.exceptions import ArtifactIntegrityError, FeatureSchemaMismatchError, PersistenceError, PredictionContractError
+from saber.persistence import inspect_artifact, load_model_artifact, save_model_artifact, verify_artifact
+from saber.persistence.checksums import write_checksums
 
 
 def _trained(tmp_path: Path):
     X, y = make_classification(n_samples=50, n_features=5, n_informative=3, random_state=4)
     frame = pd.DataFrame(X, columns=[f"f{i}" for i in range(5)])
     dataset = DatasetBundle(frame, y, sample_ids=[f"s{i}" for i in range(50)])
-    trained = mlcore.train(dataset=dataset, algorithm="logistic_regression", random_state=42)
+    trained = saber.train(dataset=dataset, algorithm="logistic_regression", random_state=42)
     path = tmp_path / "model"
     save_model_artifact(path, model=trained.model, algorithm="logistic_regression", task="classification", dataset=dataset)
     return dataset, trained, path

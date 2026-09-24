@@ -5,12 +5,12 @@ import pytest
 import warnings
 from sklearn.datasets import make_classification, make_regression
 
-from mlcore import MODEL_REGISTRY
-from mlcore.core.search_space import Categorical, Float, Integer, LogFloat, SearchSpace
-from mlcore.datasets import DatasetBundle, PartitionPlan
-from mlcore.exceptions import MetricProblemTypeError, MetricTaskMismatchError, OptimizationError, ValidationContractError
-from mlcore.preprocessing import PreprocessingConfig
-from mlcore.tuning import TuningConfig, TuningEngine
+from saber import MODEL_REGISTRY
+from saber.core.search_space import Categorical, Float, Integer, LogFloat, SearchSpace
+from saber.datasets import DatasetBundle, PartitionPlan
+from saber.exceptions import MetricProblemTypeError, MetricTaskMismatchError, OptimizationError, ValidationContractError
+from saber.preprocessing import PreprocessingConfig
+from saber.tuning import TuningConfig, TuningEngine
 
 
 def _cv(dataset: DatasetBundle, n=3):

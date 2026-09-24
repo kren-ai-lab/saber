@@ -4,12 +4,12 @@ import numpy as np
 import pytest
 from sklearn.datasets import make_classification
 
-from mlcore import MODEL_REGISTRY
-from mlcore.core.prediction import PredictionResult
-from mlcore.datasets import DatasetBundle, PartitionPlan, PartitionSplit
-from mlcore.evaluation import evaluate_prediction
-from mlcore.exceptions import PredictionContractError, ValidationContractError
-from mlcore.validation import ValidationEngine
+from saber import MODEL_REGISTRY
+from saber.core.prediction import PredictionResult
+from saber.datasets import DatasetBundle, PartitionPlan, PartitionSplit
+from saber.evaluation import evaluate_prediction
+from saber.exceptions import PredictionContractError, ValidationContractError
+from saber.validation import ValidationEngine
 
 
 def test_multiclass_prediction_is_not_misclassified_as_binary_when_fold_lacks_one_class():

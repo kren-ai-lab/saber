@@ -8,10 +8,10 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification, make_regression
 
-import mlcore
-from mlcore.cli.main import EXIT_CONFIG, EXIT_OK, main
-from mlcore.config import load_config, run_config
-from mlcore.datasets import DatasetBundle, PartitionPlan
+import saber
+from saber.cli.main import EXIT_CONFIG, EXIT_OK, main
+from saber.config import load_config, run_config
+from saber.datasets import DatasetBundle, PartitionPlan
 
 
 def _write_classification_case(tmp_path: Path):
@@ -40,7 +40,7 @@ def _write_classification_case(tmp_path: Path):
 
 def test_python_and_yaml_validation_produce_equivalent_metrics(tmp_path):
     dataset, plan, data_path, part_path = _write_classification_case(tmp_path)
-    direct = mlcore.validate(
+    direct = saber.validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,
@@ -125,7 +125,7 @@ def test_regression_yaml_evaluate_artifact_roundtrip(tmp_path):
     ids = [f"r{i}" for i in range(45)]
     frame = pd.DataFrame(X, columns=[f"x{i}" for i in range(4)])
     dataset = DatasetBundle(frame, y, sample_ids=ids)
-    mlcore.train(dataset=dataset, algorithm="ridge_regressor", artifact_path=tmp_path / "artifact")
+    saber.train(dataset=dataset, algorithm="ridge_regressor", artifact_path=tmp_path / "artifact")
 
     eval_frame = frame.copy()
     eval_frame.insert(0, "sample_id", ids)

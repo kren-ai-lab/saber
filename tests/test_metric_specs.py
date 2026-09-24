@@ -6,9 +6,9 @@ from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_score
 
-from mlcore.core.metrics import get_metric_spec, validate_metric
-from mlcore.exceptions import MetricProblemTypeError, MetricTaskMismatchError
-from mlcore.tuning.scorers import get_scorer, normalize_score
+from saber.core.metrics import get_metric_spec, validate_metric
+from saber.exceptions import MetricProblemTypeError, MetricTaskMismatchError
+from saber.tuning.scorers import get_scorer, normalize_score
 
 
 def test_roc_auc_uses_modern_response_method() -> None:
