@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import polars as pl
 
@@ -129,7 +129,10 @@ def load_partition_plan(
     if isinstance(source, pl.DataFrame):
         return partition_plan_from_frame(source, **frame_kwargs)
 
-    path = Path(source)
+    # Reaching here means `source` was not a PartitionPlan, dict, or DataFrame
+    # (all handled/returned above), so it is a str/Path; pyrefly widens the
+    # reassigned `source` back to its full declared parameter type.
+    path = Path(cast("str | Path", source))
     if not path.exists():
         raise PartitionValidationError(f"Partition source does not exist: {path}.")
 

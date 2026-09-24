@@ -60,7 +60,7 @@ def build_model_pipeline(
 
     imputation = config.imputation
     if imputation == "auto":
-        imputation = None if spec.capabilities.native_missing_values else "median"
+        imputation = None if spec.resolved_capabilities.native_missing_values else "median"
 
     scaler_name = resolve_scaler_name(
         config.scaler,

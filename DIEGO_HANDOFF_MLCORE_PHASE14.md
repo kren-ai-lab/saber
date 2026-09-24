@@ -1,9 +1,9 @@
 # mlcore — Handoff técnico para packaging, migración a Polars y preparación de release
 
-**Responsable del handoff científico:** David Medina-Ortiz  
-**Responsable de hardening técnico:** Diego  
-**Estado de entrada:** arquitectura científica congelada después de testing, demos, CLI, cleanup y documentación  
-**Alcance de este handoff:** packaging/distribución, migración tabular a Polars, clean-install hardening y preparación de release  
+**Responsable del handoff científico:** David Medina-Ortiz
+**Responsable de hardening técnico:** Diego
+**Estado de entrada:** arquitectura científica congelada después de testing, demos, CLI, cleanup y documentación
+**Alcance de este handoff:** packaging/distribución, migración tabular a Polars, clean-install hardening y preparación de release
 **Fuera de alcance:** rediseño científico, nuevos algoritmos, nuevas métricas, cambios de particionado, nuevas estrategias de tuning o cambios en la semántica experimental
 
 ---

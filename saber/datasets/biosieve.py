@@ -134,7 +134,7 @@ def partition_with_biosieve(
         and str(params.get("feature_mode", "embeddings")).lower() == "descriptors"
     )
     if include_features and not params.get("descriptor_cols"):
-        params["descriptor_cols"] = list(dataset.feature_names)
+        params["descriptor_cols"] = list(dataset.resolved_feature_names)
 
     frame = _dataset_to_polars(
         dataset,
@@ -268,7 +268,7 @@ def _dataset_to_polars(
     include_features: bool,
 ) -> pl.DataFrame:
     reserved = {config.id_col, config.label_col, config.group_col}
-    feature_names = tuple(dataset.feature_names)
+    feature_names = tuple(dataset.resolved_feature_names)
     collisions = reserved & set(feature_names)
     if collisions:
         raise PartitionIntegrationError(
@@ -284,7 +284,7 @@ def _dataset_to_polars(
             features = {name: values[:, index].copy() for index, name in enumerate(feature_names)}
 
     payload: dict[str, Any] = {
-        config.id_col: list(dataset.sample_ids),
+        config.id_col: list(dataset.resolved_sample_ids),
         config.label_col: np.asarray(dataset.y).tolist(),
         **features,
     }

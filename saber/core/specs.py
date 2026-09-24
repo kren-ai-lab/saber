@@ -14,6 +14,7 @@ from saber.core.estimator import EstimatorFactory
 
 if TYPE_CHECKING:
     from saber.core.search_space import SearchSpace
+    from saber.core.task import TaskType
 
 
 @dataclass(frozen=True)
@@ -21,7 +22,7 @@ class AlgorithmSpec:
     """Immutable specification of a registered machine-learning algorithm."""
 
     provider: str
-    task: str
+    task: TaskType
     name: str
 
     estimator_cls: type | None = None
@@ -105,6 +106,13 @@ class AlgorithmSpec:
         """Return whether this algorithm defines an estimator factory."""
         return self.estimator_factory is not None
 
+    @property
+    def resolved_capabilities(self) -> EstimatorCapabilities:
+        """Return capabilities, always resolved by __post_init__."""
+        if self.capabilities is None:
+            raise AssertionError(f"AlgorithmSpec {self.name!r} has unresolved capabilities.")
+        return self.capabilities
+
     def build_estimator(
         self,
         *,
@@ -131,7 +139,7 @@ class AlgorithmSpec:
             "tags": self.tags,
             "description": self.description,
             "supports_cv": self.supports_cv,
-            "capabilities": self.capabilities.to_dict(),
+            "capabilities": self.resolved_capabilities.to_dict(),
             "requirements": self.requirements.to_dict(),
             "default_params": dict(self.default_params),
             "has_search_space": self.has_search_space(),

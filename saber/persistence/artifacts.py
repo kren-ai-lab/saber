@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
@@ -11,10 +11,12 @@ from saber.core.prediction import PredictionResult
 from saber.preprocessing import pipeline_input
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from pathlib import Path
 
     import polars as pl
 
+    from saber.core.task import TaskType
     from saber.datasets import FeatureSchema
     from saber.persistence.metadata import ArtifactManifest
 
@@ -50,7 +52,7 @@ class LoadedModelArtifact:
         self,
         X: Any,
         *,
-        feature_names: tuple[str, ...] | list[str] | None = None,
+        feature_names: Sequence[str] | None = None,
         check_dtypes: bool = False,
     ) -> None:
         """Validate that ``X`` is compatible with the artifact's feature schema."""
@@ -64,7 +66,7 @@ class LoadedModelArtifact:
         self,
         X: Any,
         *,
-        feature_names: tuple[str, ...] | list[str] | None = None,
+        feature_names: Sequence[str] | None = None,
     ) -> np.ndarray:
         """Validate ``X`` and return the model's predictions."""
         self.validate_features(X, feature_names=feature_names)
@@ -74,7 +76,7 @@ class LoadedModelArtifact:
         self,
         X: Any,
         *,
-        feature_names: tuple[str, ...] | list[str] | None = None,
+        feature_names: Sequence[str] | None = None,
         sample_ids: Any | None = None,
         positive_class: Any | None = None,
     ) -> PredictionResult:
@@ -103,7 +105,9 @@ class LoadedModelArtifact:
 
         ids = None if sample_ids is None else np.asarray(sample_ids, dtype=object)
         return PredictionResult(
-            task=self.task,
+            # The persisted manifest always records "classification"/"regression";
+            # pyrefly can't see that invariant through the deserialized dict.
+            task=cast("TaskType", self.task),
             predictions=predictions,
             probabilities=probabilities,
             decision_scores=decision_scores,

@@ -398,7 +398,7 @@ def evaluate_classification(
     raise ValueError("Classification evaluation requires fitted class semantics with at least two classes.")
 
 
-CLASSIFICATION_METRICS: dict[str, Callable[..., float]] = {
+CLASSIFICATION_METRICS: dict[str, Callable[..., Any]] = {
     "accuracy": accuracy_score,
     "balanced_accuracy": balanced_accuracy_score,
     "precision": precision_score,

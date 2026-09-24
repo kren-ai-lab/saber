@@ -182,7 +182,7 @@ class PartitionPlan:
                 observed=dataset.fingerprint,
             )
 
-        known_ids = set(dataset.sample_ids)
+        known_ids = set(dataset.resolved_sample_ids)
 
         for split in self.splits:
             split_ids = set(split.all_ids)

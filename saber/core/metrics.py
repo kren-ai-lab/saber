@@ -72,7 +72,10 @@ class MetricSpec:
 
     name: str
     task: TaskType
-    score_func: Callable[..., float]
+    # sklearn metric functions return a mix of float/np.floating/ndarray depending
+    # on overload; callers normalize via to_natural_score()/float(), so the wider
+    # return type is accurate rather than a workaround.
+    score_func: Callable[..., Any]
     greater_is_better: bool = True
     response_method: ResponseMethod = "predict"
     scorer_kwargs: dict[str, Any] = field(default_factory=dict)

@@ -45,7 +45,7 @@ def validate_estimator_dataset_requirements(
     if (
         has_missing_features(dataset.X)
         and not imputation_enabled
-        and not spec.capabilities.native_missing_values
+        and not spec.resolved_capabilities.native_missing_values
         and not custom_transformer
     ):
         raise PreprocessingContractError(
