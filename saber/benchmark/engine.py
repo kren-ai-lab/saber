@@ -2,25 +2,33 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import replace
 from hashlib import sha256
 from time import perf_counter
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from saber.benchmark.config import BenchmarkConfig
 from saber.benchmark.results import BenchmarkResult, BenchmarkRun
 from saber.benchmark.specs import BenchmarkDataset, BenchmarkPartition
-from saber.core.registry import AlgorithmRegistry
 from saber.datasets import DatasetBundle, PartitionPlan
-from saber.datasets.biosieve import BioSievePartitionConfig
 from saber.exceptions import BenchmarkContractError
-from saber.preprocessing import PreprocessingConfig
-from saber.tuning import TuningConfig, TuningEngine
+from saber.tuning import TuningEngine
 from saber.validation import ValidationEngine
 from saber.validation.partitioning import resolve_partition_plan
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from saber.benchmark.config import BenchmarkConfig
+    from saber.core.registry import AlgorithmRegistry
+    from saber.core.specs import AlgorithmSpec
+    from saber.datasets.biosieve import BioSievePartitionConfig
+    from saber.preprocessing import PreprocessingConfig
+    from saber.tuning import TuningConfig
+    from saber.tuning.results import OptimizationResult
+    from saber.validation.results import ValidationResult
 
 
 class BenchmarkEngine:
@@ -33,6 +41,7 @@ class BenchmarkEngine:
     """
 
     def __init__(self, registry: AlgorithmRegistry) -> None:
+        """Bind the algorithm registry and construct the delegate engines."""
         self.registry = registry
         self.validation_engine = ValidationEngine(registry)
         self.tuning_engine = TuningEngine(registry)
@@ -56,6 +65,7 @@ class BenchmarkEngine:
         search_spaces: Mapping[str, Any] | None = None,
         positive_class: Any | None = None,
     ) -> BenchmarkResult:
+        """Run the full algorithm x representation x partition x seed x mode matrix."""
         benchmark_datasets = _normalize_datasets(datasets)
         _validate_dataset_alignment(benchmark_datasets)
         algorithm_names = tuple(dict.fromkeys(algorithms))
@@ -259,7 +269,8 @@ class BenchmarkEngine:
                     seed=seed,
                 )
             else:
-                raise BenchmarkContractError(f"Unsupported benchmark mode '{mode}'.")
+                # caught below so a bad mode is recorded as a failed run, not a crash
+                raise BenchmarkContractError(f"Unsupported benchmark mode '{mode}'.")  # noqa: TRY301
 
             elapsed = perf_counter() - start
             return BenchmarkRun(
@@ -289,7 +300,7 @@ class BenchmarkEngine:
                     "partition_metadata": dict(partition_spec.metadata),
                 },
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001  # any run failure becomes a failed BenchmarkRun, not a crash
             return BenchmarkRun(
                 run_id=run_id,
                 dataset_label=dataset_spec.label,
@@ -327,7 +338,7 @@ class BenchmarkEngine:
         search_space: Any | None,
         positive_class: Any | None,
         seed: int | None,
-    ):
+    ) -> tuple[ValidationResult, OptimizationResult]:
         final_plan = _protected_test_plan(plan, dataset)
         tuning = _with_seed(config.tuning, seed)
         optimization = self.tuning_engine.run(
@@ -442,9 +453,8 @@ def _targets_by_id(dataset: DatasetBundle) -> dict[Any, Any]:
 
 
 def _target_equal(left: Any, right: Any) -> bool:
-    if isinstance(left, float) and isinstance(right, float):
-        if np.isnan(left) and np.isnan(right):
-            return True
+    if isinstance(left, float) and isinstance(right, float) and np.isnan(left) and np.isnan(right):
+        return True
     return bool(left == right)
 
 
@@ -453,7 +463,7 @@ def _infer_benchmark_task(registry: AlgorithmRegistry, algorithms: tuple[str, ..
     for name in algorithms:
         try:
             task = registry.get(name).task
-        except Exception:
+        except Exception:  # noqa: BLE001, S112  # unresolvable algorithms are simply excluded from task inference
             continue
         if task not in tasks:
             tasks.append(task)
@@ -462,10 +472,10 @@ def _infer_benchmark_task(registry: AlgorithmRegistry, algorithms: tuple[str, ..
     return tasks[0] if tasks else None
 
 
-def _safe_get_spec(registry: AlgorithmRegistry, algorithm: str):
+def _safe_get_spec(registry: AlgorithmRegistry, algorithm: str) -> AlgorithmSpec | None:
     try:
         return registry.get(algorithm)
-    except Exception:
+    except Exception:  # noqa: BLE001  # unknown/invalid algorithm names resolve to None, not a crash
         return None
 
 

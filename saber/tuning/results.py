@@ -1,8 +1,4 @@
-"""saber.tuning.results
-=====================
-
-Result objects returned by optimization methods.
-"""
+"""saber.tuning.results: Result objects returned by optimization methods."""
 
 from __future__ import annotations
 
@@ -12,12 +8,13 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from saber.core.metrics import get_metric_spec
-from saber.core.specs import AlgorithmSpec
 from saber.exceptions import NonFiniteScoreError
 from saber.utils.tabular import records_frame
 
 if TYPE_CHECKING:
     import polars as pl
+
+    from saber.core.specs import AlgorithmSpec
 
 
 @dataclass(slots=True)
@@ -41,6 +38,7 @@ class OptimizationResult:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        """Normalize numeric fields and validate that the best score is finite."""
         self.best_score = float(self.best_score)
         self.metrics = tuple(self.metrics)
         self.best_scores = {name: float(value) for name, value in self.best_scores.items()}

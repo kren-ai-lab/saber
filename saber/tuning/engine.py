@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from time import perf_counter
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, cross_validate
 
-from saber.core.registry import AlgorithmRegistry
-from saber.core.search_space import SearchSpace
-from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
 from saber.exceptions import (
     DatasetValidationError,
     NonFiniteScoreError,
@@ -27,6 +23,13 @@ from saber.validation.partitioning import (
     build_explicit_cv,
     resolve_partition_plan,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+    from saber.core.registry import AlgorithmRegistry
+    from saber.core.search_space import SearchSpace
+    from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
 
 OptimizerName = Literal[
     "grid",
@@ -61,6 +64,7 @@ class TuningConfig:
     optuna_load_if_exists: bool = True
 
     def resolved_refit_metric(self) -> str:
+        """Return the metric to refit on, defaulting to the first configured metric."""
         if not self.metrics:
             raise ValidationContractError("At least one tuning metric is required.")
         metric = self.refit_metric or self.metrics[0]
@@ -80,6 +84,7 @@ class TuningEngine:
     """
 
     def __init__(self, registry: AlgorithmRegistry) -> None:
+        """Bind the algorithm registry used to resolve tuning targets."""
         self.registry = registry
 
     def run(
@@ -97,6 +102,7 @@ class TuningEngine:
         require_complete: bool = True,
         model_params: Mapping[str, Any] | None = None,
     ) -> OptimizationResult:
+        """Tune an algorithm over explicit/BioSieve partitions and return the best result."""
         spec = self.registry.get(algorithm)
         dataset.validate(task=spec.task)
 
@@ -259,8 +265,9 @@ class TuningEngine:
             single_common["scoring"] = scorers[refit_metric]
             single_common["refit"] = config.refit
 
-            from sklearn.experimental import enable_halving_search_cv  # noqa: F401
-            from sklearn.model_selection import HalvingGridSearchCV, HalvingRandomSearchCV
+            # Deferred: enables the experimental halving search API only when it is used.
+            from sklearn.experimental import enable_halving_search_cv  # noqa: F401, PLC0415
+            from sklearn.model_selection import HalvingGridSearchCV, HalvingRandomSearchCV  # noqa: PLC0415
 
             halving_common = {
                 **single_common,
@@ -370,10 +377,11 @@ class TuningEngine:
         fit_params: dict[str, Any],
     ) -> OptimizationResult:
         try:
-            import optuna
-            from optuna.trial import TrialState
+            import optuna  # noqa: PLC0415  # optuna is an optional dependency
+            from optuna.trial import TrialState  # noqa: PLC0415
         except ImportError as exc:
-            from saber.exceptions import OptionalDependencyError
+            # Deferred: only needed on the optuna-missing path.
+            from saber.exceptions import OptionalDependencyError  # noqa: PLC0415
 
             raise OptionalDependencyError(
                 dependency="optuna",
@@ -428,16 +436,17 @@ class TuningEngine:
                 )["test_score"]
                 score = float(np.mean(np.asarray(scores, dtype=float)))
                 if not np.isfinite(score):
-                    raise NonFiniteScoreError(
+                    raise NonFiniteScoreError(  # noqa: TRY301  # except below records this on the trial
                         algorithm=spec.name,
                         metric=refit_metric,
                         optimizer="optuna",
                         score=score,
                     )
-                return score
             except Exception as exc:
                 trial.set_user_attr("saber_error", f"{type(exc).__name__}: {exc}")
                 raise
+            else:
+                return score
 
         study.optimize(
             objective,
@@ -493,18 +502,17 @@ class TuningEngine:
             best_model = selected
             best_model.fit(pipeline_input(best_model, dataset.X), dataset.y, **fit_params)
 
-        history: list[dict[str, Any]] = []
-        for trial in study.trials:
-            history.append(
-                {
-                    "trial": trial.number,
-                    "params": dict(trial.params),
-                    "score": None if trial.value is None else float(trial.value),
-                    "metrics": {refit_metric: None if trial.value is None else float(trial.value)},
-                    "status": str(trial.state).split(".")[-1].lower(),
-                    "error": trial.user_attrs.get("saber_error"),
-                }
-            )
+        history: list[dict[str, Any]] = [
+            {
+                "trial": trial.number,
+                "params": dict(trial.params),
+                "score": None if trial.value is None else float(trial.value),
+                "metrics": {refit_metric: None if trial.value is None else float(trial.value)},
+                "status": str(trial.state).split(".")[-1].lower(),
+                "error": trial.user_attrs.get("saber_error"),
+            }
+            for trial in study.trials
+        ]
 
         return OptimizationResult(
             algorithm=spec.name,
