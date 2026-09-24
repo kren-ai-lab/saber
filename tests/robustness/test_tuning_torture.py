@@ -197,7 +197,12 @@ def test_refit_false_keeps_best_params_but_no_best_model():
 
 
 def test_regression_loss_metric_display_score_is_natural_positive_value():
-    X, y = make_regression(n_samples=60, n_features=6, noise=0.5, random_state=6)
+    X, y = make_regression(  # pyrefly: ignore[bad-unpacking]
+        n_samples=60,
+        n_features=6,
+        noise=0.5,
+        random_state=6,
+    )
     dataset = DatasetBundle(X=X, y=y, sample_ids=[f"r{i}" for i in range(60)])
     result = TuningEngine(MODEL_REGISTRY).run(
         dataset=dataset,

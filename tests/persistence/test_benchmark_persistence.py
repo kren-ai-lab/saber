@@ -24,6 +24,7 @@ def _benchmark_result():
         y=y,
         sample_ids=[f"s{i}" for i in range(len(y))],
     )
+    assert dataset.sample_ids is not None
     plan = PartitionPlan.holdout(
         train_ids=dataset.sample_ids[:35],
         test_ids=dataset.sample_ids[35:],

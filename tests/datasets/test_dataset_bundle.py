@@ -85,6 +85,7 @@ def test_homogeneous_sample_id_types_are_accepted():
 def test_groups_and_sample_weights_are_validated():
     dataset = _dataset(groups=("g1", "g1", "g2", "g2"), sample_weight=[1, 2, 1, 3])
     assert dataset.groups == ("g1", "g1", "g2", "g2")
+    assert dataset.sample_weight is not None
     assert np.allclose(dataset.sample_weight, [1, 2, 1, 3])
 
     with pytest.raises(DatasetValidationError):
@@ -131,6 +132,7 @@ def test_subset_preserves_identity_features_groups_and_weights():
     assert subset.sample_ids == ("s2", "s4")
     assert subset.feature_names == dataset.feature_names
     assert subset.groups == ("g1", "g2")
+    assert subset.sample_weight is not None
     assert np.allclose(subset.sample_weight, [2, 4])
     assert subset.metadata["parent_dataset_fingerprint"] == dataset.fingerprint
 

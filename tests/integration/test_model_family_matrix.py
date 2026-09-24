@@ -75,7 +75,7 @@ def _classification_dataset():
 
 
 def _regression_dataset():
-    X, y = make_regression(
+    X, y = make_regression(  # pyrefly: ignore[bad-unpacking]
         n_samples=48,
         n_features=7,
         n_informative=5,
@@ -88,7 +88,7 @@ def _regression_dataset():
 @pytest.mark.parametrize("algorithm", CLASSIFIERS)
 def test_public_api_classification_family_smoke_matrix(algorithm):
     dataset = _classification_dataset()
-    params = {}
+    params: dict[str, float] = {}
     if algorithm in {"random_forest", "extra_trees", "gradient_boosting", "adaboost"}:
         params["n_estimators"] = 12
     if algorithm == "bagging":

@@ -206,7 +206,7 @@ def test_failed_candidate_is_explicit_in_history() -> None:
 
 
 def test_regression_loss_scores_keep_natural_display_direction() -> None:
-    X, y = make_regression(n_samples=60, n_features=5, random_state=42)
+    X, y = make_regression(n_samples=60, n_features=5, random_state=42)  # pyrefly: ignore[bad-unpacking]
     ids = [f"sample_{i}" for i in range(60)]
     dataset = DatasetBundle(X=X, y=y, sample_ids=ids)
     result = TuningEngine(MODEL_REGISTRY).run(

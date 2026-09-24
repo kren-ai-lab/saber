@@ -42,10 +42,10 @@ def test_multi_representation_benchmark_reuses_identical_membership():
     )
     assert result.n_runs == 8  # 2 reps x (model + baseline) x 2 seeds
     assert len(result.failures) == 0
-    memberships = {
-        (run.dataset_label, tuple(tuple(f.evaluation_ids) for f in run.validation.folds))
-        for run in result.successes
-    }
+    memberships = set()
+    for run in result.successes:
+        assert run.validation is not None
+        memberships.add((run.dataset_label, tuple(tuple(f.evaluation_ids) for f in run.validation.folds)))
     by_dataset = {}
     for dataset_label, folds in memberships:
         by_dataset.setdefault(dataset_label, folds)
@@ -69,6 +69,7 @@ def test_representation_with_different_target_for_same_id_fails_before_runs():
 
 def test_representation_with_missing_sample_id_fails_before_runs():
     base = _classification()
+    assert base.sample_ids is not None
     second = DatasetBundle(X=np.asarray(base.X)[:-1], y=base.y[:-1], sample_ids=base.sample_ids[:-1])
     with pytest.raises(BenchmarkContractError, match="same sample IDs"):
         BenchmarkEngine(MODEL_REGISTRY).run(
@@ -100,6 +101,7 @@ def test_unknown_algorithm_is_isolated_as_failed_run():
     )
     assert len(result.successes) == 1
     assert len(result.failures) == 1
+    assert result.failures[0].error is not None
     assert "AlgorithmNotFoundError" in result.failures[0].error
 
 
@@ -160,12 +162,14 @@ def test_tuned_benchmark_rejects_plain_cv_as_unbiased_final_reporting():
         search_spaces={"logistic_regression": SearchSpace("lr", {"C": [0.1, 1.0]})},
     )
     assert len(result.failures) == 1
+    assert result.failures[0].error is not None
     assert "protected test" in result.failures[0].error
 
 
 def test_tuned_holdout_uses_protected_test_only_for_final_metrics():
     dataset = _classification(90)
     ids = dataset.sample_ids
+    assert ids is not None
     plan = PartitionPlan.holdout(
         train_ids=ids[:50],
         validation_ids=ids[50:70],
@@ -186,12 +190,19 @@ def test_tuned_holdout_uses_protected_test_only_for_final_metrics():
         search_spaces={"logistic_regression": SearchSpace("lr", {"C": [0.1, 1.0]})},
     )
     run = result.successes[0]
+    assert run.validation is not None
+    assert run.optimization is not None
     assert run.validation.folds[0].evaluation_ids == tuple(ids[70:])
     assert run.optimization.metadata["protected_samples"] == 20
 
 
 def test_regression_benchmark_with_dummy_baseline_and_multiple_seeds():
-    X, y = make_regression(n_samples=60, n_features=5, noise=1.0, random_state=2)
+    X, y = make_regression(  # pyrefly: ignore[bad-unpacking]
+        n_samples=60,
+        n_features=5,
+        noise=1.0,
+        random_state=2,
+    )
     dataset = DatasetBundle(X=X, y=y, sample_ids=[f"r{i}" for i in range(60)])
     result = BenchmarkEngine(MODEL_REGISTRY).run(
         datasets=dataset,

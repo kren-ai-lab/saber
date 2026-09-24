@@ -56,6 +56,7 @@ def test_python_and_yaml_validation_produce_equivalent_metrics(tmp_path):
     )
     executed = run_config(load_config(config_path))
     assert executed.result.aggregate_metrics == pytest.approx(direct.aggregate_metrics)
+    assert direct.oof_prediction is not None
     assert executed.result.oof_prediction.predictions.tolist() == direct.oof_prediction.predictions.tolist()
 
 
@@ -133,7 +134,12 @@ def test_yaml_train_artifact_predict_roundtrip(tmp_path):
 
 
 def test_regression_yaml_evaluate_artifact_roundtrip(tmp_path):
-    X, y = make_regression(n_samples=45, n_features=4, noise=0.2, random_state=7)
+    X, y = make_regression(  # pyrefly: ignore[bad-unpacking]
+        n_samples=45,
+        n_features=4,
+        noise=0.2,
+        random_state=7,
+    )
     ids = [f"r{i}" for i in range(45)]
     frame = pd.DataFrame(X, columns=[f"x{i}" for i in range(4)])
     dataset = DatasetBundle(frame, y, sample_ids=ids)

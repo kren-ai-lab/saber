@@ -65,6 +65,8 @@ def test_train_predict_and_evaluate_share_prediction_contract():
     evaluation = saber.evaluate(dataset=dataset, model=result, metrics=("accuracy", "roc_auc"))
 
     assert prediction.n_samples == dataset.n_samples
+    assert prediction.sample_ids is not None
+    assert dataset.sample_ids is not None
     assert prediction.sample_ids.tolist() == list(dataset.sample_ids)
     assert set(evaluation.metrics) == {"accuracy", "roc_auc"}
     assert evaluation.prediction is not None
@@ -181,7 +183,12 @@ def test_predict_accepts_same_order_dataframe_and_matching_width_numpy_array():
 
 
 def test_public_api_regression_end_to_end():
-    X, y = make_regression(n_samples=60, n_features=5, noise=0.2, random_state=3)
+    X, y = make_regression(  # pyrefly: ignore[bad-unpacking]
+        n_samples=60,
+        n_features=5,
+        noise=0.2,
+        random_state=3,
+    )
     dataset = DatasetBundle(
         pd.DataFrame(X, columns=[f"x{i}" for i in range(5)]),
         y,

@@ -195,6 +195,7 @@ def test_multiclass_cv_with_string_labels_returns_complete_oof():
     )
     assert result.oof_prediction is not None
     assert result.oof_prediction.n_classes == 3
+    assert result.oof_prediction.classes is not None
     assert set(result.oof_prediction.classes) == {"alpha", "beta", "gamma"}
 
 

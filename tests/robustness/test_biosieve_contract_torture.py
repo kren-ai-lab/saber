@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from types import SimpleNamespace
+from typing import Any
 
 import numpy as np
 import pytest
@@ -60,7 +61,7 @@ def _dataset(n=36, *, groups=False):
     rng = np.random.default_rng(8)
     X = rng.normal(size=(n, 6))
     y = np.array([0, 1] * (n // 2))
-    kwargs = {}
+    kwargs: dict[str, Any] = {}
     if groups:
         kwargs["groups"] = [f"g{i // 3}" for i in range(n)]
     return DatasetBundle(X=X, y=y, sample_ids=[f"s{i}" for i in range(n)], **kwargs)
@@ -185,7 +186,7 @@ def test_biosieve_extra_column_cannot_override_reserved_target(
         partition_with_biosieve(
             dataset,
             BioSievePartitionConfig(strategy="random"),
-            extra_columns={"__saber_target__": np.zeros(dataset.n_samples)},
+            extra_columns={"__saber_target__": np.zeros(dataset.n_samples).tolist()},
             splitter=CompleteKFoldSplitter(),
         )
 

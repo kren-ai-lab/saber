@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from types import SimpleNamespace
+from typing import Any
 
 import numpy as np
 import polars as pl
@@ -99,7 +100,7 @@ def fake_runtime(monkeypatch):
 
 
 def _dataset(*, with_groups=False):
-    kwargs = {}
+    kwargs: dict[str, Any] = {}
     if with_groups:
         kwargs["groups"] = ["g1", "g1", "g2", "g2", "g3", "g3"]
     return DatasetBundle(
@@ -195,7 +196,7 @@ class CaptureSplitter:
     strategy = "capture"
 
     def __init__(self):
-        self.columns_seen = None
+        self.columns_seen: tuple[str, ...] | None = None
 
     def run(self, frame, cols):  # noqa: ARG002  fixed signature required by splitter protocol
         self.columns_seen = tuple(frame.columns)
@@ -238,6 +239,7 @@ def test_distance_descriptor_partition_exposes_prepared_numeric_features(
         ),
         splitter=splitter,
     )
+    assert splitter.columns_seen is not None
     assert "feature_0" in splitter.columns_seen
     assert "feature_1" in splitter.columns_seen
     assert "feature_2" in splitter.columns_seen
@@ -247,7 +249,7 @@ class CapturePolarsSplitter:
     strategy = "capture"
 
     def __init__(self):
-        self.frame_seen = None
+        self.frame_seen: Any | None = None
 
     def run(self, frame, cols):  # noqa: ARG002  fixed signature required by splitter protocol
         self.frame_seen = frame
@@ -280,5 +282,6 @@ def test_polars_dataset_preserves_int_and_bool_column_dtypes(monkeypatch):
         splitter=splitter,
     )
 
+    assert splitter.frame_seen is not None
     assert splitter.frame_seen["int_col"].dtype == pl.Int64
     assert splitter.frame_seen["bool_col"].dtype == pl.Boolean

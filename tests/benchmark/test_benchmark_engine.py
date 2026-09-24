@@ -44,6 +44,7 @@ def _cv_plan(dataset: DatasetBundle, offset: int = 0) -> PartitionPlan:
 
 
 def _safe_holdout(dataset: DatasetBundle) -> PartitionPlan:
+    assert dataset.sample_ids is not None
     ids = tuple(dataset.sample_ids)
     return PartitionPlan.holdout(
         train_ids=ids[:40],
@@ -211,8 +212,9 @@ def test_benchmark_runs_algorithm_matrix_with_baseline_and_repeated_seeds() -> N
         "logistic_regression",
         "decision_tree",
     }
-    assert all(run.oof_prediction is not None for run in result.successes)
-    assert all(run.oof_prediction.n_samples == 60 for run in result.successes)
+    for run in result.successes:
+        assert run.oof_prediction is not None
+        assert run.oof_prediction.n_samples == 60
 
 
 def test_benchmark_multiple_representations_reuse_identical_partition_membership() -> None:
@@ -241,6 +243,8 @@ def test_benchmark_multiple_representations_reuse_identical_partition_membership
 
     assert len(result.successes) == 2
     roxy_run, sylphy_run = result.successes
+    assert roxy_run.validation is not None
+    assert sylphy_run.validation is not None
     for left, right in zip(roxy_run.validation.folds, sylphy_run.validation.folds, strict=True):
         assert left.train_ids == right.train_ids
         assert left.evaluation_ids == right.evaluation_ids
@@ -296,6 +300,7 @@ def test_failed_algorithm_does_not_invalidate_successful_runs() -> None:
     assert len(result.failures) == 1
     assert result.successes[0].algorithm == "logistic_regression"
     assert result.failures[0].algorithm == "not_a_model"
+    assert result.failures[0].error is not None
     assert "AlgorithmNotFoundError" in result.failures[0].error
 
 
@@ -334,10 +339,11 @@ def test_seeded_benchmark_is_score_reproducible() -> None:
         first.aggregate_metrics_frame().drop("elapsed_seconds"),
         second.aggregate_metrics_frame().drop("elapsed_seconds"),
     )
-    np.testing.assert_array_equal(
-        first.successes[0].oof_prediction.predictions,
-        second.successes[0].oof_prediction.predictions,
-    )
+    first_oof = first.successes[0].oof_prediction
+    second_oof = second.successes[0].oof_prediction
+    assert first_oof is not None
+    assert second_oof is not None
+    np.testing.assert_array_equal(first_oof.predictions, second_oof.predictions)
 
 
 def test_predictions_frame_retains_truth_predictions_and_probabilities() -> None:
@@ -352,6 +358,7 @@ def test_predictions_frame_retains_truth_predictions_and_probabilities() -> None
     assert len(frame) == dataset.n_samples
     assert {"sample_id", "y_true", "y_pred", "split", "run_id"} <= set(frame.columns)
     assert any(column.startswith("probability__") for column in frame.columns)
+    assert dataset.sample_ids is not None
     assert set(frame["sample_id"]) == set(dataset.sample_ids)
 
 
@@ -384,9 +391,12 @@ def test_tuned_benchmark_reports_only_protected_final_test() -> None:
     assert run.mode == "tuned"
     assert run.optimization is not None
     assert run.optimization.metadata["protected_samples"] == 10
+    assert run.validation is not None
+    assert dataset.sample_ids is not None
     assert run.validation.folds[0].evaluation_role == "test"
     assert set(run.validation.folds[0].evaluation_ids) == set(dataset.sample_ids[50:])
     assert len(run.validation.folds[0].train_ids) == 50
+    assert run.oof_prediction is not None
     assert run.oof_prediction.n_samples == 10
 
 
@@ -412,11 +422,17 @@ def test_tuned_cv_is_rejected_without_destroying_untuned_result() -> None:
     assert result.successes[0].mode == "untuned"
     assert len(result.failures) == 1
     assert result.failures[0].mode == "tuned"
+    assert result.failures[0].error is not None
     assert "nested CV" in result.failures[0].error
 
 
 def test_regression_benchmark_includes_dummy_regressor_baseline() -> None:
-    X, y = make_regression(n_samples=60, n_features=5, noise=1.0, random_state=4)
+    X, y = make_regression(  # pyrefly: ignore[bad-unpacking]
+        n_samples=60,
+        n_features=5,
+        noise=1.0,
+        random_state=4,
+    )
     dataset = DatasetBundle(X=X, y=y, sample_ids=[f"r{i}" for i in range(60)])
     result = BenchmarkEngine(MODEL_REGISTRY).run(
         datasets=dataset,
@@ -523,8 +539,10 @@ def test_mixed_tuned_and_untuned_holdout_use_same_protected_test() -> None:
 
     assert not result.failures
     assert {run.mode for run in result.successes} == {"baseline", "untuned", "tuned"}
+    assert dataset.sample_ids is not None
     expected_test = set(dataset.sample_ids[50:])
     for run in result.successes:
+        assert run.validation is not None
         fold = run.validation.folds[0]
         assert fold.evaluation_role == "test"
         assert set(fold.evaluation_ids) == expected_test
