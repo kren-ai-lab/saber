@@ -4,15 +4,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import pandas as pd
 
 from saber.core.prediction import PredictionResult
 from saber.datasets import FeatureSchema
 from saber.persistence.metadata import ArtifactManifest
 from saber.utils.tabular import to_numpy
+
+if TYPE_CHECKING:
+    import polars as pl
 
 
 @dataclass(slots=True)
@@ -116,12 +118,12 @@ class LoadedBenchmarkArtifact:
     manifest: ArtifactManifest
     metadata: dict[str, Any]
     environment: dict[str, Any]
-    tables: dict[str, pd.DataFrame] = field(default_factory=dict)
+    tables: dict[str, pl.DataFrame] = field(default_factory=dict)
     result: Any | None = None
     compatibility_warnings: tuple[str, ...] = ()
 
-    def table(self, name: str) -> pd.DataFrame:
+    def table(self, name: str) -> pl.DataFrame:
         try:
-            return self.tables[name].copy()
+            return self.tables[name].clone()
         except KeyError as exc:
             raise KeyError(f"Benchmark artifact does not contain table '{name}'.") from exc

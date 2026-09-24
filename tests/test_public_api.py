@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import subprocess
+import sys
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -164,3 +167,18 @@ def test_public_api_regression_end_to_end():
     evaluation = saber.evaluate(dataset=dataset, model=result, metrics=("rmse", "mae"))
     assert evaluation.metrics["rmse"] >= 0.0
     assert evaluation.metrics["mae"] >= 0.0
+
+
+def test_saber_works_without_pandas():
+    # Blocks pandas the way an environment without it would; optional providers
+    # (xgboost/lightgbm) import it opportunistically and must tolerate its absence.
+    code = (
+        "import sys; sys.modules['pandas'] = None\n"
+        "import numpy as np, saber\n"
+        "from saber.datasets import DatasetBundle\n"
+        "DatasetBundle(X=np.ones((4, 2)), y=np.array([0, 1, 0, 1]))\n"
+        "print('ok')"
+    )
+    completed = subprocess.run([sys.executable, "-c", code], text=True, capture_output=True, check=False)
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.strip() == "ok"

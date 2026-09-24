@@ -126,10 +126,10 @@ def test_same_seed_benchmark_is_reproducible_for_random_forest():
     engine = BenchmarkEngine(MODEL_REGISTRY)
     a = engine.run(**kwargs)
     b = engine.run(**kwargs)
-    assert a.aggregate_metrics_frame()["score"].tolist() == pytest.approx(
-        b.aggregate_metrics_frame()["score"].tolist()
+    assert a.aggregate_metrics_frame()["score"].to_list() == pytest.approx(
+        b.aggregate_metrics_frame()["score"].to_list()
     )
-    assert a.predictions_frame()["y_pred"].tolist() == b.predictions_frame()["y_pred"].tolist()
+    assert a.predictions_frame()["y_pred"].to_list() == b.predictions_frame()["y_pred"].to_list()
 
 
 def test_benchmark_long_form_rows_link_back_to_run_ids():

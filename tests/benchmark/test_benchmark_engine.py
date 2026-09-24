@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
+
 import numpy as np
-import pandas as pd
+import polars as pl
 import pytest
+from polars.testing import assert_frame_equal
 from sklearn.datasets import make_classification, make_regression
 
 from saber import MODEL_REGISTRY
@@ -121,18 +124,126 @@ EXPECTED_RUNS_COLUMNS = [
 ]
 EXPECTED_FAILURES_COLUMNS: list[str] = []
 EXPECTED_SAMPLE_ORDER = [
-    "s0", "s3", "s6", "s9", "s12", "s15", "s18", "s21", "s24", "s27",
-    "s30", "s33", "s36", "s39", "s42", "s45", "s48", "s51", "s54", "s57",
-    "s1", "s4", "s7", "s10", "s13", "s16", "s19", "s22", "s25", "s28",
-    "s31", "s34", "s37", "s40", "s43", "s46", "s49", "s52", "s55", "s58",
-    "s2", "s5", "s8", "s11", "s14", "s17", "s20", "s23", "s26", "s29",
-    "s32", "s35", "s38", "s41", "s44", "s47", "s50", "s53", "s56", "s59",
-    "s0", "s3", "s6", "s9", "s12", "s15", "s18", "s21", "s24", "s27",
-    "s30", "s33", "s36", "s39", "s42", "s45", "s48", "s51", "s54", "s57",
-    "s1", "s4", "s7", "s10", "s13", "s16", "s19", "s22", "s25", "s28",
-    "s31", "s34", "s37", "s40", "s43", "s46", "s49", "s52", "s55", "s58",
-    "s2", "s5", "s8", "s11", "s14", "s17", "s20", "s23", "s26", "s29",
-    "s32", "s35", "s38", "s41", "s44", "s47", "s50", "s53", "s56", "s59",
+    "s0",
+    "s3",
+    "s6",
+    "s9",
+    "s12",
+    "s15",
+    "s18",
+    "s21",
+    "s24",
+    "s27",
+    "s30",
+    "s33",
+    "s36",
+    "s39",
+    "s42",
+    "s45",
+    "s48",
+    "s51",
+    "s54",
+    "s57",
+    "s1",
+    "s4",
+    "s7",
+    "s10",
+    "s13",
+    "s16",
+    "s19",
+    "s22",
+    "s25",
+    "s28",
+    "s31",
+    "s34",
+    "s37",
+    "s40",
+    "s43",
+    "s46",
+    "s49",
+    "s52",
+    "s55",
+    "s58",
+    "s2",
+    "s5",
+    "s8",
+    "s11",
+    "s14",
+    "s17",
+    "s20",
+    "s23",
+    "s26",
+    "s29",
+    "s32",
+    "s35",
+    "s38",
+    "s41",
+    "s44",
+    "s47",
+    "s50",
+    "s53",
+    "s56",
+    "s59",
+    "s0",
+    "s3",
+    "s6",
+    "s9",
+    "s12",
+    "s15",
+    "s18",
+    "s21",
+    "s24",
+    "s27",
+    "s30",
+    "s33",
+    "s36",
+    "s39",
+    "s42",
+    "s45",
+    "s48",
+    "s51",
+    "s54",
+    "s57",
+    "s1",
+    "s4",
+    "s7",
+    "s10",
+    "s13",
+    "s16",
+    "s19",
+    "s22",
+    "s25",
+    "s28",
+    "s31",
+    "s34",
+    "s37",
+    "s40",
+    "s43",
+    "s46",
+    "s49",
+    "s52",
+    "s55",
+    "s58",
+    "s2",
+    "s5",
+    "s8",
+    "s11",
+    "s14",
+    "s17",
+    "s20",
+    "s23",
+    "s26",
+    "s29",
+    "s32",
+    "s35",
+    "s38",
+    "s41",
+    "s44",
+    "s47",
+    "s50",
+    "s53",
+    "s56",
+    "s59",
 ]
 
 
@@ -143,6 +254,20 @@ def test_result_frames_keep_their_columns() -> None:
     assert list(result.runs_frame().columns) == EXPECTED_RUNS_COLUMNS
     assert list(result.failures_frame().columns) == EXPECTED_FAILURES_COLUMNS
     assert result.predictions_frame()["sample_id"].to_list() == EXPECTED_SAMPLE_ORDER
+
+
+def test_result_frames_are_polars() -> None:
+    result = _small_benchmark()
+    for name in (
+        "aggregate_metrics_frame",
+        "fold_metrics_frame",
+        "metrics_frame",
+        "predictions_frame",
+        "optimization_history_frame",
+        "failures_frame",
+        "runs_frame",
+    ):
+        assert isinstance(getattr(result, name)(), pl.DataFrame), name
 
 
 def test_benchmark_runs_algorithm_matrix_with_baseline_and_repeated_seeds() -> None:
@@ -285,9 +410,9 @@ def test_seeded_benchmark_is_score_reproducible() -> None:
     engine = BenchmarkEngine(MODEL_REGISTRY)
     first = engine.run(**kwargs)
     second = engine.run(**kwargs)
-    pd.testing.assert_frame_equal(
-        first.aggregate_metrics_frame().drop(columns="elapsed_seconds"),
-        second.aggregate_metrics_frame().drop(columns="elapsed_seconds"),
+    assert_frame_equal(
+        first.aggregate_metrics_frame().drop("elapsed_seconds"),
+        second.aggregate_metrics_frame().drop("elapsed_seconds"),
     )
     np.testing.assert_array_equal(
         first.successes[0].oof_prediction.predictions,
@@ -399,7 +524,7 @@ def test_run_and_failure_tables_are_exportable() -> None:
     assert len(runs) == 2
     assert set(runs["status"]) == {"complete", "failed"}
     assert len(failures) == 1
-    assert failures.iloc[0]["algorithm"] == "bad_model"
+    assert failures.row(0, named=True)["algorithm"] == "bad_model"
 
 
 def test_partition_from_unrelated_dataset_fingerprint_is_rejected() -> None:
@@ -428,7 +553,7 @@ def test_metric_rows_link_to_configuration_and_prediction_rows_by_run_id() -> No
     predictions = result.predictions_frame()
     assert set(metrics["run_id"]) == set(predictions["run_id"])
     assert set(metrics["configuration_id"]) == set(predictions["configuration_id"])
-    assert metrics.iloc[0]["parameters"]["C"] == 0.5
+    assert json.loads(metrics.row(0, named=True)["parameters"])["C"] == 0.5
 
 
 def test_tuned_benchmark_exports_annotated_optimization_history() -> None:

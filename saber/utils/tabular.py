@@ -57,11 +57,9 @@ def as_frame(X: Any) -> Any:
     try:
         return pl.from_pandas(X)
     except ImportError as exc:
-        import pandas as pd  # noqa: PLC0415 - only imported once X is confirmed to already be pandas
-
-        extension_columns = [
-            str(column) for column in X.columns if pd.api.types.is_extension_array_dtype(X[column].dtype)
-        ]
+        # A pandas extension dtype (e.g. "Int64", "boolean", "category") is not a
+        # plain numpy dtype; duck-typing this way needs no pandas import here.
+        extension_columns = [str(column) for column in X.columns if not isinstance(X[column].dtype, np.dtype)]
         if extension_columns:
             raise DatasetValidationError(
                 "pandas extension dtypes (e.g. 'Int64') need pyarrow to convert; "

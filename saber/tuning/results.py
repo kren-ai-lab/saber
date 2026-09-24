@@ -7,13 +7,17 @@ Result objects returned by optimization methods.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from saber.core.metrics import get_metric_spec
 from saber.core.specs import AlgorithmSpec
 from saber.exceptions import NonFiniteScoreError
+from saber.utils.tabular import records_frame
+
+if TYPE_CHECKING:
+    import polars as pl
 
 
 @dataclass(slots=True)
@@ -99,10 +103,8 @@ class OptimizationResult:
         """Return a shallow copy of optimization history."""
         return list(self.history)
 
-    def history_frame(self):
-        """Return optimization history as a flat pandas DataFrame."""
-        import pandas as pd
-
+    def history_frame(self) -> pl.DataFrame:
+        """Return optimization history as a flat Polars DataFrame."""
         rows: list[dict[str, Any]] = []
         for entry in self.history:
             row: dict[str, Any] = {
@@ -117,7 +119,7 @@ class OptimizationResult:
                 else:
                     row[f"metric__{metric}"] = payload
             rows.append(row)
-        return pd.DataFrame(rows)
+        return records_frame(rows)
 
     def to_dict(self) -> dict[str, Any]:
         """Export result as dictionary."""

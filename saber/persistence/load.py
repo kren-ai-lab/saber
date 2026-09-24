@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import joblib
-import pandas as pd
-from pandas.errors import EmptyDataError
 
 from saber.datasets import FeatureSchema
 from saber.exceptions import ArtifactIntegrityError
@@ -15,6 +14,10 @@ from saber.persistence.checksums import verify_checksums
 from saber.persistence.environment import compatibility_warnings
 from saber.persistence.metadata import ArtifactManifest
 from saber.utils.serialization import read_json
+from saber.utils.tabular import read_table
+
+if TYPE_CHECKING:
+    import polars as pl
 
 
 def inspect_artifact(
@@ -92,18 +95,12 @@ def load_benchmark_artifact(
     warnings = compatibility_warnings(environment, strict=strict_environment)
     metadata = read_json(root / manifest.files["benchmark_metadata"])
 
-    tables: dict[str, pd.DataFrame] = {}
+    tables: dict[str, pl.DataFrame] = {}
     for name in ("runs", "metrics", "predictions", "failures", "optimization_history"):
         relative = manifest.files.get(name)
         if relative is not None:
             target = root / relative
-            if not target.stat().st_size:
-                tables[name] = pd.DataFrame()
-            else:
-                try:
-                    tables[name] = pd.read_csv(target)
-                except EmptyDataError:
-                    tables[name] = pd.DataFrame()
+            tables[name] = read_table(target, separator=",")
 
     result = None
     object_file = manifest.files.get("benchmark_object")

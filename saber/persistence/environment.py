@@ -12,7 +12,7 @@ from saber.exceptions import ArtifactCompatibilityError
 _TRACKED_PACKAGES = (
     "saberlib",
     "numpy",
-    "pandas",
+    "polars",
     "scipy",
     "scikit-learn",
     "joblib",

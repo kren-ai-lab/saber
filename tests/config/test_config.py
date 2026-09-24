@@ -207,8 +207,8 @@ def test_benchmark_yaml_runs_same_public_engine(tmp_path):
     )
     assert execution.result.n_runs == direct.n_runs == 1
     assert (
-        execution.result.aggregate_metrics_frame()["score"].tolist()
-        == direct.aggregate_metrics_frame()["score"].tolist()
+        execution.result.aggregate_metrics_frame()["score"].to_list()
+        == direct.aggregate_metrics_frame()["score"].to_list()
     )
 
 
