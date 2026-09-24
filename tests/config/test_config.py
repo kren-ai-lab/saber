@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import warnings
 
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 import yaml
 from sklearn.datasets import make_classification, make_regression
@@ -383,3 +385,28 @@ def test_benchmark_config_requires_partitions_or_biosieve():
                 "benchmark": {"metrics": ["rmse"]},
             }
         )
+
+
+def test_all_empty_feature_column_is_typed_float64_and_workflow_runs(tmp_path):
+    rows = ["sample_id,f0,f1,label"]
+    rows += [f"s{i},{float(i)},,{i % 2}" for i in range(20)]
+    data_path = tmp_path / "data.csv"
+    data_path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+    frame = read_table(data_path, separator=",")
+    assert frame["f1"].dtype == pl.Float64
+    assert frame["f1"].null_count() == frame.height
+
+    with warnings.catch_warnings():
+        # SimpleImputer warns that the all-null column has no observed values
+        # to impute from, regardless of strategy; the workflow still runs.
+        warnings.simplefilter("ignore")
+        execution = run_config(
+            {
+                "workflow": "train",
+                "dataset": {"path": str(data_path), "target": "label", "sample_id": "sample_id"},
+                "algorithm": "logistic_regression",
+                "preprocessing": {"imputation": "constant", "fill_value": 0.0},
+            }
+        )
+    assert execution.result.model is not None

@@ -94,3 +94,12 @@ def test_read_table_uses_pandas_missing_tokens(tmp_path):
     empty = tmp_path / "e.csv"
     empty.write_text("", encoding="utf-8")
     assert read_table(empty, separator=",").is_empty()
+
+
+def test_read_table_casts_all_empty_column_to_float64(tmp_path):
+    path = tmp_path / "empty_col.csv"
+    path.write_text("a,b\n1.0,\n2.0,\n", encoding="utf-8")
+    frame = read_table(path, separator=",")
+    assert frame["b"].dtype == pl.Float64
+    assert frame["b"].null_count() == frame.height
+    assert frame["a"].dtype == pl.Float64

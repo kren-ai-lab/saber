@@ -14,8 +14,7 @@ from saber.datasets import DatasetBundle, PartitionPlan
 from saber.datasets.biosieve import BioSievePartitionConfig
 from saber.evaluation import evaluate_prediction
 from saber.exceptions import DatasetValidationError, ValidationContractError
-from saber.preprocessing import PreprocessingConfig, build_model_pipeline
-from saber.utils.tabular import to_numpy
+from saber.preprocessing import PreprocessingConfig, build_model_pipeline, pipeline_input
 from saber.validation.partitioning import (
     EvaluationRole,
     resolve_evaluation_dataset,
@@ -107,7 +106,7 @@ class ValidationEngine:
                 )
 
             start = perf_counter()
-            pipeline.fit(to_numpy(resolved.train.X), resolved.train.y, **fit_kwargs)
+            pipeline.fit(pipeline_input(pipeline, resolved.train.X), resolved.train.y, **fit_kwargs)
             fit_seconds = perf_counter() - start
 
             prediction = _prediction_from_pipeline(
@@ -186,7 +185,7 @@ def _prediction_from_pipeline(
     algorithm: str,
     provider: str,
 ) -> PredictionResult:
-    X = to_numpy(X)
+    X = pipeline_input(pipeline, X)
     predictions = np.asarray(pipeline.predict(X))
 
     probabilities = None

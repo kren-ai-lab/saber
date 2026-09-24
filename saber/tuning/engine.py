@@ -19,10 +19,9 @@ from saber.exceptions import (
     OptimizationError,
     ValidationContractError,
 )
-from saber.preprocessing import PreprocessingConfig, build_model_pipeline
+from saber.preprocessing import PreprocessingConfig, build_model_pipeline, pipeline_input
 from saber.tuning.results import OptimizationResult
 from saber.tuning.scorers import get_scorer
-from saber.utils.tabular import to_numpy
 from saber.validation.partitioning import (
     EvaluationRole,
     build_explicit_cv,
@@ -292,7 +291,7 @@ class TuningEngine:
             raise ValidationContractError(f"Unknown tuning optimizer '{optimizer}'.")
 
         try:
-            search.fit(to_numpy(dataset.X), dataset.y, **fit_params)
+            search.fit(pipeline_input(pipeline, dataset.X), dataset.y, **fit_params)
         except ValueError as exc:
             message = str(exc)
             if "fits failed" in message and "All the" in message:
@@ -419,7 +418,7 @@ class TuningEngine:
             try:
                 scores = cross_validate(
                     candidate,
-                    to_numpy(dataset.X),
+                    pipeline_input(pipeline, dataset.X),
                     dataset.y,
                     scoring=scorers[refit_metric],
                     cv=cv,
@@ -492,7 +491,7 @@ class TuningEngine:
         best_model = None
         if config.refit:
             best_model = selected
-            best_model.fit(to_numpy(dataset.X), dataset.y, **fit_params)
+            best_model.fit(pipeline_input(best_model, dataset.X), dataset.y, **fit_params)
 
         history: list[dict[str, Any]] = []
         for trial in study.trials:
@@ -660,7 +659,7 @@ def _evaluate_selected_metrics(
     selected = pipeline.set_params(**dict(params))
     scores = cross_validate(
         selected,
-        to_numpy(dataset.X),
+        pipeline_input(selected, dataset.X),
         dataset.y,
         scoring=dict(scorers),
         cv=cv,

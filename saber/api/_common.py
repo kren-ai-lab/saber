@@ -14,8 +14,8 @@ from saber.core.results import TrainResult
 from saber.datasets import DatasetBundle
 from saber.datasets.validation import validate_feature_matrix
 from saber.exceptions import FeatureSchemaMismatchError, ValidationContractError
-from saber.preprocessing import PreprocessingConfig, build_model_pipeline
-from saber.utils.tabular import as_frame, to_numpy
+from saber.preprocessing import PreprocessingConfig, build_model_pipeline, pipeline_input
+from saber.utils.tabular import as_frame
 
 if TYPE_CHECKING:
     from saber.datasets import FeatureSchema
@@ -51,7 +51,7 @@ def fit_dataset(
             raise ValidationContractError(f"Algorithm '{spec.name}' does not support sample weights.")
         fit_kwargs["estimator__sample_weight"] = np.asarray(dataset.sample_weight)
 
-    pipeline.fit(to_numpy(dataset.X), dataset.y, **fit_kwargs)
+    pipeline.fit(pipeline_input(pipeline, dataset.X), dataset.y, **fit_kwargs)
 
     estimator_params = {}
     fitted_estimator = pipeline.named_steps.get("estimator")
@@ -123,7 +123,7 @@ def prediction_from_model(
         raise ValidationContractError("TrainResult does not contain a fitted model.")
 
     _validate_feature_schema(result.feature_schema, X, feature_names=feature_names)
-    X = to_numpy(X)
+    X = pipeline_input(model, X)
     predictions = np.asarray(model.predict(X))
     probabilities = None
     if (

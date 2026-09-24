@@ -11,7 +11,7 @@ import numpy as np
 from saber.core.prediction import PredictionResult
 from saber.datasets import FeatureSchema
 from saber.persistence.metadata import ArtifactManifest
-from saber.utils.tabular import to_numpy
+from saber.preprocessing import pipeline_input
 
 if TYPE_CHECKING:
     import polars as pl
@@ -61,7 +61,7 @@ class LoadedModelArtifact:
         feature_names: tuple[str, ...] | list[str] | None = None,
     ) -> np.ndarray:
         self.validate_features(X, feature_names=feature_names)
-        return np.asarray(self.model.predict(to_numpy(X)))
+        return np.asarray(self.model.predict(pipeline_input(self.model, X)))
 
     def predict_result(
         self,
@@ -72,7 +72,7 @@ class LoadedModelArtifact:
         positive_class: Any | None = None,
     ) -> PredictionResult:
         self.validate_features(X, feature_names=feature_names)
-        X = to_numpy(X)
+        X = pipeline_input(self.model, X)
         predictions = np.asarray(self.model.predict(X))
 
         probabilities = None

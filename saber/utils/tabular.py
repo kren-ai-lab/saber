@@ -120,6 +120,15 @@ def records_frame(rows: list[dict[str, Any]]) -> pl.DataFrame:
 def read_table(path: Path, *, separator: str) -> pl.DataFrame:
     """Read a CSV/TSV table; an empty file yields an empty frame."""
     try:
-        return pl.read_csv(path, separator=separator, infer_schema_length=None, null_values=PANDAS_NA_VALUES)
+        frame = pl.read_csv(path, separator=separator, infer_schema_length=None, null_values=PANDAS_NA_VALUES)
     except pl.exceptions.NoDataError:
         return pl.DataFrame()
+    height = frame.height
+    all_null_columns = [
+        name
+        for name, dtype in frame.schema.items()
+        if height > 0 and dtype in (pl.String, pl.Null) and frame[name].null_count() == height
+    ]
+    if not all_null_columns:
+        return frame
+    return frame.with_columns(pl.col(name).cast(pl.Float64) for name in all_null_columns)
