@@ -302,6 +302,10 @@ def test_failed_algorithm_does_not_invalidate_successful_runs() -> None:
     assert result.failures[0].algorithm == "not_a_model"
     assert result.failures[0].error is not None
     assert "AlgorithmNotFoundError" in result.failures[0].error
+    assert (
+        result.failures_frame()["error"][0]
+        == "AlgorithmNotFoundError: Algorithm 'not_a_model' was not found in the registry."
+    )
 
 
 def test_fail_fast_raises_after_recordable_run_failure() -> None:

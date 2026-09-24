@@ -126,7 +126,7 @@ class AlgorithmRegistry:
             canonical_name = self._aliases[name]
             return self._algorithms[canonical_name]
 
-        raise AlgorithmNotFoundError(f"Algorithm '{name}' not found.")
+        raise AlgorithmNotFoundError(name)
 
     def exists(
         self,

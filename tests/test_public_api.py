@@ -72,6 +72,20 @@ def test_train_predict_and_evaluate_share_prediction_contract():
     assert evaluation.prediction is not None
 
 
+def test_predict_keeps_native_dtype_for_integer_sample_ids():
+    dataset = _classification_dataset()
+    result = saber.train(
+        dataset=dataset,
+        algorithm="logistic_regression",
+        preprocessing=PreprocessingConfig(scaler="standard"),
+        random_state=42,
+    )
+    prediction = saber.predict(result, X=dataset.X, sample_ids=list(range(dataset.n_samples)))
+
+    assert prediction.sample_ids is not None
+    assert prediction.sample_ids.dtype.kind == "i"
+
+
 def test_public_validate_matches_engine_contract():
     dataset = _classification_dataset()
     plan = _cv_plan(dataset)

@@ -152,7 +152,7 @@ def prediction_from_model(
         decision_scores=decision_scores,
         classes=classes,
         positive_class=positive_class,
-        sample_ids=None if sample_ids is None else np.asarray(sample_ids, dtype=object),
+        sample_ids=None if sample_ids is None else np.asarray(sample_ids),
         metadata={
             "algorithm": result.spec.name,
             "provider": result.spec.provider,
