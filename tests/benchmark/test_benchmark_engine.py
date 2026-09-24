@@ -50,6 +50,101 @@ def _safe_holdout(dataset: DatasetBundle) -> PartitionPlan:
     )
 
 
+def _small_benchmark():
+    """1 representation x 1 partition scenario x 2 sklearn models, no failures."""
+    dataset = _classification_dataset()
+    return BenchmarkEngine(MODEL_REGISTRY).run(
+        datasets={"roxy": dataset},
+        algorithms=("logistic_regression", "decision_tree"),
+        config=BenchmarkConfig(metrics=("accuracy",), include_baselines=False),
+        partitions=_cv_plan(dataset),
+    )
+
+
+EXPECTED_METRICS_COLUMNS = [
+    "run_id",
+    "dataset",
+    "representation",
+    "partition",
+    "algorithm",
+    "provider",
+    "task",
+    "mode",
+    "seed",
+    "configuration_id",
+    "parameters",
+    "level",
+    "split",
+    "evaluation_role",
+    "metric",
+    "score",
+    "elapsed_seconds",
+    "fit_seconds",
+]
+EXPECTED_PREDICTIONS_COLUMNS = [
+    "run_id",
+    "dataset",
+    "representation",
+    "partition",
+    "algorithm",
+    "provider",
+    "task",
+    "mode",
+    "seed",
+    "configuration_id",
+    "parameters",
+    "split",
+    "evaluation_role",
+    "sample_id",
+    "y_true",
+    "y_pred",
+    "probability__0",
+    "probability__1",
+    "decision_score",
+]
+EXPECTED_RUNS_COLUMNS = [
+    "run_id",
+    "dataset",
+    "representation",
+    "partition",
+    "algorithm",
+    "provider",
+    "task",
+    "mode",
+    "seed",
+    "configuration_id",
+    "parameters",
+    "status",
+    "error",
+    "elapsed_seconds",
+    "metric__accuracy",
+]
+EXPECTED_FAILURES_COLUMNS: list[str] = []
+EXPECTED_SAMPLE_ORDER = [
+    "s0", "s3", "s6", "s9", "s12", "s15", "s18", "s21", "s24", "s27",
+    "s30", "s33", "s36", "s39", "s42", "s45", "s48", "s51", "s54", "s57",
+    "s1", "s4", "s7", "s10", "s13", "s16", "s19", "s22", "s25", "s28",
+    "s31", "s34", "s37", "s40", "s43", "s46", "s49", "s52", "s55", "s58",
+    "s2", "s5", "s8", "s11", "s14", "s17", "s20", "s23", "s26", "s29",
+    "s32", "s35", "s38", "s41", "s44", "s47", "s50", "s53", "s56", "s59",
+    "s0", "s3", "s6", "s9", "s12", "s15", "s18", "s21", "s24", "s27",
+    "s30", "s33", "s36", "s39", "s42", "s45", "s48", "s51", "s54", "s57",
+    "s1", "s4", "s7", "s10", "s13", "s16", "s19", "s22", "s25", "s28",
+    "s31", "s34", "s37", "s40", "s43", "s46", "s49", "s52", "s55", "s58",
+    "s2", "s5", "s8", "s11", "s14", "s17", "s20", "s23", "s26", "s29",
+    "s32", "s35", "s38", "s41", "s44", "s47", "s50", "s53", "s56", "s59",
+]
+
+
+def test_result_frames_keep_their_columns() -> None:
+    result = _small_benchmark()
+    assert list(result.metrics_frame().columns) == EXPECTED_METRICS_COLUMNS
+    assert list(result.predictions_frame().columns) == EXPECTED_PREDICTIONS_COLUMNS
+    assert list(result.runs_frame().columns) == EXPECTED_RUNS_COLUMNS
+    assert list(result.failures_frame().columns) == EXPECTED_FAILURES_COLUMNS
+    assert result.predictions_frame()["sample_id"].to_list() == EXPECTED_SAMPLE_ORDER
+
+
 def test_benchmark_runs_algorithm_matrix_with_baseline_and_repeated_seeds() -> None:
     dataset = _classification_dataset()
     result = BenchmarkEngine(MODEL_REGISTRY).run(
