@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`Saber` is a domain-agnostic library for **classical supervised machine learning** on numerical tabular feature matrices. It provides a common execution layer for model discovery, training, validation, hyperparameter optimization, benchmarking, persistence, and reproducible inference.
+Saber is a domain-agnostic library for **classical supervised machine learning** on numerical tabular feature matrices. It provides a common execution layer for model discovery, training, validation, hyperparameter optimization, benchmarking, persistence, and reproducible inference.
 
 The library consumes already constructed features. It does not know whether those features came from protein embeddings, molecular descriptors, fingerprints, one-hot encodings, experimental measurements, PCA coordinates, or another upstream representation system.
 
@@ -30,7 +30,7 @@ regression
 
 ## Input contract
 
-The core accepts numerical tabular feature matrices represented by NumPy arrays or pandas DataFrames. `DatasetBundle` formalizes sample identifiers, feature names, groups, sample weights, and metadata, while `PartitionPlan` preserves explicit holdout/fold membership by sample identity.
+The core accepts numerical tabular feature matrices represented by NumPy arrays, Polars DataFrames, or pandas DataFrames (converted to Polars once, at the boundary). `DatasetBundle` formalizes sample identifiers, feature names, groups, sample weights, and metadata, while `PartitionPlan` preserves explicit holdout/fold membership by sample identity.
 
 Upstream libraries remain responsible for representation generation and domain-specific preprocessing.
 
@@ -75,12 +75,13 @@ The mandatory installation remains intentionally small:
 
 ```text
 numpy
-pandas
+polars
 scipy
 scikit-learn
 joblib
 rich
 pyyaml
+typer
 ```
 
 Optional providers/features are installed explicitly:

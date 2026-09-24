@@ -67,8 +67,8 @@ Ordinary CV cannot simultaneously serve as both tuning data and unbiased final p
 
 `OptimizationResult` exposes best parameters/scores, failures, history, the fitted model when `refit=True`, partition provenance, and a long-form `history_frame()` suitable for convergence/candidate analysis.
 
-See the executable notebooks:
+See the executable examples:
 
-- [`examples/tuning/01_hyperparameter_optimization.ipynb`](../examples/tuning/01_hyperparameter_optimization.ipynb)
-- [`examples/tuning/02_optuna_optimization.ipynb`](../examples/tuning/02_optuna_optimization.ipynb)
-- [`examples/tuning/03_optimizer_comparison.ipynb`](../examples/tuning/03_optimizer_comparison.ipynb)
+- [`examples/05_hyperparameter_optimization.py`](../examples/05_hyperparameter_optimization.py)
+- [`examples/06_optuna_optimization.py`](../examples/06_optuna_optimization.py)
+- [`examples/07_optimizer_comparison.py`](../examples/07_optimizer_comparison.py)

@@ -1,6 +1,6 @@
 # Persistence and reproducibility
 
-`Saber` persists model artifacts as auditable directories with structured metadata and checksums.
+Saber persists model artifacts as auditable directories with structured metadata and checksums.
 
 ## Model artifacts
 
@@ -50,4 +50,4 @@ Checksums establish **integrity**, not **trust**. `joblib` uses pickle semantics
 
 Benchmark persistence is table-first by default: runs, metrics, predictions, failures, and optimization history are written as analysis-ready files. The entire Python `BenchmarkResult` can optionally be stored, but doing so may create much larger artifacts.
 
-See [`examples/persistence/01_model_persistence.ipynb`](../examples/persistence/01_model_persistence.ipynb).
+See [`examples/12_model_persistence.py`](../examples/12_model_persistence.py).

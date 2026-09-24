@@ -64,4 +64,4 @@ Run the complete suite with `bash examples/run_ci_examples.sh`.
 4. [11_benchmark_reporting.py](11_benchmark_reporting.py)
 5. [13_data_centric_benchmark.py](13_data_centric_benchmark.py)
 
-For conceptual documentation, start at [`../docs/index.md`](../docs/index.md).
+For conceptual documentation, start at [`../docs/README.md`](../docs/README.md).

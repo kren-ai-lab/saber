@@ -1,17 +1,11 @@
-<div align="center">
-
 # Saber
 
-**Reproducible classical supervised machine learning, from prepared features to auditable benchmarks.**
+[![PyPI](https://img.shields.io/pypi/v/saberlib?style=flat-square)](https://pypi.org/project/saberlib/)
+[![PyVersions](https://img.shields.io/pypi/pyversions/saberlib?style=flat-square)](https://github.com/kren-ai-lab/saber)
+[![Tests](https://img.shields.io/github/actions/workflow/status/kren-ai-lab/saber/tests.yml?style=flat-square)](https://github.com/kren-ai-lab/saber/actions/workflows/tests.yml)
+![License](https://img.shields.io/github/license/kren-ai-lab/saber?style=flat-square)
 
-![Python](https://img.shields.io/badge/Python-3.11--3.13-blue)
-![Status](https://img.shields.io/badge/status-alpha-orange)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Tasks](https://img.shields.io/badge/tasks-classification%20%7C%20regression-5b5bd6)
-
-`Saber` is a domain-agnostic framework for **classical supervised machine learning** on numerical tabular representations. It unifies model discovery, leakage-safe validation, BioSieve partitioning, hyperparameter optimization, benchmarking, persistence, configuration, and a polished CLI behind one scientific execution model.
-
-</div>
+Saber is a domain-agnostic framework for **classical supervised machine learning** on numerical tabular representations. It unifies model discovery, leakage-safe validation, BioSieve partitioning, hyperparameter optimization, benchmarking, persistence, configuration, and a polished CLI behind one scientific execution model.
 
 ---
 
@@ -19,7 +13,7 @@
 
 A machine-learning result is more than `model.fit(X, y)`. Scientific workflows also need stable sample identity, explicit partitions, preprocessing that cannot leak across folds, comparable tuning and validation semantics, traceable benchmark runs, and artifacts that can be inspected and reused later.
 
-`Saber` is built around those requirements.
+Saber is built around those requirements.
 
 | Principle | What it means in practice |
 |---|---|
@@ -37,7 +31,7 @@ A machine-learning result is more than `model.fit(X, y)`. Scientific workflows a
 - binary classification;
 - multiclass classification;
 - single-target regression;
-- NumPy arrays and pandas DataFrames;
+- NumPy arrays, Polars DataFrames, and pandas DataFrames;
 - scikit-learn estimators plus optional XGBoost and LightGBM providers;
 - explicit holdout/CV memberships and BioSieve-generated partitions;
 - leakage-safe numerical preprocessing;
@@ -55,23 +49,25 @@ Deep learning, representation learning, sequence/molecule-specific feature gener
 
 ## Installation
 
-Core installation from a checkout:
+Saber supports Python 3.11 to 3.14. Install the `saberlib` distribution:
 
 ```bash
-pip install -e .
+pip install saberlib
+# or
+uv add saberlib
 ```
 
 Optional capabilities are explicit:
 
 ```bash
-pip install -e '.[biosieve]'   # partition generation
-pip install -e '.[optuna]'     # Optuna tuning
-pip install -e '.[xgboost]'    # XGBoost provider
-pip install -e '.[lightgbm]'   # LightGBM provider
-pip install -e '.[all]'        # all optional runtime integrations
+pip install "saberlib[biosieve]"   # partition generation
+pip install "saberlib[optuna]"     # Optuna tuning
+pip install "saberlib[xgboost]"    # XGBoost provider
+pip install "saberlib[lightgbm]"   # LightGBM provider
+pip install "saberlib[all]"        # all optional runtime integrations
 ```
 
-For development and executable notebooks:
+For development and executable notebooks, see [DEVELOPMENT.md](DEVELOPMENT.md):
 
 ```bash
 uv sync --all-extras
@@ -128,6 +124,18 @@ assert result.oof_prediction is not None
 assert result.metadata["oof_complete"] is True
 ```
 
+`X` can also be a Polars DataFrame, which is the tabular type Saber uses internally:
+
+```python
+import polars as pl
+
+features = pl.DataFrame({f"f{i}": X[:, i] for i in range(X.shape[1])})
+dataset = DatasetBundle(X=features, y=y, sample_ids=sample_ids)
+```
+
+Use `pl.read_csv(...)` to load a features file. pandas DataFrames are accepted too and are
+converted to Polars once, at the boundary; pandas itself is not a runtime dependency.
+
 If the dataset is **not partitioned**, delegate split generation to BioSieve:
 
 ```python
@@ -147,7 +155,7 @@ result = saber.validate(
 )
 ```
 
-> `Saber` never substitutes its own splitter when BioSieve is requested. Redundancy reduction is also **not** performed by `saber`; if needed, it belongs upstream before `DatasetBundle` creation.
+> Saber never substitutes its own splitter when BioSieve is requested. Redundancy reduction is also **not** performed by `saber`; if needed, it belongs upstream before `DatasetBundle` creation.
 
 ---
 
@@ -331,7 +339,7 @@ Start at [`examples/README.md`](examples/README.md).
 
 | Document | Use it for |
 |---|---|
-| [Documentation index](docs/index.md) | complete map of the documentation |
+| [Documentation index](docs/README.md) | complete map of the documentation |
 | [Getting started](docs/getting_started.md) | first Python/API workflow |
 | [Scope](docs/scope.md) | supported and intentionally unsupported problems |
 | [Architecture](docs/architecture.md) | subsystem boundaries and invariants |
@@ -349,7 +357,7 @@ Start at [`examples/README.md`](examples/README.md).
 
 ## Scientific guarantees and non-guarantees
 
-`Saber` helps enforce **workflow correctness**, not scientific validity by fiat. It can prevent overlap inside declared partitions, keep preprocessing inside folds, preserve sample identity, protect a final test in supported workflows, and retain provenance. It cannot decide whether a representation is biologically appropriate, whether a partition strategy answers the right scientific question, or whether the supplied data contain upstream leakage.
+Saber helps enforce **workflow correctness**, not scientific validity by fiat. It can prevent overlap inside declared partitions, keep preprocessing inside folds, preserve sample identity, protect a final test in supported workflows, and retain provenance. It cannot decide whether a representation is biologically appropriate, whether a partition strategy answers the right scientific question, or whether the supplied data contain upstream leakage.
 
 Use the partitioning strategy, metrics, and experimental design that match the scientific claim you want to make.
 
@@ -357,6 +365,14 @@ Use the partitioning strategy, metrics, and experimental design that match the s
 
 ## Project status
 
-`Saber` is currently **Alpha**. The scientific architecture, public workflows, advanced executable demos, and CLI are already extensively tested; packaging/distribution hardening remains separate from the scientific core.
+Saber is currently **Alpha**. The scientific architecture, public workflows, advanced executable demos, and CLI are already extensively tested; packaging/distribution hardening remains separate from the scientific core.
 
 Repository: <https://github.com/kren-ai-lab/saber>
+
+---
+
+## Citing and license
+
+If you use Saber in published work, please cite it using
+[`CITATION.cff`](https://github.com/kren-ai-lab/saber/blob/main/CITATION.cff), or the "Cite this repository" button on
+GitHub. Saber is released under the [MIT license](https://github.com/kren-ai-lab/saber/blob/main/LICENSE).

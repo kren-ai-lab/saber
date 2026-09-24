@@ -4,7 +4,7 @@ This guide uses an explicit fold assignment so it runs with the core installatio
 
 ## 1. Prepare numerical features
 
-`Saber` expects a two-dimensional numerical matrix and one supervised target.
+Saber expects a two-dimensional numerical matrix and one supervised target.
 
 ```python
 import numpy as np
