@@ -12,7 +12,7 @@ from sklearn.datasets import make_classification
 from saber.cli.main import EXIT_CONFIG, EXIT_OK, _doctor_payload, main
 from saber.datasets import DatasetBundle, PartitionPlan
 
-ROOT = Path(__file__).parents[1]
+ROOT = Path(__file__).parents[2]
 
 
 def _validate_config(tmp_path: Path) -> Path:

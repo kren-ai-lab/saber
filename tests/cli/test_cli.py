@@ -70,7 +70,7 @@ def test_python_module_entry_point(tmp_path):
     completed = subprocess.run(
         [sys.executable, "-m", "saber", "--version"],
         cwd=str(tmp_path),
-        env={**__import__("os").environ, "PYTHONPATH": str(__import__("pathlib").Path(__file__).parents[1])},
+        env={**__import__("os").environ, "PYTHONPATH": str(__import__("pathlib").Path(__file__).parents[2])},
         capture_output=True,
         text=True,
         check=False,
