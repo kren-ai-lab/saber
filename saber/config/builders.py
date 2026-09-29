@@ -6,7 +6,6 @@ from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 from saber.benchmark import BenchmarkConfig
-from saber.config.schema import WorkflowConfig
 from saber.core import Categorical, Float, Integer, LogFloat, SearchSpace
 from saber.datasets import (
     BioSievePartitionConfig,
@@ -21,6 +20,8 @@ from saber.utils.tabular import read_table
 
 if TYPE_CHECKING:
     import polars as pl
+
+    from saber.config.schema import WorkflowConfig
 
 
 def load_dataset(
@@ -49,10 +50,7 @@ def load_dataset(
     if not path.exists():
         raise ConfigurationError(f"Dataset file does not exist: {path}.")
     suffix = path.suffix.lower()
-    separator = payload.get("sep")
-    if separator is None:
-        separator = "\t" if suffix == ".tsv" else ","
-    _validate_separator(separator)
+    separator = _dataset_separator(payload, suffix)
     if suffix not in {".csv", ".tsv", ".txt"}:
         raise ConfigurationError("CLI/YAML dataset files currently support CSV, TSV, or TXT.")
     frame = read_table(path, separator=separator)
@@ -103,10 +101,7 @@ def load_prediction_frame(
     if "path" not in payload:
         raise ConfigurationError("Prediction dataset config requires 'path'.")
     path = config.resolve_path(payload["path"])
-    suffix = path.suffix.lower()
-    separator = payload.get("sep") or ("\t" if suffix == ".tsv" else ",")
-    _validate_separator(separator)
-    frame = read_table(path, separator=separator)
+    frame = read_table(path, separator=_dataset_separator(payload, path.suffix.lower()))
     id_col = payload.get("sample_id")
     excluded = {
         name
@@ -127,6 +122,7 @@ def load_prediction_frame(
 
 
 def build_preprocessing(payload: Mapping[str, Any] | None) -> PreprocessingConfig:
+    """Build a PreprocessingConfig from a validated preprocessing payload."""
     if payload is None:
         return PreprocessingConfig()
     allowed = {"imputation", "scaler", "fill_value"}
@@ -144,6 +140,7 @@ def build_partition_inputs(
     partition: Mapping[str, Any] | None,
     partitioning: Mapping[str, Any] | None,
 ) -> tuple[PartitionPlan | None, BioSievePartitionConfig | None]:
+    """Build a partition plan and/or BioSieve partitioning config from validated payloads."""
     plan = None
     biosieve = None
     if partition is not None:
@@ -172,6 +169,7 @@ def build_partition_inputs(
 
 
 def build_tuning_config(payload: Mapping[str, Any]) -> TuningConfig:
+    """Build a TuningConfig from a validated tuning payload."""
     allowed = {
         "optimizer",
         "metrics",
@@ -199,6 +197,7 @@ def build_tuning_config(payload: Mapping[str, Any]) -> TuningConfig:
 
 
 def build_benchmark_config(payload: Mapping[str, Any]) -> BenchmarkConfig:
+    """Build a BenchmarkConfig from a validated benchmark payload."""
     allowed = {
         "metrics",
         "seeds",
@@ -226,6 +225,7 @@ def build_benchmark_config(payload: Mapping[str, Any]) -> BenchmarkConfig:
 
 
 def build_search_space(name: str, payload: Mapping[str, Any] | None) -> SearchSpace | None:
+    """Build a SearchSpace from a validated search-space payload, or None if absent."""
     if payload is None:
         return None
     parameters: dict[str, Any] = {}
@@ -252,9 +252,13 @@ def _build_domain(domain: Any) -> Any:
     raise ConfigurationError(f"Unknown search-space domain type '{kind}'.")
 
 
-def _validate_separator(separator: str) -> None:
+def _dataset_separator(payload: Mapping[str, Any], suffix: str) -> str:
+    separator = payload.get("sep")
+    if separator is None:
+        separator = "\t" if suffix == ".tsv" else ","
     if len(separator) != 1:
         raise ConfigurationError(f"dataset.sep must be a single character; received {separator!r}.")
+    return separator
 
 
 def _reject_unknown(payload: Mapping[str, Any], allowed: set[str], label: str) -> None:

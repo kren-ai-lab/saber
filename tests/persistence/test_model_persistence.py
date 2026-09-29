@@ -43,6 +43,7 @@ def _fitted_fixture():
         y=y,
         sample_ids=[f"sample_{i}" for i in range(len(y))],
     )
+    assert dataset.sample_ids is not None
     plan = PartitionPlan.holdout(
         train_ids=dataset.sample_ids[:40],
         validation_ids=dataset.sample_ids[40:50],
@@ -84,6 +85,7 @@ def test_model_artifact_round_trip_preserves_predictions_and_probabilities(tmp_p
     result = loaded.predict_result(dataset.X, sample_ids=dataset.sample_ids)
 
     np.testing.assert_array_equal(result.predictions, expected_prediction)
+    assert result.probabilities is not None
     np.testing.assert_allclose(result.probabilities, expected_probability)
     assert result.positive_class == 1
     assert loaded.provenance["positive_class"] == 1
@@ -165,6 +167,7 @@ def test_model_artifact_rejects_partition_from_another_dataset(tmp_path):
         sample_ids=dataset.sample_ids,
         feature_names=dataset.feature_names,
     )
+    assert foreign.sample_ids is not None
     foreign_plan = PartitionPlan.holdout(
         train_ids=foreign.sample_ids[:40],
         test_ids=foreign.sample_ids[40:],
@@ -213,7 +216,7 @@ print('PHASE7_SUBPROCESS_OK')
 """
     environment = os.environ.copy()
     environment["PYTHONPATH"] = str(Path(__file__).resolve().parents[2])
-    completed = subprocess.run(
+    completed = subprocess.run(  # noqa: S603  trusted, fixed argument list, no shell interpolation
         [sys.executable, "-c", code],
         check=True,
         capture_output=True,

@@ -82,9 +82,12 @@ dev = [
     "pyrefly>1.0",
     "taskipy>=1.14",
     "prek",
-    "matplotlib>=3.10.7",
     "pandas>=2.2.2",
     "pyarrow>=25.0.1",
+]
+examples = [
+    "marimo>=0.24",
+    "matplotlib>=3.8",
 ]
 
 [tool.hatch.version]

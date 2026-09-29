@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -10,12 +9,13 @@ import numpy as np
 from saber.core.prediction import PredictionResult
 from saber.core.registry import MODEL_REGISTRY, AlgorithmRegistry
 from saber.core.results import TrainResult
-from saber.datasets import DatasetBundle
 from saber.exceptions import ValidationContractError
 from saber.preprocessing import PreprocessingConfig, build_model_pipeline, pipeline_input
 
 if TYPE_CHECKING:
-    from saber.datasets import FeatureSchema
+    from collections.abc import Mapping, Sequence
+
+    from saber.datasets import DatasetBundle, FeatureSchema
 
 
 def fit_dataset(
@@ -44,7 +44,7 @@ def fit_dataset(
 
     fit_kwargs: dict[str, Any] = {}
     if dataset.sample_weight is not None:
-        if not spec.capabilities.sample_weight:
+        if not spec.resolved_capabilities.sample_weight:
             raise ValidationContractError(f"Algorithm '{spec.name}' does not support sample weights.")
         fit_kwargs["estimator__sample_weight"] = np.asarray(dataset.sample_weight)
 
@@ -111,7 +111,7 @@ def prediction_from_model(
     probabilities = None
     if (
         result.spec.task == "classification"
-        and result.spec.capabilities.predict_proba
+        and result.spec.resolved_capabilities.predict_proba
         and hasattr(model, "predict_proba")
     ):
         probabilities = np.asarray(model.predict_proba(X))
@@ -119,7 +119,7 @@ def prediction_from_model(
     decision_scores = None
     if (
         result.spec.task == "classification"
-        and result.spec.capabilities.decision_function
+        and result.spec.resolved_capabilities.decision_function
         and hasattr(model, "decision_function")
     ):
         decision_scores = np.asarray(model.decision_function(X))
@@ -135,7 +135,7 @@ def prediction_from_model(
         decision_scores=decision_scores,
         classes=classes,
         positive_class=positive_class,
-        sample_ids=None if sample_ids is None else tuple(sample_ids),
+        sample_ids=None if sample_ids is None else np.asarray(sample_ids),
         metadata={
             "algorithm": result.spec.name,
             "provider": result.spec.provider,

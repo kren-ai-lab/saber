@@ -273,6 +273,6 @@ def test_benchmark_preview_lists_nan_scores_last():
     )
     result = SimpleNamespace(n_runs=3, successes=(), failures=(), aggregate_metrics_frame=lambda: frame)
     console = Console(record=True, width=200)
-    _render_benchmark(console, result)
+    _render_benchmark(console, result)  # pyrefly: ignore[bad-argument-type] - duck-typed stand-in for BenchmarkResult
     text = console.export_text()
     assert text.index("high_model") < text.index("low_model") < text.index("nan_model")

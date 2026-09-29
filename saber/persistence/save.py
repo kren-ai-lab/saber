@@ -12,8 +12,6 @@ from typing import TYPE_CHECKING, Any
 
 import joblib
 
-from saber.benchmark.results import BenchmarkResult
-from saber.datasets import DatasetBundle, FeatureSchema, PartitionPlan
 from saber.exceptions import PersistenceError
 from saber.persistence.checksums import write_checksums
 from saber.persistence.environment import environment_snapshot
@@ -21,7 +19,12 @@ from saber.persistence.metadata import ArtifactManifest
 from saber.utils.serialization import write_json
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     import polars as pl
+
+    from saber.benchmark.results import BenchmarkResult
+    from saber.datasets import DatasetBundle, FeatureSchema, PartitionPlan
 
 
 def save_model_artifact(
@@ -201,7 +204,7 @@ def _write_frame(frame: pl.DataFrame, path: Path) -> None:
 
 
 @contextmanager
-def _atomic_artifact_directory(target: Path, *, overwrite: bool):
+def _atomic_artifact_directory(target: Path, *, overwrite: bool) -> Iterator[Path]:
     target = target.expanduser().resolve()
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists() and not overwrite:
@@ -235,8 +238,8 @@ def _saber_version() -> str | None:
         return importlib_metadata.version("saberlib")
     except importlib_metadata.PackageNotFoundError:
         try:
-            from saber import __version__
-
-            return __version__
-        except Exception:
+            from saber import __version__  # noqa: PLC0415  # avoids a circular import with saber.__init__
+        except Exception:  # noqa: BLE001  # any import failure means the version is unavailable
             return None
+        else:
+            return __version__

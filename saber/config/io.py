@@ -32,7 +32,7 @@ def load_config(source: str | Path | Mapping[str, Any] | WorkflowConfig) -> Work
         elif suffix in {".yaml", ".yml"}:
             payload = yaml.safe_load(text)
         else:
-            raise ConfigurationError("Configuration files must be YAML or JSON.")
+            raise ConfigurationError("Configuration files must be YAML or JSON.")  # noqa: TRY301  # re-raised unchanged by the except clause below
     except ConfigurationError:
         raise
     except Exception as exc:

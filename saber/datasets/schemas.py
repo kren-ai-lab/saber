@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import polars as pl
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 from saber.datasets._fingerprint import (
     dataset_fingerprint,
@@ -32,6 +35,7 @@ class FeatureSchema:
     dtypes: tuple[str, ...]
 
     def __post_init__(self) -> None:
+        """Validate that names and dtypes are non-empty, aligned, and unique."""
         if not self.names:
             raise DatasetValidationError("FeatureSchema must contain at least one feature.")
         if len(self.names) != len(self.dtypes):
@@ -43,13 +47,16 @@ class FeatureSchema:
 
     @property
     def n_features(self) -> int:
+        """Return the number of features in the schema."""
         return len(self.names)
 
     @property
     def fingerprint(self) -> str:
+        """Return a content fingerprint of the feature names and dtypes."""
         return feature_schema_fingerprint(names=self.names, dtypes=self.dtypes)
 
     def to_dict(self) -> dict[str, Any]:
+        """Return the schema as a plain JSON-serializable dictionary."""
         return {
             "names": list(self.names),
             "dtypes": list(self.dtypes),
@@ -62,8 +69,9 @@ class FeatureSchema:
         cls,
         X: Any,
         *,
-        feature_names: tuple[str, ...] | list[str] | None = None,
+        feature_names: Sequence[str] | None = None,
     ) -> FeatureSchema:
+        """Infer a feature schema from a feature matrix and optional names."""
         X = as_frame(X)
         _, n_features = validate_feature_matrix(X)
 
@@ -94,7 +102,7 @@ class FeatureSchema:
         self,
         X: Any,
         *,
-        feature_names: tuple[str, ...] | list[str] | None = None,
+        feature_names: Sequence[str] | None = None,
         check_dtypes: bool = False,
     ) -> None:
         """Validate that another feature matrix matches this schema.
@@ -133,6 +141,7 @@ class DatasetBundle:
     _generated_sample_ids: bool = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
+        """Validate and normalize the dataset's features, target, and identifiers."""
         self.X = as_frame(self.X)
         n_samples, _ = validate_feature_matrix(self.X)
         self.y = validate_target(self.y, n_samples=n_samples)
@@ -162,19 +171,37 @@ class DatasetBundle:
 
     @property
     def n_samples(self) -> int:
+        """Return the number of samples in the dataset."""
         return len(self.y)
 
     @property
     def n_features(self) -> int:
+        """Return the number of features in the dataset."""
         return self._feature_schema.n_features
 
     @property
     def feature_schema(self) -> FeatureSchema:
+        """Return the dataset's feature schema."""
         return self._feature_schema
 
     @property
     def generated_sample_ids(self) -> bool:
+        """Return whether sample identifiers were auto-generated."""
         return self._generated_sample_ids
+
+    @property
+    def resolved_sample_ids(self) -> Sequence[Any]:
+        """Return sample_ids, always resolved to a concrete tuple by __post_init__."""
+        if self.sample_ids is None:
+            raise AssertionError("DatasetBundle.sample_ids was not resolved.")
+        return self.sample_ids
+
+    @property
+    def resolved_feature_names(self) -> Sequence[str]:
+        """Return feature_names, always resolved to a concrete tuple by __post_init__."""
+        if self.feature_names is None:
+            raise AssertionError("DatasetBundle.feature_names was not resolved.")
+        return self.feature_names
 
     @property
     def fingerprint(self) -> str:
@@ -182,8 +209,8 @@ class DatasetBundle:
         return dataset_fingerprint(
             X=self.X,
             y=self.y,
-            sample_ids=self.sample_ids,
-            feature_names=self.feature_names,
+            sample_ids=self.resolved_sample_ids,
+            feature_names=self.resolved_feature_names,
             groups=self.groups,
             sample_weight=self.sample_weight,
         )
@@ -202,7 +229,7 @@ class DatasetBundle:
         if n_samples != self.n_samples or n_features != self.n_features:
             raise DatasetValidationError("Dataset X was structurally modified after DatasetBundle creation.")
         validate_target(self.y, n_samples=n_samples)
-        validate_sample_ids(self.sample_ids, n_samples=n_samples)
+        validate_sample_ids(self.resolved_sample_ids, n_samples=n_samples)
 
         if task is None:
             return None
@@ -210,9 +237,10 @@ class DatasetBundle:
 
     def indices_for(self, sample_ids: Any) -> np.ndarray:
         """Return positions for identifiers in original dataset order."""
+        resolved_ids = self.resolved_sample_ids
         requested = tuple(sample_ids)
         requested_set = set(requested)
-        known = set(self.sample_ids)
+        known = set(resolved_ids)
         unknown = requested_set - known
         if unknown:
             formatted = ", ".join(repr(value) for value in sorted(unknown, key=repr))
@@ -221,18 +249,19 @@ class DatasetBundle:
             raise DatasetValidationError("Requested sample_ids must be unique.")
 
         return np.asarray(
-            [index for index, sample_id in enumerate(self.sample_ids) if sample_id in requested_set],
+            [index for index, sample_id in enumerate(resolved_ids) if sample_id in requested_set],
             dtype=int,
         )
 
     def subset(self, sample_ids: Any) -> DatasetBundle:
         """Create a sample-identity-preserving subset in original dataset order."""
+        resolved_ids = self.resolved_sample_ids
         indices = self.indices_for(sample_ids)
 
         X_subset = self.X[indices] if isinstance(self.X, pl.DataFrame) else np.asarray(self.X)[indices].copy()
 
         y_subset = np.asarray(self.y)[indices].copy()
-        ids_subset = tuple(self.sample_ids[index] for index in indices)
+        ids_subset = tuple(resolved_ids[index] for index in indices)
 
         groups_subset = None
         if self.groups is not None:
@@ -243,7 +272,8 @@ class DatasetBundle:
             weights_subset = np.asarray(self.sample_weight)[indices].copy()
 
         metadata = dict(self.metadata)
-        metadata.setdefault("parent_dataset_fingerprint", self.fingerprint)
+        if "parent_dataset_fingerprint" not in metadata:
+            metadata["parent_dataset_fingerprint"] = self.fingerprint
 
         return DatasetBundle(
             X=X_subset,

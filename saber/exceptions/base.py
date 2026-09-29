@@ -1,8 +1,4 @@
-"""saber.exceptions.base
-======================
-
-Core exception hierarchy for saber.
-"""
+"""Core exception hierarchy for saber."""
 
 from __future__ import annotations
 
@@ -22,7 +18,7 @@ class AlgorithmAlreadyRegisteredError(RegistryError):
         self,
         name: str,
     ) -> None:
-
+        """Initialize the error with the already-registered algorithm name."""
         super().__init__(
             f"Algorithm '{name}' is already registered.",
         )
@@ -35,7 +31,7 @@ class AlgorithmNotFoundError(RegistryError):
         self,
         name: str,
     ) -> None:
-
+        """Initialize the error with the not-found algorithm name."""
         super().__init__(
             f"Algorithm '{name}' was not found in the registry.",
         )
@@ -49,6 +45,7 @@ class MetricNotFoundError(MetricError):
     """Raised when a metric cannot be found in the canonical registry."""
 
     def __init__(self, name: str) -> None:
+        """Initialize the error with the not-found metric name."""
         super().__init__(f"Metric '{name}' was not found in the metric registry.")
 
 
@@ -62,6 +59,7 @@ class MetricTaskMismatchError(MetricError):
         metric_task: str,
         requested_task: str,
     ) -> None:
+        """Initialize the error with the mismatched metric and task names."""
         super().__init__(f"Metric '{metric}' supports task '{metric_task}', not '{requested_task}'.")
 
 
@@ -75,6 +73,7 @@ class MetricProblemTypeError(MetricError):
         problem_type: str,
         supported: tuple[str, ...],
     ) -> None:
+        """Initialize the error with the unsupported metric and problem type."""
         supported_text = ", ".join(supported)
         super().__init__(
             f"Metric '{metric}' does not support problem type '{problem_type}'. Supported: {supported_text}."
@@ -100,6 +99,7 @@ class NonFiniteScoreError(OptimizationError):
         optimizer: str,
         score: float,
     ) -> None:
+        """Initialize the error with the offending optimizer, algorithm, metric, and score."""
         super().__init__(
             f"Optimizer '{optimizer}' produced a non-finite score ({score}) "
             f"for algorithm '{algorithm}' and metric '{metric}'."
@@ -130,6 +130,7 @@ class DatasetFingerprintMismatchError(PartitionError):
     """Raised when a partition artifact targets a different dataset."""
 
     def __init__(self, *, expected: str, observed: str) -> None:
+        """Initialize the error with the expected and observed fingerprints."""
         super().__init__(
             "Partition dataset fingerprint does not match the supplied dataset: "
             f"expected '{expected}', observed '{observed}'."
@@ -140,6 +141,7 @@ class OptionalDependencyError(SaberError, ImportError):
     """Raised when an optional integration dependency is required but absent."""
 
     def __init__(self, *, dependency: str, extra: str, purpose: str) -> None:
+        """Initialize the error with the missing dependency, extra, and purpose."""
         super().__init__(
             f"Optional dependency '{dependency}' is required for {purpose}. "
             f"Install with: pip install 'saberlib[{extra}]'."

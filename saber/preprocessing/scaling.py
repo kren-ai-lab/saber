@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
-from saber.core.capabilities import EstimatorRequirements
 from saber.exceptions import PreprocessingContractError
+
+if TYPE_CHECKING:
+    from saber.core.capabilities import EstimatorRequirements
 
 _ALLOWED_SCALERS = {"standard", "robust", "minmax"}
 

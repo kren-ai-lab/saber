@@ -102,7 +102,7 @@ prepared numerical representation
                                          saber
 ```
 
-`Saber` does **not** implement redundancy reduction, sequence identity, MMseqs2 reduction, clustering for representative selection, or parallel fallback splitters.
+Saber does **not** implement redundancy reduction, sequence identity, MMseqs2 reduction, clustering for representative selection, or parallel fallback splitters.
 
 ## External partitions
 

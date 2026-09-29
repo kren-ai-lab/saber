@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
-from saber.datasets import DatasetBundle, PartitionPlan
-from saber.datasets.biosieve import BioSievePartitionConfig, partition_with_biosieve
+from saber.datasets.biosieve import partition_with_biosieve
 from saber.exceptions import ValidationContractError
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+    from saber.datasets import DatasetBundle, PartitionPlan
+    from saber.datasets.biosieve import BioSievePartitionConfig
 
 EvaluationRole = Literal["auto", "validation", "test"]
 
@@ -46,7 +50,7 @@ def resolve_evaluation_dataset(
     *,
     requested: EvaluationRole,
     plan_kind: str,
-):
+) -> tuple[EvaluationRole, Any]:
     """Choose the held-out role while protecting a final test set by default."""
     if requested == "test":
         if resolved.test is None:
@@ -107,15 +111,15 @@ def build_explicit_cv(
             requested=evaluation_role,
             plan_kind=plan.kind,
         )
-        train_ids = tuple(resolved.train.sample_ids)
+        train_ids = tuple(resolved.train.resolved_sample_ids)
         evaluation_ids = tuple(evaluation_data.sample_ids)
         memberships.append((train_ids, evaluation_ids, role))
         used_ids.update(train_ids)
         used_ids.update(evaluation_ids)
 
-    ordered_ids = tuple(sample_id for sample_id in dataset.sample_ids if sample_id in used_ids)
+    ordered_ids = tuple(sample_id for sample_id in dataset.resolved_sample_ids if sample_id in used_ids)
     search_dataset = dataset.subset(ordered_ids)
-    id_to_index = {sample_id: index for index, sample_id in enumerate(search_dataset.sample_ids)}
+    id_to_index = {sample_id: index for index, sample_id in enumerate(search_dataset.resolved_sample_ids)}
 
     cv: list[tuple[np.ndarray, np.ndarray]] = []
     roles: list[str] = []

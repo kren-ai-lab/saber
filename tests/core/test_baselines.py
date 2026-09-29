@@ -12,7 +12,8 @@ def test_classification_baseline_is_registered_with_deterministic_default() -> N
     assert spec.default_params["strategy"] == "prior"
     model = spec.build_estimator(random_state=42)
     assert isinstance(model, DummyClassifier)
-    assert model.strategy == "prior"
+    # sklearn stubs omit this constructor-stored attribute.
+    assert model.strategy == "prior"  # pyrefly: ignore[missing-attribute]
 
 
 def test_regression_baseline_is_registered_with_deterministic_default() -> None:
@@ -22,4 +23,5 @@ def test_regression_baseline_is_registered_with_deterministic_default() -> None:
     assert spec.default_params["strategy"] == "mean"
     model = spec.build_estimator(random_state=42)
     assert isinstance(model, DummyRegressor)
-    assert model.strategy == "mean"
+    # sklearn stubs omit this constructor-stored attribute.
+    assert model.strategy == "mean"  # pyrefly: ignore[missing-attribute]

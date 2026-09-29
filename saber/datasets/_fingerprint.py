@@ -5,13 +5,15 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from collections.abc import Iterable, Mapping, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import polars as pl
 
 from saber.utils.tabular import canonical_dtype
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping, Sequence
 
 _FINGERPRINT_VERSION = "saber-fingerprint-v1"
 

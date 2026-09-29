@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from saber.api._common import prediction_from_model
 from saber.core.registry import MODEL_REGISTRY, AlgorithmRegistry
 from saber.core.results import TrainResult
-from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
 from saber.evaluation import EvaluationResult, evaluate_prediction
 from saber.persistence import LoadedModelArtifact, load_model_artifact
-from saber.preprocessing import PreprocessingConfig
 from saber.validation import ValidationEngine, ValidationResult
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+    from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
+    from saber.preprocessing import PreprocessingConfig
+    from saber.validation.partitioning import EvaluationRole
 
 
 def validate(
@@ -25,7 +29,7 @@ def validate(
     biosieve_extra_columns: Mapping[str, Sequence[Any]] | None = None,
     preprocessing: PreprocessingConfig | Any | None = None,
     metrics: Sequence[str] | None = None,
-    evaluation_role: str = "auto",
+    evaluation_role: EvaluationRole = "auto",
     positive_class: Any | None = None,
     random_state: int | None = None,
     return_estimators: bool = False,

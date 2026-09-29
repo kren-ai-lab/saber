@@ -1,6 +1,6 @@
 # Workflow recipes
 
-This page is a compact recipe book. For concepts and guarantees, follow the links in [`docs/index.md`](index.md).
+This page is a compact recipe book. For concepts and guarantees, follow the links in [`docs/README.md`](README.md).
 
 ## Validate prepared data
 

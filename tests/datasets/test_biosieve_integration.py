@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from types import SimpleNamespace
+from typing import Any
 
 import numpy as np
 import polars as pl
@@ -97,8 +99,8 @@ def fake_runtime(monkeypatch):
     monkeypatch.setattr(adapter, "_biosieve_version", lambda: "0.1.2")
 
 
-def _dataset(with_groups=False):
-    kwargs = {}
+def _dataset(*, with_groups=False):
+    kwargs: dict[str, Any] = {}
     if with_groups:
         kwargs["groups"] = ["g1", "g1", "g2", "g2", "g3", "g3"]
     return DatasetBundle(
@@ -109,7 +111,9 @@ def _dataset(with_groups=False):
     )
 
 
-def test_biosieve_kfold_results_are_adapted_without_regenerating_membership(fake_runtime):
+def test_biosieve_kfold_results_are_adapted_without_regenerating_membership(
+    fake_runtime,  # noqa: ARG001  fixture required for setup, value unused
+):
     dataset = _dataset()
     config = BioSievePartitionConfig(strategy="random_kfold", params={"n_splits": 3})
     plan = partition_with_biosieve(
@@ -129,7 +133,9 @@ def test_biosieve_kfold_results_are_adapted_without_regenerating_membership(fake
     plan.validate_against(dataset)
 
 
-def test_biosieve_group_split_preserves_groups_and_strategy_provenance(fake_runtime):
+def test_biosieve_group_split_preserves_groups_and_strategy_provenance(
+    fake_runtime,  # noqa: ARG001  fixture required for setup, value unused
+):
     dataset = _dataset(with_groups=True)
     plan = partition_with_biosieve(
         dataset,
@@ -143,7 +149,9 @@ def test_biosieve_group_split_preserves_groups_and_strategy_provenance(fake_runt
     assert split.metadata["stats"]["leak_groups_train_test"] == 0
 
 
-def test_biosieve_extra_columns_must_be_aligned(fake_runtime):
+def test_biosieve_extra_columns_must_be_aligned(
+    fake_runtime,  # noqa: ARG001  fixture required for setup, value unused
+):
     dataset = _dataset()
     with pytest.raises(PartitionIntegrationError, match="must contain 6"):
         partition_with_biosieve(
@@ -154,9 +162,11 @@ def test_biosieve_extra_columns_must_be_aligned(fake_runtime):
         )
 
 
-def test_group_strategy_requires_dataset_groups(fake_runtime):
+def test_group_strategy_requires_dataset_groups(
+    fake_runtime,  # noqa: ARG001  fixture required for setup, value unused
+):
     dataset = _dataset(with_groups=False)
-    with pytest.raises(PartitionIntegrationError, match="requires DatasetBundle.groups"):
+    with pytest.raises(PartitionIntegrationError, match=re.escape("requires DatasetBundle.groups")):
         partition_with_biosieve(
             dataset,
             BioSievePartitionConfig(strategy="group"),
@@ -174,7 +184,7 @@ def test_missing_biosieve_dependency_has_actionable_error(monkeypatch):
 
     monkeypatch.setattr(adapter, "import_module", fail)
     with pytest.raises(OptionalDependencyError, match="saberlib\\[biosieve\\]"):
-        adapter._import_biosieve_runtime()
+        adapter._import_biosieve_runtime()  # noqa: SLF001  test verifies internal state directly
 
 
 def test_unknown_biosieve_strategy_fails_before_execution():
@@ -186,9 +196,9 @@ class CaptureSplitter:
     strategy = "capture"
 
     def __init__(self):
-        self.columns_seen = None
+        self.columns_seen: tuple[str, ...] | None = None
 
-    def run(self, frame, cols):
+    def run(self, frame, cols):  # noqa: ARG002  fixed signature required by splitter protocol
         self.columns_seen = tuple(frame.columns)
         return SimpleNamespace(
             train=frame[[0, 1, 2, 3]],
@@ -200,7 +210,9 @@ class CaptureSplitter:
         )
 
 
-def test_regular_biosieve_partition_does_not_copy_full_feature_matrix(fake_runtime):
+def test_regular_biosieve_partition_does_not_copy_full_feature_matrix(
+    fake_runtime,  # noqa: ARG001  fixture required for setup, value unused
+):
     dataset = _dataset()
     splitter = CaptureSplitter()
     partition_with_biosieve(
@@ -214,7 +226,9 @@ def test_regular_biosieve_partition_does_not_copy_full_feature_matrix(fake_runti
     )
 
 
-def test_distance_descriptor_partition_exposes_prepared_numeric_features(fake_runtime):
+def test_distance_descriptor_partition_exposes_prepared_numeric_features(
+    fake_runtime,  # noqa: ARG001  fixture required for setup, value unused
+):
     dataset = _dataset()
     splitter = CaptureSplitter()
     partition_with_biosieve(
@@ -225,6 +239,7 @@ def test_distance_descriptor_partition_exposes_prepared_numeric_features(fake_ru
         ),
         splitter=splitter,
     )
+    assert splitter.columns_seen is not None
     assert "feature_0" in splitter.columns_seen
     assert "feature_1" in splitter.columns_seen
     assert "feature_2" in splitter.columns_seen
@@ -234,9 +249,9 @@ class CapturePolarsSplitter:
     strategy = "capture"
 
     def __init__(self):
-        self.frame_seen = None
+        self.frame_seen: Any | None = None
 
-    def run(self, frame, cols):
+    def run(self, frame, cols):  # noqa: ARG002  fixed signature required by splitter protocol
         self.frame_seen = frame
         return SimpleNamespace(
             train=frame[[0, 1, 2, 3]],
@@ -267,6 +282,7 @@ def test_polars_dataset_preserves_int_and_bool_column_dtypes(monkeypatch):
         splitter=splitter,
     )
 
+    assert splitter.frame_seen is not None
     assert splitter.frame_seen["int_col"].dtype == pl.Int64
     assert splitter.frame_seen["bool_col"].dtype == pl.Boolean
 
@@ -287,5 +303,6 @@ def test_polars_dataset_sends_overridden_feature_names(monkeypatch):
         splitter=splitter,
     )
 
+    assert splitter.frame_seen is not None
     assert {"f_a", "f_b"} <= set(splitter.frame_seen.columns)
     assert not {"a", "b"} & set(splitter.frame_seen.columns)

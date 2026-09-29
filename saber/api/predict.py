@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from saber.api._common import prediction_from_model
-from saber.core.prediction import PredictionResult
 from saber.core.results import TrainResult
-from saber.datasets import DatasetBundle
 from saber.persistence import LoadedModelArtifact, load_model_artifact
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from saber.core.prediction import PredictionResult
+    from saber.datasets import DatasetBundle
 
 
 def predict(

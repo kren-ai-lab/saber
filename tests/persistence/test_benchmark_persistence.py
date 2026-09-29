@@ -24,12 +24,13 @@ def _benchmark_result():
         y=y,
         sample_ids=[f"s{i}" for i in range(len(y))],
     )
+    assert dataset.sample_ids is not None
     plan = PartitionPlan.holdout(
         train_ids=dataset.sample_ids[:35],
         test_ids=dataset.sample_ids[35:],
         dataset_fingerprint=dataset.fingerprint,
     )
-    result = BenchmarkEngine(MODEL_REGISTRY).run(
+    return BenchmarkEngine(MODEL_REGISTRY).run(
         datasets={"representation_a": dataset},
         algorithms=("logistic_regression",),
         partitions={"holdout": plan},
@@ -40,7 +41,6 @@ def _benchmark_result():
             return_estimators=False,
         ),
     )
-    return result
 
 
 def test_benchmark_artifact_persists_analysis_tables(tmp_path):

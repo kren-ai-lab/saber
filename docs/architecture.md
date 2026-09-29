@@ -1,6 +1,6 @@
 # Architecture
 
-> See also: [documentation index](index.md) · [scope](scope.md) · [API reference](api_reference.md)
+> See also: [documentation index](README.md) · [scope](scope.md) · [API reference](api_reference.md)
 
 
 ## Status

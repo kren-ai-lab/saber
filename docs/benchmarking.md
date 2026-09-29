@@ -56,10 +56,10 @@ A model failure does not need to invalidate an entire benchmark matrix. Failed r
 
 ## Reporting
 
-Plotting and report layout stay outside the core. The long-form tables are designed to feed pandas, statistical analyses, matplotlib, R, or custom reporting systems.
+Plotting and report layout stay outside the core. The long-form tables are Polars DataFrames, designed to feed further Polars/pandas analysis, matplotlib, R, or custom reporting systems.
 
-Recommended notebooks:
+Recommended examples:
 
-- [`examples/benchmark/01_multi_representation_multi_partition.ipynb`](../examples/benchmark/01_multi_representation_multi_partition.ipynb)
-- [`examples/reporting/01_benchmark_reporting.ipynb`](../examples/reporting/01_benchmark_reporting.ipynb)
-- [`examples/end_to_end/01_data_centric_benchmark.ipynb`](../examples/end_to_end/01_data_centric_benchmark.ipynb)
+- [`examples/10_multi_representation_benchmark.py`](../examples/10_multi_representation_benchmark.py)
+- [`examples/11_benchmark_reporting.py`](../examples/11_benchmark_reporting.py)
+- [`examples/13_data_centric_benchmark.py`](../examples/13_data_centric_benchmark.py)

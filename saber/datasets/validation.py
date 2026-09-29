@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import polars as pl
@@ -11,6 +10,9 @@ from sklearn.utils.multiclass import type_of_target
 
 from saber.exceptions import DatasetValidationError
 from saber.utils.tabular import as_frame, missing_mask
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 def validate_feature_matrix(

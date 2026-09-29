@@ -64,7 +64,7 @@ def to_numpy(X: Any) -> np.ndarray:
     return np.asarray(X)
 
 
-def canonical_dtype(dtype: pl.DataType) -> str:
+def canonical_dtype(dtype: pl.DataType | type[pl.DataType]) -> str:
     """Return the NumPy-style dtype name used by FeatureSchema and fingerprints."""
     name = str(dtype).lower()
     return "bool" if name == "boolean" else name

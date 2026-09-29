@@ -167,7 +167,7 @@ def test_tuning_yaml_with_output_directory_writes_readable_history_csv(tmp_path)
 
 
 def test_train_yaml_artifact_then_predict_yaml_round_trip(tmp_path):
-    X, y = make_regression(n_samples=40, n_features=4, random_state=19)
+    X, y = make_regression(n_samples=40, n_features=4, random_state=19)  # pyrefly: ignore[bad-unpacking]
     frame = pd.DataFrame(X, columns=["a", "b", "c", "d"])
     frame.insert(0, "sample_id", [f"r{i}" for i in range(40)])
     frame["target"] = y
@@ -280,7 +280,7 @@ def test_config_validate_rejects_unknown_nested_keys():
 
 
 def test_evaluate_yaml_uses_persisted_artifact(tmp_path):
-    X, y = make_regression(n_samples=36, n_features=3, random_state=31)
+    X, y = make_regression(n_samples=36, n_features=3, random_state=31)  # pyrefly: ignore[bad-unpacking]
     frame = pd.DataFrame(X, columns=["x0", "x1", "x2"])
     frame["target"] = y
     frame.to_csv(tmp_path / "eval.csv", index=False)

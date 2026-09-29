@@ -1,3 +1,5 @@
+"""Saber exception hierarchy."""
+
 from saber.exceptions.base import (
     AlgorithmAlreadyRegisteredError,
     AlgorithmNotFoundError,

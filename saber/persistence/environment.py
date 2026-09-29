@@ -24,16 +24,17 @@ _TRACKED_PACKAGES = (
 
 
 def package_version(name: str) -> str | None:
+    """Return the installed version of ``name``, or ``None`` if unavailable."""
     try:
         return metadata.version(name)
     except metadata.PackageNotFoundError:
         if name == "saberlib":
             try:
-                from saber import __version__
-
-                return __version__
-            except Exception:
+                from saber import __version__  # noqa: PLC0415  # avoids a circular import with saber.__init__
+            except Exception:  # noqa: BLE001  # any import failure means the version is unavailable
                 return None
+            else:
+                return __version__
         return None
 
 

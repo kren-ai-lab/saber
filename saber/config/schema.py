@@ -114,6 +114,7 @@ class WorkflowConfig:
     metadata: dict[str, Any] = field(default_factory=dict, compare=False)
 
     def __post_init__(self) -> None:
+        """Normalize and validate the workflow configuration after construction."""
         workflow = str(self.workflow).strip().lower()
         if workflow not in WORKFLOWS:
             raise ConfigurationError(f"Unsupported workflow '{workflow}'. Supported: {sorted(WORKFLOWS)!r}.")
@@ -129,17 +130,20 @@ class WorkflowConfig:
 
     @property
     def base_dir(self) -> Path:
+        """Return the directory that relative config paths resolve against."""
         if self.source is None:
             return Path.cwd()
         return self.source.parent
 
     def resolve_path(self, value: str | Path) -> Path:
+        """Resolve a config-relative path against base_dir."""
         path = Path(value)
         if path.is_absolute():
             return path
         return (self.base_dir / path).resolve()
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this config back into a plain dict for storage."""
         result = dict(self.payload)
         result["schema_version"] = self.schema_version
         result["workflow"] = self.workflow

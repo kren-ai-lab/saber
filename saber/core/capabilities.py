@@ -1,7 +1,4 @@
-"""saber.core.capabilities
-========================
-
-Static estimator capability and requirement contracts.
+"""Static estimator capability and requirement contracts.
 
 Capabilities describe interfaces that orchestration layers may use without
 probing fitted estimators at runtime. Requirements describe known constraints
@@ -44,7 +41,7 @@ class EstimatorCapabilities:
 class EstimatorRequirements:
     """Known input/preprocessing requirements for an estimator."""
 
-    non_negative_X: bool = False
+    non_negative_X: bool = False  # noqa: N815  # matches scikit-learn's X/y naming; public field used across saber
     positive_y: bool = False
     scaling: ScalingRecommendation = "optional"
 

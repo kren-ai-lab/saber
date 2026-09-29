@@ -1,7 +1,4 @@
-"""saber.core.metrics
-===================
-
-Canonical metric specifications used by optimization and evaluation layers.
+"""Canonical metric specifications used by optimization and evaluation layers.
 
 The central contract separates a metric's natural interpretation from the
 score representation used by scikit-learn during optimization. Loss metrics
@@ -11,9 +8,8 @@ them so every search backend can maximize a common objective.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 from sklearn.metrics import (
@@ -33,12 +29,16 @@ from sklearn.metrics import (
     root_mean_squared_error,
 )
 
-from saber.core.task import TaskType
 from saber.exceptions import (
     MetricNotFoundError,
     MetricProblemTypeError,
     MetricTaskMismatchError,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
+    from saber.core.task import TaskType
 
 ProblemType = Literal["binary", "multiclass", "regression"]
 ResponseMethod = str | tuple[str, ...]
@@ -72,14 +72,17 @@ class MetricSpec:
 
     name: str
     task: TaskType
-    score_func: Callable[..., float]
+    # sklearn metric functions return a mix of float/np.floating/ndarray depending
+    # on overload; callers normalize via to_natural_score()/float(), so the wider
+    # return type is accurate rather than a workaround.
+    score_func: Callable[..., Any]
     greater_is_better: bool = True
     response_method: ResponseMethod = "predict"
     scorer_kwargs: dict[str, Any] = field(default_factory=dict)
     problem_types: tuple[ProblemType, ...] = field(default_factory=tuple)
     description: str | None = None
 
-    def make_scorer(self):
+    def make_scorer(self) -> Any:
         """Build a scikit-learn compatible scorer."""
         return make_scorer(
             self.score_func,

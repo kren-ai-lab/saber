@@ -55,7 +55,7 @@ def test_binary_fold_with_single_observed_class_rejects_explicit_roc_auc():
         classes=np.array([0, 1]),
         positive_class=1,
     )
-    with pytest.raises(ValueError, match="roc_auc|two classes|undefined"):
+    with pytest.raises(ValueError, match=r"roc_auc|two classes|undefined"):
         evaluate_prediction(np.array([0, 0, 0, 0]), prediction, metrics=("roc_auc",))
 
 
@@ -67,7 +67,7 @@ def test_classification_evaluation_rejects_unknown_or_wrong_task_metric(metric):
         probabilities=np.array([[0.8, 0.2], [0.1, 0.9], [0.7, 0.3], [0.2, 0.8]]),
         classes=np.array([0, 1]),
     )
-    with pytest.raises(ValueError, match="metric|Unknown|available"):
+    with pytest.raises(ValueError, match=r"metric|Unknown|available"):
         evaluate_prediction(np.array([0, 1, 0, 1]), prediction, metrics=(metric,))
 
 
@@ -195,6 +195,7 @@ def test_multiclass_cv_with_string_labels_returns_complete_oof():
     )
     assert result.oof_prediction is not None
     assert result.oof_prediction.n_classes == 3
+    assert result.oof_prediction.classes is not None
     assert set(result.oof_prediction.classes) == {"alpha", "beta", "gamma"}
 
 
@@ -223,7 +224,7 @@ def test_validation_rejects_training_fold_with_single_class_before_estimator_fit
         test_ids=ids[8:],
         dataset_fingerprint=dataset.fingerprint,
     )
-    with pytest.raises(Exception, match="at least two|binary|multiclass"):
+    with pytest.raises(Exception, match=r"at least two|binary|multiclass"):
         ValidationEngine(MODEL_REGISTRY).run(
             dataset=dataset,
             algorithm="logistic_regression",

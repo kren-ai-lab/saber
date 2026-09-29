@@ -1,15 +1,8 @@
-"""saber.tuning.scorers
-=====================
-
-Compatibility scoring API backed by the canonical ``MetricSpec`` registry.
-"""
+"""saber.tuning.scorers: Compatibility scoring API backed by the canonical ``MetricSpec`` registry."""
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import Any
-
-import numpy as np
+from typing import TYPE_CHECKING, Any
 
 from saber.core.metrics import (
     METRIC_SPECS,
@@ -17,6 +10,11 @@ from saber.core.metrics import (
     list_metric_specs,
     validate_metric,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    import numpy as np
 
 CLASSIFICATION_SCORERS = {spec.name: spec.make_scorer() for spec in list_metric_specs(task="classification")}
 
@@ -35,12 +33,9 @@ def get_scorer(
     *,
     task: str | None = None,
     y: Sequence[Any] | np.ndarray | None = None,
-):
+) -> Any:
     """Retrieve a scorer, optionally validating task and target regime."""
-    if task is None:
-        spec = get_metric_spec(name)
-    else:
-        spec = validate_metric(name, task=task, y=y)
+    spec = get_metric_spec(name) if task is None else validate_metric(name, task=task, y=y)
 
     return spec.make_scorer()
 

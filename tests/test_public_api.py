@@ -65,9 +65,25 @@ def test_train_predict_and_evaluate_share_prediction_contract():
     evaluation = saber.evaluate(dataset=dataset, model=result, metrics=("accuracy", "roc_auc"))
 
     assert prediction.n_samples == dataset.n_samples
+    assert prediction.sample_ids is not None
+    assert dataset.sample_ids is not None
     assert prediction.sample_ids.tolist() == list(dataset.sample_ids)
     assert set(evaluation.metrics) == {"accuracy", "roc_auc"}
     assert evaluation.prediction is not None
+
+
+def test_predict_keeps_native_dtype_for_integer_sample_ids():
+    dataset = _classification_dataset()
+    result = saber.train(
+        dataset=dataset,
+        algorithm="logistic_regression",
+        preprocessing=PreprocessingConfig(scaler="standard"),
+        random_state=42,
+    )
+    prediction = saber.predict(result, X=dataset.X, sample_ids=list(range(dataset.n_samples)))
+
+    assert prediction.sample_ids is not None
+    assert prediction.sample_ids.dtype.kind == "i"
 
 
 def test_public_validate_matches_engine_contract():
@@ -181,7 +197,12 @@ def test_predict_accepts_same_order_dataframe_and_matching_width_numpy_array():
 
 
 def test_public_api_regression_end_to_end():
-    X, y = make_regression(n_samples=60, n_features=5, noise=0.2, random_state=3)
+    X, y = make_regression(  # pyrefly: ignore[bad-unpacking]
+        n_samples=60,
+        n_features=5,
+        noise=0.2,
+        random_state=3,
+    )
     dataset = DatasetBundle(
         pd.DataFrame(X, columns=[f"x{i}" for i in range(5)]),
         y,
@@ -203,6 +224,8 @@ def test_saber_works_without_pandas():
         "DatasetBundle(X=np.ones((4, 2)), y=np.array([0, 1, 0, 1]))\n"
         "print('ok')"
     )
-    completed = subprocess.run([sys.executable, "-c", code], text=True, capture_output=True, check=False)
+    completed = subprocess.run(  # noqa: S603  trusted, fixed argument list, no shell interpolation
+        [sys.executable, "-c", code], text=True, capture_output=True, check=False
+    )
     assert completed.returncode == 0, completed.stderr
     assert completed.stdout.strip() == "ok"

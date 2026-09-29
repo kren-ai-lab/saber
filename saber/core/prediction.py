@@ -1,18 +1,16 @@
-"""saber.core.prediction
-======================
-
-Structured prediction contracts shared by training and evaluation.
-"""
+"""Structured prediction contracts shared by training and evaluation."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from saber.core.task import TaskType
 from saber.exceptions import PredictionContractError
+
+if TYPE_CHECKING:
+    from saber.core.task import TaskType
 
 
 @dataclass(slots=True)
@@ -29,6 +27,7 @@ class PredictionResult:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        """Coerce fields to arrays and validate response-shape/task semantics."""
         self.predictions = np.asarray(self.predictions)
 
         if self.predictions.ndim != 1:

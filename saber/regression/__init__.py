@@ -10,9 +10,9 @@ __all__ = ["register_sklearn_regression_models"]
 if is_dependency_available("xgboost"):
     from saber.regression.xgboost import register_xgboost_regression_models
 
-    __all__.append("register_xgboost_regression_models")
+    __all__ += ["register_xgboost_regression_models"]
 
 if is_dependency_available("lightgbm"):
     from saber.regression.lightgbm import register_lightgbm_regression_models
 
-    __all__.append("register_lightgbm_regression_models")
+    __all__ += ["register_lightgbm_regression_models"]

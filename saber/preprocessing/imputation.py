@@ -24,7 +24,7 @@ def build_imputer(
         raise PreprocessingContractError(
             f"Unsupported imputation strategy '{strategy}'. Supported: {allowed}, none."
         )
-    kwargs = {"strategy": strategy}
+    kwargs: dict[str, Any] = {"strategy": strategy}
     if strategy == "constant":
         kwargs["fill_value"] = fill_value
     return SimpleImputer(**kwargs)

@@ -41,6 +41,7 @@ def test_validation_fits_scaler_only_on_training_partition():
         evaluation_role="test",
         random_state=42,
     )
+    assert result.folds[0].estimator is not None
     scaler = result.folds[0].estimator.named_steps["scaler"]
     np.testing.assert_allclose(scaler.mean_, np.array([1.5, 1.5]))
     assert not np.allclose(scaler.mean_, X.mean(axis=0))
@@ -74,6 +75,7 @@ def test_validation_fits_imputer_only_on_training_partition():
         evaluation_role="test",
         random_state=42,
     )
+    assert result.folds[0].estimator is not None
     imputer = result.folds[0].estimator.named_steps["imputer"]
     np.testing.assert_allclose(imputer.statistics_, np.array([3.0, 1.5]))
 
@@ -103,6 +105,7 @@ def test_predefined_folds_produce_complete_identity_preserving_oof_predictions()
     assert result.n_splits == 5
     assert result.oof_prediction is not None
     assert result.oof_prediction.n_samples == dataset.n_samples
+    assert result.oof_prediction.sample_ids is not None
     assert list(result.oof_prediction.sample_ids) == ids
     assert result.metadata["oof_complete"] is True
     assert result.metadata["oof_coverage"] == 1.0
@@ -110,7 +113,12 @@ def test_predefined_folds_produce_complete_identity_preserving_oof_predictions()
 
 
 def test_regression_validation_returns_fold_and_oof_metrics():
-    X, y = make_regression(n_samples=50, n_features=5, noise=0.5, random_state=4)
+    X, y = make_regression(  # pyrefly: ignore[bad-unpacking]
+        n_samples=50,
+        n_features=5,
+        noise=0.5,
+        random_state=4,
+    )
     ids = [f"r{i}" for i in range(50)]
     dataset = DatasetBundle(X=X, y=y, sample_ids=ids)
     plan = PartitionPlan.from_predefined_folds(
@@ -162,6 +170,7 @@ def test_sample_weights_are_forwarded_when_supported():
         sample_ids=[f"s{i}" for i in range(40)],
         sample_weight=np.linspace(1.0, 2.0, 40),
     )
+    assert dataset.sample_ids is not None
     plan = PartitionPlan.holdout(
         train_ids=dataset.sample_ids[:30],
         test_ids=dataset.sample_ids[30:],
@@ -183,6 +192,7 @@ def test_sample_weights_fail_for_estimator_without_weight_support():
         sample_ids=[f"s{i}" for i in range(40)],
         sample_weight=np.ones(40),
     )
+    assert dataset.sample_ids is not None
     plan = PartitionPlan.holdout(
         train_ids=dataset.sample_ids[:30],
         test_ids=dataset.sample_ids[30:],

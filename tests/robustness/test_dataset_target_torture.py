@@ -24,12 +24,12 @@ def test_continuous_target_is_rejected_for_classification_before_fit():
     X = np.arange(60, dtype=float).reshape(20, 3)
     y = np.linspace(0.01, 0.99, 20)
     dataset = DatasetBundle(X=X, y=y)
-    with pytest.raises(DatasetValidationError, match="classification|target|continuous"):
+    with pytest.raises(DatasetValidationError, match=r"classification|target|continuous"):
         dataset.validate(task="classification")
 
 
 @pytest.mark.parametrize(
-    "labels, expected",
+    ("labels", "expected"),
     [
         (["neg", "pos"] * 10, "binary"),
         ([10, 20] * 10, "binary"),
@@ -46,7 +46,7 @@ def test_supported_class_label_regimes_are_detected(labels, expected):
 
 def test_single_class_target_is_rejected_for_classification():
     dataset = DatasetBundle(X=np.ones((12, 2)), y=["only"] * 12)
-    with pytest.raises(DatasetValidationError, match="at least two|binary|multiclass"):
+    with pytest.raises(DatasetValidationError, match=r"at least two|binary|multiclass"):
         dataset.validate(task="classification")
 
 
@@ -128,6 +128,7 @@ def test_outlier_heldout_samples_do_not_change_robust_scaler_fit():
         metrics=("accuracy",),
         evaluation_role="test",
     )
+    assert result.folds[0].estimator is not None
     scaler = result.folds[0].estimator.named_steps["scaler"]
     np.testing.assert_allclose(scaler.center_, [1.5])
 
@@ -144,7 +145,9 @@ def test_negative_features_are_made_safe_for_multinomial_nb_by_auto_preprocessin
         metrics=("accuracy",),
     )
     assert np.isfinite(result.aggregate_metrics["accuracy"])
-    assert all(f.estimator.named_steps["scaler"].clip for f in result.folds)
+    for f in result.folds:
+        assert f.estimator is not None
+        assert f.estimator.named_steps["scaler"].clip
 
 
 def test_negative_features_without_nonnegative_transform_fail_for_multinomial_nb():
@@ -163,8 +166,9 @@ def test_negative_features_without_nonnegative_transform_fail_for_multinomial_nb
 
 
 def test_gamma_regression_rejects_nonpositive_training_targets_early():
-    X, y = make_regression(n_samples=30, n_features=4, random_state=2)
+    X, y = make_regression(n_samples=30, n_features=4, random_state=2)  # pyrefly: ignore[bad-unpacking]
     dataset = DatasetBundle(X=X, y=y, sample_ids=[f"s{i}" for i in range(30)])
+    assert dataset.sample_ids is not None
     plan = PartitionPlan.holdout(train_ids=dataset.sample_ids[:20], test_ids=dataset.sample_ids[20:])
     with pytest.raises(PreprocessingContractError, match="positive target"):
         ValidationEngine(MODEL_REGISTRY).run(
@@ -177,7 +181,13 @@ def test_gamma_regression_rejects_nonpositive_training_targets_early():
 
 
 def test_high_dimensional_regression_runs_with_regularization():
-    X, y = make_regression(n_samples=35, n_features=120, n_informative=15, noise=0.5, random_state=7)
+    X, y = make_regression(  # pyrefly: ignore[bad-unpacking]
+        n_samples=35,
+        n_features=120,
+        n_informative=15,
+        noise=0.5,
+        random_state=7,
+    )
     dataset = DatasetBundle(X=X, y=y, sample_ids=[f"r{i}" for i in range(35)])
     result = ValidationEngine(MODEL_REGISTRY).run(
         dataset=dataset,

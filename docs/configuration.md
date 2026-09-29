@@ -123,4 +123,4 @@ saber config normalize experiment.yaml -o normalized.yaml
 
 `--dry-run` on workflow commands validates and renders the plan without executing the experiment.
 
-See the repository's [`configs/`](../configs/) examples for complete minimal files.
+See the repository's [`examples/configs/`](../examples/configs/) examples for complete minimal files.

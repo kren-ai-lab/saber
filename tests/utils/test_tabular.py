@@ -45,6 +45,20 @@ def test_as_frame_rejects_pandas_string_columns_without_pyarrow(monkeypatch):
         validate_feature_matrix(frame)
 
 
+def test_as_frame_converts_pandas_string_and_nullable_columns_with_pyarrow():
+    """pl.from_pandas (pyarrow present) handles dtypes the no-pyarrow fallback needs a workaround for."""
+    frame = pd.DataFrame(
+        {
+            "a": pd.array([1, None], dtype="Int64"),
+            "s": pd.array(["p", "q"], dtype="string"),
+        }
+    )
+    result = as_frame(frame)
+    assert isinstance(result, pl.DataFrame)
+    assert result["a"].to_list() == [1, None]
+    assert result["s"].to_list() == ["p", "q"]
+
+
 def test_as_frame_converts_nullable_int64_without_pyarrow(monkeypatch):
     _force_no_pyarrow(monkeypatch)
     frame = pd.DataFrame({"a": pd.array([1, None], dtype="Int64")})

@@ -2,19 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from saber.core.specs import AlgorithmSpec
-from saber.datasets.schemas import DatasetBundle
 from saber.exceptions import PreprocessingContractError
-from saber.utils.tabular import to_numpy
+from saber.utils.tabular import missing_mask, to_numpy
+
+if TYPE_CHECKING:
+    from saber.core.specs import AlgorithmSpec
+    from saber.datasets.schemas import DatasetBundle
 
 
 def has_missing_features(X: Any) -> bool:
     """Return whether a numerical feature matrix contains missing values."""
-    return bool(np.isnan(to_numpy(X).astype(float)).any())
+    return bool(missing_mask(to_numpy(X)).any())
 
 
 def has_negative_features(X: Any) -> bool:
@@ -43,7 +45,7 @@ def validate_estimator_dataset_requirements(
     if (
         has_missing_features(dataset.X)
         and not imputation_enabled
-        and not spec.capabilities.native_missing_values
+        and not spec.resolved_capabilities.native_missing_values
         and not custom_transformer
     ):
         raise PreprocessingContractError(

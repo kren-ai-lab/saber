@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from time import perf_counter
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, cross_validate
 
-from saber.core.registry import AlgorithmRegistry
-from saber.core.search_space import SearchSpace
-from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
 from saber.exceptions import (
     DatasetValidationError,
     NonFiniteScoreError,
@@ -27,6 +23,13 @@ from saber.validation.partitioning import (
     build_explicit_cv,
     resolve_partition_plan,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+    from saber.core.registry import AlgorithmRegistry
+    from saber.core.search_space import SearchSpace
+    from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
 
 OptimizerName = Literal[
     "grid",
@@ -61,6 +64,7 @@ class TuningConfig:
     optuna_load_if_exists: bool = True
 
     def resolved_refit_metric(self) -> str:
+        """Return the metric to refit on, defaulting to the first configured metric."""
         if not self.metrics:
             raise ValidationContractError("At least one tuning metric is required.")
         metric = self.refit_metric or self.metrics[0]
@@ -80,6 +84,7 @@ class TuningEngine:
     """
 
     def __init__(self, registry: AlgorithmRegistry) -> None:
+        """Bind the algorithm registry used to resolve tuning targets."""
         self.registry = registry
 
     def run(
@@ -97,6 +102,7 @@ class TuningEngine:
         require_complete: bool = True,
         model_params: Mapping[str, Any] | None = None,
     ) -> OptimizationResult:
+        """Tune an algorithm over explicit/BioSieve partitions and return the best result."""
         spec = self.registry.get(algorithm)
         dataset.validate(task=spec.task)
 
@@ -115,8 +121,9 @@ class TuningEngine:
             require_complete=require_complete,
         )
 
+        search_dataset_ids = search_dataset.resolved_sample_ids
         for split_index, (train_index, _) in enumerate(cv):
-            train_ids = tuple(search_dataset.sample_ids[index] for index in train_index)
+            train_ids = tuple(search_dataset_ids[index] for index in train_index)
             try:
                 search_dataset.subset(train_ids).validate(task=spec.task)
             except DatasetValidationError as exc:
@@ -138,9 +145,7 @@ class TuningEngine:
         scorers = {metric: get_scorer(metric, task=spec.task, y=search_dataset.y) for metric in metrics}
 
         first_train_index = cv[0][0]
-        first_train = search_dataset.subset(
-            tuple(search_dataset.sample_ids[index] for index in first_train_index)
-        )
+        first_train = search_dataset.subset(tuple(search_dataset_ids[index] for index in first_train_index))
         estimator = spec.build_estimator(
             random_state=config.random_state,
             **dict(model_params or {}),
@@ -239,11 +244,15 @@ class TuningEngine:
             ) from exc
 
         if optimizer == "grid":
+            if grid_parameters is None:  # always set above whenever optimizer is "grid"
+                raise AssertionError("grid optimizer resolved no grid_parameters.")
             search = GridSearchCV(
                 param_grid=grid_parameters,
                 **common,
             )
         elif optimizer == "random":
+            if random_parameters is None:  # always set above whenever optimizer is "random"
+                raise AssertionError("random optimizer resolved no random_parameters.")
             search = RandomizedSearchCV(
                 param_distributions=random_parameters,
                 n_iter=config.n_iter,
@@ -259,8 +268,14 @@ class TuningEngine:
             single_common["scoring"] = scorers[refit_metric]
             single_common["refit"] = config.refit
 
-            from sklearn.experimental import enable_halving_search_cv  # noqa: F401
-            from sklearn.model_selection import HalvingGridSearchCV, HalvingRandomSearchCV
+            # Deferred: enables the experimental halving search API only when it is used.
+            from sklearn.experimental import enable_halving_search_cv  # noqa: F401, PLC0415
+
+            # sklearn stubs omit these experimental estimators; real once enabled above.
+            from sklearn.model_selection import (  # noqa: PLC0415
+                HalvingGridSearchCV,  # pyrefly: ignore[missing-module-attribute]
+                HalvingRandomSearchCV,  # pyrefly: ignore[missing-module-attribute]
+            )
 
             halving_common = {
                 **single_common,
@@ -317,8 +332,10 @@ class TuningEngine:
             )
             best_score = float(results["mean_test_score"][best_index])
             history = _history_from_singlemetric_results(results, refit_metric)
+            # sklearn *SearchCV stubs omit `.estimator`, though it's always set
+            # from the constructor arg at runtime.
             best_scores = _evaluate_selected_metrics(
-                pipeline=search.estimator,
+                pipeline=search.estimator,  # pyrefly: ignore[missing-attribute]
                 params=results["params"][best_index],
                 dataset=dataset,
                 cv=cv,
@@ -370,10 +387,11 @@ class TuningEngine:
         fit_params: dict[str, Any],
     ) -> OptimizationResult:
         try:
-            import optuna
-            from optuna.trial import TrialState
+            import optuna  # noqa: PLC0415  # optuna is an optional dependency
+            from optuna.trial import TrialState  # noqa: PLC0415
         except ImportError as exc:
-            from saber.exceptions import OptionalDependencyError
+            # Deferred: only needed on the optuna-missing path.
+            from saber.exceptions import OptionalDependencyError  # noqa: PLC0415
 
             raise OptionalDependencyError(
                 dependency="optuna",
@@ -423,21 +441,24 @@ class TuningEngine:
                     scoring=scorers[refit_metric],
                     cv=cv,
                     n_jobs=config.n_jobs,
-                    params=fit_params or None,
+                    # sklearn stubs predate the `params=` kwarg (sklearn 1.4+);
+                    # installed sklearn (1.9.1) supports it.
+                    params=fit_params or None,  # pyrefly: ignore[unexpected-keyword]
                     error_score=config.error_score,
                 )["test_score"]
                 score = float(np.mean(np.asarray(scores, dtype=float)))
                 if not np.isfinite(score):
-                    raise NonFiniteScoreError(
+                    raise NonFiniteScoreError(  # noqa: TRY301  # except below records this on the trial
                         algorithm=spec.name,
                         metric=refit_metric,
                         optimizer="optuna",
                         score=score,
                     )
-                return score
             except Exception as exc:
                 trial.set_user_attr("saber_error", f"{type(exc).__name__}: {exc}")
                 raise
+            else:
+                return score
 
         study.optimize(
             objective,
@@ -461,9 +482,9 @@ class TuningEngine:
                 score=float("nan"),
             )
 
-        best_trial = max(completed, key=lambda trial: float(trial.value))
+        best_trial = max(completed, key=_finite_trial_value)
         best_score = _ensure_finite(
-            float(best_trial.value),
+            _finite_trial_value(best_trial),
             algorithm=spec.name,
             metric=refit_metric,
             optimizer="optuna",
@@ -493,18 +514,17 @@ class TuningEngine:
             best_model = selected
             best_model.fit(pipeline_input(best_model, dataset.X), dataset.y, **fit_params)
 
-        history: list[dict[str, Any]] = []
-        for trial in study.trials:
-            history.append(
-                {
-                    "trial": trial.number,
-                    "params": dict(trial.params),
-                    "score": None if trial.value is None else float(trial.value),
-                    "metrics": {refit_metric: None if trial.value is None else float(trial.value)},
-                    "status": str(trial.state).split(".")[-1].lower(),
-                    "error": trial.user_attrs.get("saber_error"),
-                }
-            )
+        history: list[dict[str, Any]] = [
+            {
+                "trial": trial.number,
+                "params": dict(trial.params),
+                "score": None if trial.value is None else float(trial.value),
+                "metrics": {refit_metric: None if trial.value is None else float(trial.value)},
+                "status": str(trial.state).split(".")[-1].lower(),
+                "error": trial.user_attrs.get("saber_error"),
+            }
+            for trial in study.trials
+        ]
 
         return OptimizationResult(
             algorithm=spec.name,
@@ -537,6 +557,18 @@ def _fit_params(dataset: DatasetBundle, spec: Any) -> dict[str, Any]:
     return {
         "estimator__sample_weight": np.asarray(dataset.sample_weight, dtype=float),
     }
+
+
+def _finite_trial_value(trial: Any) -> float:
+    """Return an optuna trial's objective value, already known to be finite/non-None.
+
+    Only called on trials from the ``completed`` list, which is filtered to
+    ``trial.value is not None`` above; optuna's stubs still type ``value`` as
+    optional, so this narrows it back for callers.
+    """
+    if trial.value is None:
+        raise AssertionError("Trial is missing an objective value.")
+    return float(trial.value)
 
 
 def _best_index(
@@ -664,7 +696,9 @@ def _evaluate_selected_metrics(
         scoring=dict(scorers),
         cv=cv,
         n_jobs=n_jobs,
-        params=dict(fit_params) or None,
+        # sklearn stubs predate the `params=` kwarg (sklearn 1.4+); installed
+        # sklearn (1.9.1) supports it.
+        params=dict(fit_params) or None,  # pyrefly: ignore[unexpected-keyword]
         error_score=np.nan,
     )
     output: dict[str, float] = {}

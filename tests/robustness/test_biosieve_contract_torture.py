@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from types import SimpleNamespace
+from typing import Any
 
 import numpy as np
 import pytest
@@ -56,11 +57,11 @@ def fake_runtime(monkeypatch):
     monkeypatch.setattr(adapter, "_biosieve_version", lambda: "0.1.2-test")
 
 
-def _dataset(n=36, groups=False):
+def _dataset(n=36, *, groups=False):
     rng = np.random.default_rng(8)
     X = rng.normal(size=(n, 6))
     y = np.array([0, 1] * (n // 2))
-    kwargs = {}
+    kwargs: dict[str, Any] = {}
     if groups:
         kwargs["groups"] = [f"g{i // 3}" for i in range(n)]
     return DatasetBundle(X=X, y=y, sample_ids=[f"s{i}" for i in range(n)], **kwargs)
@@ -69,7 +70,7 @@ def _dataset(n=36, groups=False):
 class CompleteKFoldSplitter:
     strategy = "stratified_kfold"
 
-    def run_folds(self, frame, cols):
+    def run_folds(self, frame, cols):  # noqa: ARG002  fixed signature required by splitter protocol
         n = frame.height
         folds = [list(range(i, n, 3)) for i in range(3)]
         all_idx = set(range(n))
@@ -89,14 +90,14 @@ class CompleteKFoldSplitter:
 class EmptySplitter:
     strategy = "random"
 
-    def run_folds(self, frame, cols):
+    def run_folds(self, frame, cols):  # noqa: ARG002  fixed signature required by splitter protocol
         return []
 
 
 class MissingIdColumnSplitter:
     strategy = "random"
 
-    def run(self, frame, cols):
+    def run(self, frame, cols):  # noqa: ARG002  fixed signature required by splitter protocol
         bad = FakeFrame({"wrong": list(range(frame.height))})
         return SimpleNamespace(train=bad, test=bad, val=None, strategy="random", params={}, stats={})
 
@@ -119,7 +120,10 @@ class UnknownIdSplitter:
         )
 
 
-def test_validation_engine_can_consume_biosieve_generated_memberships_end_to_end(fake_runtime, monkeypatch):
+def test_validation_engine_can_consume_biosieve_generated_memberships_end_to_end(
+    fake_runtime,  # noqa: ARG001  fixture required for setup, value unused
+    monkeypatch,
+):
     dataset = _dataset()
 
     def fake_partition(ds, config, extra_columns=None):
@@ -141,7 +145,9 @@ def test_validation_engine_can_consume_biosieve_generated_memberships_end_to_end
     assert result.metadata["oof_complete"] is True
 
 
-def test_biosieve_empty_fold_output_is_rejected(fake_runtime):
+def test_biosieve_empty_fold_output_is_rejected(
+    fake_runtime,  # noqa: ARG001  fixture required for setup, value unused
+):
     with pytest.raises(PartitionIntegrationError, match="no split results"):
         partition_with_biosieve(
             _dataset(),
@@ -150,7 +156,9 @@ def test_biosieve_empty_fold_output_is_rejected(fake_runtime):
         )
 
 
-def test_biosieve_output_missing_sample_id_column_is_rejected(fake_runtime):
+def test_biosieve_output_missing_sample_id_column_is_rejected(
+    fake_runtime,  # noqa: ARG001  fixture required for setup, value unused
+):
     with pytest.raises(PartitionIntegrationError, match="sample ID column"):
         partition_with_biosieve(
             _dataset(),
@@ -159,8 +167,10 @@ def test_biosieve_output_missing_sample_id_column_is_rejected(fake_runtime):
         )
 
 
-def test_biosieve_output_with_unknown_sample_id_is_rejected(fake_runtime):
-    with pytest.raises(PartitionValidationError, match="unknown|Unknown"):
+def test_biosieve_output_with_unknown_sample_id_is_rejected(
+    fake_runtime,  # noqa: ARG001  fixture required for setup, value unused
+):
+    with pytest.raises(PartitionValidationError, match=r"unknown|Unknown"):
         partition_with_biosieve(
             _dataset(),
             BioSievePartitionConfig(strategy="random"),
@@ -168,18 +178,22 @@ def test_biosieve_output_with_unknown_sample_id_is_rejected(fake_runtime):
         )
 
 
-def test_biosieve_extra_column_cannot_override_reserved_target(fake_runtime):
+def test_biosieve_extra_column_cannot_override_reserved_target(
+    fake_runtime,  # noqa: ARG001  fixture required for setup, value unused
+):
     dataset = _dataset()
     with pytest.raises(PartitionIntegrationError, match="overwrite"):
         partition_with_biosieve(
             dataset,
             BioSievePartitionConfig(strategy="random"),
-            extra_columns={"__saber_target__": np.zeros(dataset.n_samples)},
+            extra_columns={"__saber_target__": np.zeros(dataset.n_samples).tolist()},
             splitter=CompleteKFoldSplitter(),
         )
 
 
-def test_biosieve_feature_name_collision_with_reserved_columns_is_rejected(fake_runtime):
+def test_biosieve_feature_name_collision_with_reserved_columns_is_rejected(
+    fake_runtime,  # noqa: ARG001  fixture required for setup, value unused
+):
     dataset = DatasetBundle(
         X=np.ones((8, 2)),
         y=[0, 1] * 4,

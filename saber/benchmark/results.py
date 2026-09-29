@@ -3,22 +3,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from hashlib import sha256
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import polars as pl
 
-from saber.core.prediction import PredictionResult
-from saber.tuning.results import OptimizationResult
 from saber.utils.tabular import cell_value, records_frame
-from saber.validation.results import ValidationResult
+
+if TYPE_CHECKING:
+    from saber.core.prediction import PredictionResult
+    from saber.tuning.results import OptimizationResult
+    from saber.validation.results import ValidationResult
 
 BenchmarkStatus = Literal["complete", "failed"]
 
 
 @dataclass(slots=True)
 class BenchmarkRun:
-    """One algorithm × representation × partition × seed × mode execution."""
+    """One algorithm x representation x partition x seed x mode execution."""
 
     run_id: str
     dataset_label: str
@@ -40,12 +43,14 @@ class BenchmarkRun:
 
     @property
     def aggregate_metrics(self) -> dict[str, float]:
+        """Return the run's aggregate metrics, or an empty dict if unvalidated."""
         if self.validation is None:
             return {}
         return dict(self.validation.aggregate_metrics)
 
     @property
     def oof_prediction(self) -> PredictionResult | None:
+        """Return the run's out-of-fold prediction, if validation was performed."""
         if self.validation is None:
             return None
         return self.validation.oof_prediction
@@ -60,14 +65,17 @@ class BenchmarkResult:
 
     @property
     def successes(self) -> tuple[BenchmarkRun, ...]:
+        """Return runs that completed successfully."""
         return tuple(run for run in self.runs if run.status == "complete")
 
     @property
     def failures(self) -> tuple[BenchmarkRun, ...]:
+        """Return runs that failed."""
         return tuple(run for run in self.runs if run.status == "failed")
 
     @property
     def n_runs(self) -> int:
+        """Return the total number of requested runs."""
         return len(self.runs)
 
     def aggregate_metrics_frame(self) -> pl.DataFrame:
@@ -127,6 +135,9 @@ class BenchmarkResult:
                 continue
             for fold in validation.folds:
                 prediction = fold.prediction
+                if prediction.sample_ids is None:
+                    # Fold predictions from ValidationEngine always carry sample_ids.
+                    raise AssertionError("Fold prediction is missing sample_ids.")
                 for index, sample_id in enumerate(prediction.sample_ids):
                     row: dict[str, Any] = {
                         **_run_identity(run),
@@ -219,7 +230,5 @@ def _run_identity(run: BenchmarkRun) -> dict[str, Any]:
 
 
 def _configuration_id(parameters: dict[str, Any]) -> str:
-    from hashlib import sha256
-
     payload = repr(sorted(parameters.items(), key=lambda item: item[0]))
     return sha256(payload.encode("utf-8")).hexdigest()[:12]
