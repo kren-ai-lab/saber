@@ -27,6 +27,8 @@ First public release, published on PyPI as `saberlib`.
   plan built in Python from `pandas.read_csv` defaults may carry a different dataset fingerprint
   than the same CSV loaded through saber — read with `polars.read_csv` or
   `pandas.read_csv(..., float_precision="round_trip")` to match it.
+- In CSV/TSV inputs, empty cells and `NA`, `N/A`, `n/a`, `NaN`, `nan`, `NULL`, `null`, `None` and
+  `#N/A` are read as missing. Rarer pandas spellings such as `<NA>` or `-1.#QNAN` are read as text.
 - Persisted/exported CSV tables are written by Polars (for example `0.00001`, `true`); values
   round-trip through saber's own readers.
 - A multi-character `sep` in a dataset config is a configuration error.
