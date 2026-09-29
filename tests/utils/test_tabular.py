@@ -100,11 +100,22 @@ def test_records_frame_serializes_nested_cells_and_handles_empty():
     assert frame["p"].to_list() == ['{"x":1}', "[1,2]"]
 
 
-def test_read_table_uses_pandas_missing_tokens(tmp_path):
+@pytest.mark.parametrize("token", ["", "NA", "N/A", "n/a", "NaN", "nan", "NULL", "null", "None", "#N/A"])
+def test_read_table_reads_common_missing_tokens_as_null(tmp_path, token):
     path = tmp_path / "t.csv"
-    path.write_text("a,b\n1.0,NA\n2.0,3\n", encoding="utf-8")
+    path.write_text(f"a,b\n1.0,{token}\n2.0,3\n", encoding="utf-8")
     frame = read_table(path, separator=",")
+    assert frame["b"].dtype.is_numeric()
     assert frame["b"].null_count() == 1
+
+
+def test_read_table_keeps_exotic_tokens_as_text(tmp_path):
+    path = tmp_path / "t.csv"
+    path.write_text("a,b\n1.0,-1.#QNAN\n2.0,3\n", encoding="utf-8")
+    assert read_table(path, separator=",")["b"].dtype == pl.String
+
+
+def test_read_table_empty_file_is_empty_frame(tmp_path):
     empty = tmp_path / "e.csv"
     empty.write_text("", encoding="utf-8")
     assert read_table(empty, separator=",").is_empty()

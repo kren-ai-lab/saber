@@ -19,28 +19,8 @@ from saber.utils.serialization import stable_json_dumps
 if TYPE_CHECKING:
     from pathlib import Path
 
-# pandas.read_csv's default missing-value tokens, so config CSVs keep their meaning.
-PANDAS_NA_VALUES = [
-    "",
-    "#N/A",
-    "#N/A N/A",
-    "#NA",
-    "-1.#IND",
-    "-1.#QNAN",
-    "-NaN",
-    "-nan",
-    "1.#IND",
-    "1.#QNAN",
-    "<NA>",
-    "N/A",
-    "NA",
-    "NULL",
-    "NaN",
-    "None",
-    "n/a",
-    "nan",
-    "null",
-]
+# Cell values read as missing in CSV/TSV tables: the common spellings, not pandas' full list.
+MISSING_VALUE_TOKENS = ["", "NA", "N/A", "n/a", "NaN", "nan", "NULL", "null", "None", "#N/A"]
 
 
 def _is_pandas_frame(value: Any) -> bool:
@@ -120,7 +100,9 @@ def records_frame(rows: list[dict[str, Any]]) -> pl.DataFrame:
 def read_table(path: Path, *, separator: str) -> pl.DataFrame:
     """Read a CSV/TSV table; an empty file yields an empty frame."""
     try:
-        frame = pl.read_csv(path, separator=separator, infer_schema_length=None, null_values=PANDAS_NA_VALUES)
+        frame = pl.read_csv(
+            path, separator=separator, infer_schema_length=None, null_values=MISSING_VALUE_TOKENS
+        )
     except pl.exceptions.NoDataError:
         return pl.DataFrame()
     height = frame.height
