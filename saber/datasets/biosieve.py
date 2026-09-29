@@ -272,7 +272,9 @@ def _dataset_to_polars(
     features: dict[str, Any] = {}
     if include_features:
         if isinstance(dataset.X, pl.DataFrame):
-            features = {str(column): dataset.X[column].to_numpy() for column in dataset.X.columns}
+            features = {
+                name: dataset.X[column].to_numpy() for name, column in zip(feature_names, dataset.X.columns)
+            }
         else:
             values = np.asarray(dataset.X)
             features = {name: values[:, index].copy() for index, name in enumerate(feature_names)}

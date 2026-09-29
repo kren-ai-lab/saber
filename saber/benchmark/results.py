@@ -10,7 +10,7 @@ import polars as pl
 
 from saber.core.prediction import PredictionResult
 from saber.tuning.results import OptimizationResult
-from saber.utils.tabular import records_frame
+from saber.utils.tabular import cell_value, records_frame
 from saber.validation.results import ValidationResult
 
 BenchmarkStatus = Literal["complete", "failed"]
@@ -165,7 +165,7 @@ class BenchmarkResult:
             identity = _run_identity(run)
             # Serialize nested identity values (e.g. "parameters") the same way
             # records_frame does, so this column stays consistent across every result table.
-            serialized_identity = records_frame([identity]).row(0, named=True)
+            serialized_identity = {key: cell_value(value) for key, value in identity.items()}
             frame = frame.with_columns(**{k: pl.lit(v) for k, v in serialized_identity.items()}).select(
                 [*identity, *frame.columns]
             )

@@ -6,16 +6,13 @@ from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import polars as pl
 
 from saber.core.prediction import PredictionResult
 from saber.core.registry import MODEL_REGISTRY, AlgorithmRegistry
 from saber.core.results import TrainResult
 from saber.datasets import DatasetBundle
-from saber.datasets.validation import validate_feature_matrix
-from saber.exceptions import FeatureSchemaMismatchError, ValidationContractError
+from saber.exceptions import ValidationContractError
 from saber.preprocessing import PreprocessingConfig, build_model_pipeline, pipeline_input
-from saber.utils.tabular import as_frame
 
 if TYPE_CHECKING:
     from saber.datasets import FeatureSchema
@@ -82,23 +79,9 @@ def _validate_feature_schema(
     *,
     feature_names: Sequence[str] | None = None,
 ) -> None:
-    """Validate X against the training feature schema before the NumPy conversion.
-
-    DataFrame-like inputs carry feature names/order, so they are checked in full.
-    NumPy inputs carry no names, so only the feature count is checked (as sklearn
-    itself only warns, never raises, when feature names are simply absent).
-    """
-    if schema is None:
-        return
-    frame = as_frame(X)
-    if isinstance(frame, pl.DataFrame):
-        schema.validate_compatible(frame, feature_names=feature_names)
-        return
-    _, n_features = validate_feature_matrix(frame)
-    if n_features != schema.n_features:
-        raise FeatureSchemaMismatchError(
-            f"X has {n_features} features; expected {schema.n_features} from the training schema."
-        )
+    """Validate X against the training feature schema before the NumPy conversion."""
+    if schema is not None:
+        schema.validate_compatible(X, feature_names=feature_names)
 
 
 def prediction_from_model(

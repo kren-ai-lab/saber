@@ -250,3 +250,29 @@ def test_cli2_contains_no_scientific_engine_imports_or_splitters():
     )
     for token in forbidden:
         assert token not in combined
+
+
+def test_benchmark_preview_lists_nan_scores_last():
+    from types import SimpleNamespace
+
+    import polars as pl
+    from rich.console import Console
+
+    from saber.cli.render import _render_benchmark
+
+    frame = pl.DataFrame(
+        {
+            "representation": ["r"] * 3,
+            "partition": ["p"] * 3,
+            "algorithm": ["nan_model", "low_model", "high_model"],
+            "mode": ["untuned"] * 3,
+            "seed": [0] * 3,
+            "metric": ["accuracy"] * 3,
+            "score": [float("nan"), 0.5, 0.9],
+        }
+    )
+    result = SimpleNamespace(n_runs=3, successes=(), failures=(), aggregate_metrics_frame=lambda: frame)
+    console = Console(record=True, width=200)
+    _render_benchmark(console, result)
+    text = console.export_text()
+    assert text.index("high_model") < text.index("low_model") < text.index("nan_model")

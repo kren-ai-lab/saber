@@ -97,7 +97,19 @@ class FeatureSchema:
         feature_names: tuple[str, ...] | list[str] | None = None,
         check_dtypes: bool = False,
     ) -> None:
-        """Validate that another feature matrix matches this schema."""
+        """Validate that another feature matrix matches this schema.
+
+        Unnamed NumPy inputs carry no feature names, so only their width is checked
+        (sklearn itself only warns, never raises, when names are simply absent).
+        """
+        X = as_frame(X)
+        if feature_names is None and not isinstance(X, pl.DataFrame):
+            _, n_features = validate_feature_matrix(X)
+            if n_features != self.n_features:
+                raise FeatureSchemaMismatchError(
+                    f"X has {n_features} features; expected {self.n_features} from the training schema."
+                )
+            feature_names = self.names
         candidate = FeatureSchema.from_data(X, feature_names=feature_names)
         if candidate.names != self.names:
             raise FeatureSchemaMismatchError("Feature names/order do not match the expected training schema.")

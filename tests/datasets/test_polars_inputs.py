@@ -70,3 +70,10 @@ def test_feature_schema_rejects_reordered_polars_columns():
     reordered = _frame().select(["f1", "f0", "n", "flag"])
     with pytest.raises(FeatureSchemaMismatchError):
         schema.validate_compatible(reordered)
+
+
+def test_feature_schema_checks_only_width_for_unnamed_numpy_input():
+    schema = FeatureSchema.from_data(_frame())
+    schema.validate_compatible(np.ones((2, 4)))
+    with pytest.raises(FeatureSchemaMismatchError, match="4 from the training schema"):
+        schema.validate_compatible(np.ones((2, 3)))
