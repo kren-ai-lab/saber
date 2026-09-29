@@ -260,7 +260,8 @@ class DatasetBundle:
             weights_subset = np.asarray(self.sample_weight)[indices].copy()
 
         metadata = dict(self.metadata)
-        metadata.setdefault("parent_dataset_fingerprint", self.fingerprint)
+        if "parent_dataset_fingerprint" not in metadata:
+            metadata["parent_dataset_fingerprint"] = self.fingerprint
 
         return DatasetBundle(
             X=X_subset,

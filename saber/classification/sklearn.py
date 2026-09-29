@@ -1,4 +1,4 @@
-"""saber.classification.sklearn_models.
+"""saber.classification.sklearn.
 
 Scikit-learn classification models and registry wiring.
 """

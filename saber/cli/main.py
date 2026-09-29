@@ -32,6 +32,8 @@ from saber.utils.serialization import to_jsonable
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from saber.core.specs import AlgorithmSpec
+
 EXIT_OK = 0
 EXIT_CONFIG = 2
 EXIT_WORKFLOW = 3
@@ -143,13 +145,18 @@ def models_list(
     task: TaskOpt = None, provider: ProviderOpt = None, tag: TagOpt = None, json_output: JsonOpt = False
 ) -> None:
     """List registered models, optionally filtered by task, provider, or tag."""
-    _models_command("list", console=Console(), task=task, provider=provider, tag=tag, json_output=json_output)
+    _print_model_rows(Console(), _filtered_specs(task, provider, tag), json_output=json_output)
 
 
 @models_app.command("show", help="Show detailed metadata for one algorithm or alias.")
 def models_show(name: str, json_output: JsonOpt = False) -> None:
     """Show metadata for one registered model, by name or alias."""
-    _models_command("show", console=Console(), name=name, json_output=json_output)
+    console = Console()
+    metadata = MODEL_REGISTRY.describe(name)
+    if json_output:
+        _print_json(console, metadata)
+    else:
+        render_model(console, metadata)
 
 
 @models_app.command("search", help="Search names, aliases, tags, and descriptions.")
@@ -161,15 +168,13 @@ def models_search(
     json_output: JsonOpt = False,
 ) -> None:
     """Search registered models by name, alias, tag, or description."""
-    _models_command(
-        "search",
-        console=Console(),
-        query=query,
-        task=task,
-        provider=provider,
-        tag=tag,
-        json_output=json_output,
-    )
+    needle = query.strip().lower()
+    specs = [
+        spec
+        for spec in _filtered_specs(task, provider, tag)
+        if needle in " ".join([spec.name, *spec.aliases, *spec.tags, spec.description or ""]).lower()
+    ]
+    _print_model_rows(Console(), specs, json_output=json_output)
 
 
 @artifact_app.command("inspect", help="Inspect an artifact manifest without loading its model.")
@@ -179,31 +184,49 @@ def artifact_inspect(
     json_output: JsonOpt = False,
 ) -> None:
     """Print an artifact's manifest, verifying checksums by default."""
-    _artifact_command("inspect", console=Console(), path=path, no_verify=no_verify, json_output=json_output)
+    console = Console()
+    payload = inspect_artifact(path, verify=not no_verify).to_dict()
+    if json_output:
+        _print_json(console, payload)
+    else:
+        render_artifact(console, payload, str(Path(path).resolve()))
+        if not no_verify:
+            console.print("[green]✓[/green] Checksums and artifact schema verified.")
 
 
 @artifact_app.command("verify", help="Verify artifact schema and checksums.")
 def artifact_verify(path: Path) -> None:
     """Verify an artifact's schema and checksums."""
-    _artifact_command("verify", console=Console(), path=path)
+    verify_artifact(path)
+    Console().print(f"[green]✓[/green] Artifact verified: {Path(path).resolve()}")
 
 
 @config_app.command("validate", help="Validate a YAML/JSON config without executing it.")
 def config_validate(path: Path) -> None:
     """Validate a workflow config without executing it."""
-    _config_command("validate", console=Console(), path=path)
+    config = load_config(path)
+    Console().print(
+        f"[green]✓[/green] Config valid  "
+        f"[dim]workflow={config.workflow}  schema={config.schema_version}[/dim]"
+    )
 
 
 @config_app.command("show", help="Render a validated execution plan.")
 def config_show(path: Path, json_output: JsonOpt = False) -> None:
     """Render the execution plan a config would run."""
-    _config_command("show", console=Console(), path=path, json_output=json_output)
+    console = Console()
+    config = load_config(path)
+    if json_output:
+        _print_json(console, config.to_dict())
+    else:
+        render_preflight(console, config)
 
 
 @config_app.command("normalize", help="Write a normalized versioned config.")
 def config_normalize(path: Path, output: Annotated[Path, typer.Option("-o", "--output")]) -> None:
     """Write a normalized, versioned copy of a config file."""
-    _config_command("normalize", console=Console(), path=path, output=output)
+    written = dump_config(load_config(path), output)
+    Console().print(f"[green]✓[/green] Normalized config written to {written.resolve()}")
 
 
 @app.command(
@@ -287,40 +310,13 @@ def _workflow_command(
     return EXIT_OK
 
 
-def _models_command(
-    subcommand: str,
-    *,
-    console: Console,
-    json_output: bool,
-    name: str | None = None,
-    query: str | None = None,
-    task: TaskChoice | None = None,
-    provider: str | None = None,
-    tag: str | None = None,
-) -> int:
-    if subcommand == "show":
-        if name is None:  # models_show requires name; only "show" reaches this branch
-            raise AssertionError("_models_command('show', ...) requires name.")
-        metadata = MODEL_REGISTRY.describe(name)
-        if json_output:
-            _print_json(console, metadata)
-        else:
-            render_model(console, metadata)
-        return EXIT_OK
+def _filtered_specs(task: TaskChoice | None, provider: str | None, tag: str | None) -> list[AlgorithmSpec]:
+    return MODEL_REGISTRY.filter(
+        task=task.value if task else None, provider=provider, tags=[tag] if tag else None
+    )
 
-    specs = MODEL_REGISTRY.filter(task=task.value if task else None, provider=provider)
-    if tag:
-        specs = [spec for spec in specs if tag in spec.tags]
-    if subcommand == "search":
-        if query is None:  # models_search requires query; only "search" reaches this branch
-            raise AssertionError("_models_command('search', ...) requires query.")
-        needle = query.strip().lower()
-        specs = [
-            spec
-            for spec in specs
-            if needle in " ".join([spec.name, *spec.aliases, *spec.tags, spec.description or ""]).lower()
-        ]
 
+def _print_model_rows(console: Console, specs: list[AlgorithmSpec], *, json_output: bool) -> None:
     rows = [_model_row(spec) for spec in sorted(specs, key=lambda item: item.name)]
     if json_output:
         _print_json(console, rows)
@@ -328,59 +324,6 @@ def _models_command(
         render_model_list(console, rows)
         if not rows:
             console.print("[yellow]No models matched the requested filters.[/yellow]")
-    return EXIT_OK
-
-
-def _artifact_command(
-    subcommand: str,
-    *,
-    console: Console,
-    path: Path,
-    no_verify: bool = False,
-    json_output: bool = False,
-) -> int:
-    if subcommand == "verify":
-        verify_artifact(path)
-        console.print(f"[green]✓[/green] Artifact verified: {Path(path).resolve()}")
-        return EXIT_OK
-
-    manifest = inspect_artifact(path, verify=not no_verify)
-    payload = manifest.to_dict()
-    if json_output:
-        _print_json(console, payload)
-    else:
-        render_artifact(console, payload, str(Path(path).resolve()))
-        if not no_verify:
-            console.print("[green]✓[/green] Checksums and artifact schema verified.")
-    return EXIT_OK
-
-
-def _config_command(
-    subcommand: str,
-    *,
-    console: Console,
-    path: Path,
-    json_output: bool = False,
-    output: Path | None = None,
-) -> int:
-    config = load_config(path)
-    if subcommand == "validate":
-        console.print(
-            f"[green]✓[/green] Config valid  "
-            f"[dim]workflow={config.workflow}  schema={config.schema_version}[/dim]"
-        )
-        return EXIT_OK
-    if subcommand == "show":
-        if json_output:
-            _print_json(console, config.to_dict())
-        else:
-            render_preflight(console, config)
-        return EXIT_OK
-    if output is None:  # config_normalize requires --output; only "normalize" reaches this branch
-        raise AssertionError("_config_command('normalize', ...) requires output.")
-    written = dump_config(config, output)
-    console.print(f"[green]✓[/green] Normalized config written to {written.resolve()}")
-    return EXIT_OK
 
 
 def _doctor_payload() -> dict[str, Any]:

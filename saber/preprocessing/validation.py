@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from saber.exceptions import PreprocessingContractError
-from saber.utils.tabular import to_numpy
+from saber.utils.tabular import missing_mask, to_numpy
 
 if TYPE_CHECKING:
     from saber.core.specs import AlgorithmSpec
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 def has_missing_features(X: Any) -> bool:
     """Return whether a numerical feature matrix contains missing values."""
-    return bool(np.isnan(to_numpy(X).astype(float)).any())
+    return bool(missing_mask(to_numpy(X)).any())
 
 
 def has_negative_features(X: Any) -> bool:

@@ -49,7 +49,7 @@ def _():
         return folds
 
     from sklearn.datasets import make_classification
-    from sklearn.metrics import (ConfusionMatrixDisplay, roc_curve, auc, precision_recall_curve,
+    from sklearn.metrics import (roc_curve, auc, precision_recall_curve,
                                  matthews_corrcoef, f1_score, recall_score, confusion_matrix)
     from saber import validate
     from saber.datasets import DatasetBundle, PartitionPlan

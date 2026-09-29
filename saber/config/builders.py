@@ -50,10 +50,7 @@ def load_dataset(
     if not path.exists():
         raise ConfigurationError(f"Dataset file does not exist: {path}.")
     suffix = path.suffix.lower()
-    separator = payload.get("sep")
-    if separator is None:
-        separator = "\t" if suffix == ".tsv" else ","
-    _validate_separator(separator)
+    separator = _dataset_separator(payload, suffix)
     if suffix not in {".csv", ".tsv", ".txt"}:
         raise ConfigurationError("CLI/YAML dataset files currently support CSV, TSV, or TXT.")
     frame = read_table(path, separator=separator)
@@ -104,10 +101,7 @@ def load_prediction_frame(
     if "path" not in payload:
         raise ConfigurationError("Prediction dataset config requires 'path'.")
     path = config.resolve_path(payload["path"])
-    suffix = path.suffix.lower()
-    separator = payload.get("sep") or ("\t" if suffix == ".tsv" else ",")
-    _validate_separator(separator)
-    frame = read_table(path, separator=separator)
+    frame = read_table(path, separator=_dataset_separator(payload, path.suffix.lower()))
     id_col = payload.get("sample_id")
     excluded = {
         name
@@ -258,9 +252,13 @@ def _build_domain(domain: Any) -> Any:
     raise ConfigurationError(f"Unknown search-space domain type '{kind}'.")
 
 
-def _validate_separator(separator: str) -> None:
+def _dataset_separator(payload: Mapping[str, Any], suffix: str) -> str:
+    separator = payload.get("sep")
+    if separator is None:
+        separator = "\t" if suffix == ".tsv" else ","
     if len(separator) != 1:
         raise ConfigurationError(f"dataset.sep must be a single character; received {separator!r}.")
+    return separator
 
 
 def _reject_unknown(payload: Mapping[str, Any], allowed: set[str], label: str) -> None:
