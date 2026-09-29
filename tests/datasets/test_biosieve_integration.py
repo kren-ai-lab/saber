@@ -285,3 +285,24 @@ def test_polars_dataset_preserves_int_and_bool_column_dtypes(monkeypatch):
     assert splitter.frame_seen is not None
     assert splitter.frame_seen["int_col"].dtype == pl.Int64
     assert splitter.frame_seen["bool_col"].dtype == pl.Boolean
+
+
+def test_polars_dataset_sends_overridden_feature_names(monkeypatch):
+    monkeypatch.setattr(adapter, "_import_biosieve_runtime", lambda: (pl, FakeColumns))
+    monkeypatch.setattr(adapter, "_biosieve_version", lambda: "0.1.2")
+
+    X = pl.DataFrame({"a": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0], "b": [6.0, 5.0, 4.0, 3.0, 2.0, 1.0]})
+    dataset = DatasetBundle(
+        X=X, y=[0, 1, 0, 1, 0, 1], sample_ids=[f"s{i}" for i in range(6)], feature_names=["f_a", "f_b"]
+    )
+    splitter = CapturePolarsSplitter()
+
+    partition_with_biosieve(
+        dataset,
+        BioSievePartitionConfig(strategy="distance_aware", params={"feature_mode": "descriptors"}),
+        splitter=splitter,
+    )
+
+    assert splitter.frame_seen is not None
+    assert {"f_a", "f_b"} <= set(splitter.frame_seen.columns)
+    assert not {"a", "b"} & set(splitter.frame_seen.columns)

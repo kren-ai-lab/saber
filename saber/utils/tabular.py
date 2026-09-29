@@ -32,7 +32,7 @@ def as_frame(X: Any) -> Any:
     """Return pandas DataFrames as Polars; leave every other input unchanged."""
     if not _is_pandas_frame(X):
         return X
-    if X.columns.duplicated().any():
+    if len({str(column) for column in X.columns}) != len(X.columns):
         raise DatasetValidationError("DataFrame feature names must be unique.")
     try:
         return pl.from_pandas(X)
@@ -82,7 +82,8 @@ def missing_mask(values: np.ndarray) -> np.ndarray:
     return np.zeros(values.shape, dtype=bool)
 
 
-def _cell(value: Any) -> Any:
+def cell_value(value: Any) -> Any:
+    """Return a result-table cell: NumPy scalars as Python, nested values as stable JSON."""
     if isinstance(value, np.generic):
         return value.item()
     if isinstance(value, (dict, list, tuple, set, frozenset)):
@@ -94,7 +95,9 @@ def records_frame(rows: list[dict[str, Any]]) -> pl.DataFrame:
     """Build a result table from row dicts; nested cells become stable JSON strings."""
     if not rows:
         return pl.DataFrame()
-    return pl.from_dicts([{k: _cell(v) for k, v in row.items()} for row in rows], infer_schema_length=None)
+    return pl.from_dicts(
+        [{k: cell_value(v) for k, v in row.items()} for row in rows], infer_schema_length=None
+    )
 
 
 def read_table(path: Path, *, separator: str) -> pl.DataFrame:
