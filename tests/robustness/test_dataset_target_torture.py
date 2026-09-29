@@ -196,4 +196,4 @@ def test_dataframe_nondefault_index_does_not_affect_sample_identity():
     dataset = DatasetBundle(frame, y, sample_ids=ids)
     subset = dataset.subset([ids[10], ids[2], ids[18]])
     assert subset.sample_ids == (ids[2], ids[10], ids[18])
-    assert subset.X.index.tolist() == [102, 110, 118]
+    assert subset.X["a"].to_list() == frame["a"].to_numpy()[[2, 10, 18]].tolist()

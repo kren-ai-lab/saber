@@ -14,7 +14,7 @@ from importlib.metadata import PackageNotFoundError, version
 from typing import Any
 
 import numpy as np
-import pandas as pd
+import polars as pl
 
 from saber.datasets.folds import PartitionPlan, PartitionSplit
 from saber.datasets.schemas import DatasetBundle
@@ -271,8 +271,10 @@ def _dataset_to_polars(
 
     features: dict[str, Any] = {}
     if include_features:
-        if isinstance(dataset.X, pd.DataFrame):
-            features = {str(column): dataset.X[column].to_numpy(copy=True) for column in dataset.X.columns}
+        if isinstance(dataset.X, pl.DataFrame):
+            features = {
+                name: dataset.X[column].to_numpy() for name, column in zip(feature_names, dataset.X.columns)
+            }
         else:
             values = np.asarray(dataset.X)
             features = {name: values[:, index].copy() for index, name in enumerate(feature_names)}

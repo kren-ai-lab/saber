@@ -26,6 +26,7 @@ from saber.persistence import (
     verify_artifact,
 )
 from saber.preprocessing import build_model_pipeline
+from saber.utils.tabular import to_numpy
 
 
 def _fitted_fixture():
@@ -55,15 +56,15 @@ def _fitted_fixture():
         estimator=estimator,
         training_data=dataset,
     )
-    pipeline.fit(dataset.X, dataset.y)
+    pipeline.fit(to_numpy(dataset.X), dataset.y)
     return dataset, plan, pipeline
 
 
 def test_model_artifact_round_trip_preserves_predictions_and_probabilities(tmp_path):
     dataset, plan, pipeline = _fitted_fixture()
     artifact_path = tmp_path / "model_artifact"
-    expected_prediction = pipeline.predict(dataset.X)
-    expected_probability = pipeline.predict_proba(dataset.X)
+    expected_prediction = pipeline.predict(to_numpy(dataset.X))
+    expected_probability = pipeline.predict_proba(to_numpy(dataset.X))
 
     save_model_artifact(
         artifact_path,
@@ -185,8 +186,8 @@ def test_round_trip_works_in_fresh_python_process(tmp_path):
     artifact_path = tmp_path / "model_artifact"
     expected_path = tmp_path / "expected.npy"
     data_path = tmp_path / "features.csv"
-    np.save(expected_path, pipeline.predict(dataset.X))
-    dataset.X.to_csv(data_path, index=False)
+    np.save(expected_path, pipeline.predict(to_numpy(dataset.X)))
+    dataset.X.write_csv(data_path)
 
     save_model_artifact(
         artifact_path,

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
+
 import numpy as np
-import pandas as pd
+import polars as pl
 import pytest
+from polars.testing import assert_frame_equal
 from sklearn.datasets import make_classification, make_regression
 
 from saber import MODEL_REGISTRY
@@ -48,6 +51,143 @@ def _safe_holdout(dataset: DatasetBundle) -> PartitionPlan:
         test_ids=ids[50:],
         dataset_fingerprint=dataset.fingerprint,
     )
+
+
+def _small_benchmark():
+    """1 representation x 1 partition scenario, with a tuned run and a failing model."""
+    dataset = _classification_dataset()
+    plan = _safe_holdout(dataset)
+    return BenchmarkEngine(MODEL_REGISTRY).run(
+        datasets={"roxy": dataset},
+        algorithms=("logistic_regression", "not_a_model"),
+        config=BenchmarkConfig(
+            metrics=("accuracy",),
+            modes=("tuned",),
+            include_baselines=False,
+            tuning=TuningConfig(optimizer="grid", metrics=("accuracy",), n_jobs=1),
+        ),
+        partitions=plan,
+        search_spaces={"logistic_regression": SearchSpace("lr", {"C": [0.1, 1.0]})},
+    )
+
+
+EXPECTED_METRICS_COLUMNS = [
+    "run_id",
+    "dataset",
+    "representation",
+    "partition",
+    "algorithm",
+    "provider",
+    "task",
+    "mode",
+    "seed",
+    "configuration_id",
+    "parameters",
+    "level",
+    "split",
+    "evaluation_role",
+    "metric",
+    "score",
+    "elapsed_seconds",
+    "fit_seconds",
+]
+EXPECTED_PREDICTIONS_COLUMNS = [
+    "run_id",
+    "dataset",
+    "representation",
+    "partition",
+    "algorithm",
+    "provider",
+    "task",
+    "mode",
+    "seed",
+    "configuration_id",
+    "parameters",
+    "split",
+    "evaluation_role",
+    "sample_id",
+    "y_true",
+    "y_pred",
+    "probability__0",
+    "probability__1",
+    "decision_score",
+]
+EXPECTED_RUNS_COLUMNS = [
+    "run_id",
+    "dataset",
+    "representation",
+    "partition",
+    "algorithm",
+    "provider",
+    "task",
+    "mode",
+    "seed",
+    "configuration_id",
+    "parameters",
+    "status",
+    "error",
+    "elapsed_seconds",
+    "metric__accuracy",
+]
+EXPECTED_FAILURES_COLUMNS = [
+    "run_id",
+    "dataset",
+    "representation",
+    "partition",
+    "algorithm",
+    "provider",
+    "task",
+    "mode",
+    "seed",
+    "configuration_id",
+    "parameters",
+    "error",
+    "elapsed_seconds",
+]
+EXPECTED_OPTIMIZATION_HISTORY_COLUMNS = [
+    "run_id",
+    "dataset",
+    "representation",
+    "partition",
+    "algorithm",
+    "provider",
+    "task",
+    "mode",
+    "seed",
+    "configuration_id",
+    "parameters",
+    "status",
+    "error",
+    "param__C",
+    "metric__accuracy__mean",
+    "metric__accuracy__std",
+    "metric__accuracy__rank",
+]
+EXPECTED_SAMPLE_ORDER = ["s50", "s51", "s52", "s53", "s54", "s55", "s56", "s57", "s58", "s59"]
+
+
+def test_result_frames_keep_their_columns() -> None:
+    result = _small_benchmark()
+    assert list(result.metrics_frame().columns) == EXPECTED_METRICS_COLUMNS
+    assert list(result.predictions_frame().columns) == EXPECTED_PREDICTIONS_COLUMNS
+    assert list(result.runs_frame().columns) == EXPECTED_RUNS_COLUMNS
+    assert list(result.failures_frame().columns) == EXPECTED_FAILURES_COLUMNS
+    assert list(result.optimization_history_frame().columns) == EXPECTED_OPTIMIZATION_HISTORY_COLUMNS
+    assert result.predictions_frame()["sample_id"].to_list() == EXPECTED_SAMPLE_ORDER
+
+
+def test_result_frames_are_polars() -> None:
+    result = _small_benchmark()
+    for name in (
+        "aggregate_metrics_frame",
+        "fold_metrics_frame",
+        "metrics_frame",
+        "predictions_frame",
+        "optimization_history_frame",
+        "failures_frame",
+        "runs_frame",
+    ):
+        assert isinstance(getattr(result, name)(), pl.DataFrame), name
 
 
 def test_benchmark_runs_algorithm_matrix_with_baseline_and_repeated_seeds() -> None:
@@ -190,9 +330,9 @@ def test_seeded_benchmark_is_score_reproducible() -> None:
     engine = BenchmarkEngine(MODEL_REGISTRY)
     first = engine.run(**kwargs)
     second = engine.run(**kwargs)
-    pd.testing.assert_frame_equal(
-        first.aggregate_metrics_frame().drop(columns="elapsed_seconds"),
-        second.aggregate_metrics_frame().drop(columns="elapsed_seconds"),
+    assert_frame_equal(
+        first.aggregate_metrics_frame().drop("elapsed_seconds"),
+        second.aggregate_metrics_frame().drop("elapsed_seconds"),
     )
     np.testing.assert_array_equal(
         first.successes[0].oof_prediction.predictions,
@@ -304,7 +444,7 @@ def test_run_and_failure_tables_are_exportable() -> None:
     assert len(runs) == 2
     assert set(runs["status"]) == {"complete", "failed"}
     assert len(failures) == 1
-    assert failures.iloc[0]["algorithm"] == "bad_model"
+    assert failures.row(0, named=True)["algorithm"] == "bad_model"
 
 
 def test_partition_from_unrelated_dataset_fingerprint_is_rejected() -> None:
@@ -333,7 +473,7 @@ def test_metric_rows_link_to_configuration_and_prediction_rows_by_run_id() -> No
     predictions = result.predictions_frame()
     assert set(metrics["run_id"]) == set(predictions["run_id"])
     assert set(metrics["configuration_id"]) == set(predictions["configuration_id"])
-    assert metrics.iloc[0]["parameters"]["C"] == 0.5
+    assert json.loads(metrics.row(0, named=True)["parameters"])["C"] == 0.5
 
 
 def test_tuned_benchmark_exports_annotated_optimization_history() -> None:

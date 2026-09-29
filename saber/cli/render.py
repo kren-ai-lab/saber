@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+import polars as pl
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -233,21 +234,23 @@ def _render_benchmark(console: Console, result: BenchmarkResult) -> None:
     console.print(overview)
 
     frame = result.aggregate_metrics_frame()
-    if frame.empty:
+    if frame.is_empty():
         return
-    preview = frame.sort_values(["metric", "score"], ascending=[True, False]).head(16)
+    preview = frame.sort(
+        [pl.col("metric"), pl.col("score").fill_nan(None)], descending=[False, True], nulls_last=True
+    ).head(16)
     table = Table(title="Aggregate results (preview)", header_style="bold cyan")
     for column in ("representation", "partition", "algorithm", "mode", "seed", "metric", "score"):
         table.add_column(column.replace("_", " ").title())
-    for row in preview.itertuples(index=False):
+    for row in preview.iter_rows(named=True):
         table.add_row(
-            str(row.representation),
-            str(row.partition),
-            str(row.algorithm),
-            str(row.mode),
-            str(row.seed),
-            str(row.metric),
-            _format_number(row.score),
+            str(row["representation"]),
+            str(row["partition"]),
+            str(row["algorithm"]),
+            str(row["mode"]),
+            str(row["seed"]),
+            str(row["metric"]),
+            _format_number(row["score"]),
         )
     console.print(table)
     if len(frame) > len(preview):

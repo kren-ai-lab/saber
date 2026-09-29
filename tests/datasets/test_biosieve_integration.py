@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 
 import numpy as np
+import polars as pl
 import pytest
 
 from saber.datasets import DatasetBundle
@@ -227,3 +228,64 @@ def test_distance_descriptor_partition_exposes_prepared_numeric_features(fake_ru
     assert "feature_0" in splitter.columns_seen
     assert "feature_1" in splitter.columns_seen
     assert "feature_2" in splitter.columns_seen
+
+
+class CapturePolarsSplitter:
+    strategy = "capture"
+
+    def __init__(self):
+        self.frame_seen = None
+
+    def run(self, frame, cols):
+        self.frame_seen = frame
+        return SimpleNamespace(
+            train=frame[[0, 1, 2, 3]],
+            test=frame[[4, 5]],
+            val=None,
+            strategy="capture",
+            params={},
+            stats={},
+        )
+
+
+def test_polars_dataset_preserves_int_and_bool_column_dtypes(monkeypatch):
+    monkeypatch.setattr(adapter, "_import_biosieve_runtime", lambda: (pl, FakeColumns))
+    monkeypatch.setattr(adapter, "_biosieve_version", lambda: "0.1.2")
+
+    X = pl.DataFrame(
+        {
+            "int_col": [1, 2, 3, 4, 5, 6],
+            "bool_col": [True, False, True, False, True, False],
+        }
+    )
+    dataset = DatasetBundle(X=X, y=[0, 1, 0, 1, 0, 1], sample_ids=[f"s{i}" for i in range(6)])
+    splitter = CapturePolarsSplitter()
+
+    partition_with_biosieve(
+        dataset,
+        BioSievePartitionConfig(strategy="distance_aware", params={"feature_mode": "descriptors"}),
+        splitter=splitter,
+    )
+
+    assert splitter.frame_seen["int_col"].dtype == pl.Int64
+    assert splitter.frame_seen["bool_col"].dtype == pl.Boolean
+
+
+def test_polars_dataset_sends_overridden_feature_names(monkeypatch):
+    monkeypatch.setattr(adapter, "_import_biosieve_runtime", lambda: (pl, FakeColumns))
+    monkeypatch.setattr(adapter, "_biosieve_version", lambda: "0.1.2")
+
+    X = pl.DataFrame({"a": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0], "b": [6.0, 5.0, 4.0, 3.0, 2.0, 1.0]})
+    dataset = DatasetBundle(
+        X=X, y=[0, 1, 0, 1, 0, 1], sample_ids=[f"s{i}" for i in range(6)], feature_names=["f_a", "f_b"]
+    )
+    splitter = CapturePolarsSplitter()
+
+    partition_with_biosieve(
+        dataset,
+        BioSievePartitionConfig(strategy="distance_aware", params={"feature_mode": "descriptors"}),
+        splitter=splitter,
+    )
+
+    assert {"f_a", "f_b"} <= set(splitter.frame_seen.columns)
+    assert not {"a", "b"} & set(splitter.frame_seen.columns)

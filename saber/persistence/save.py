@@ -8,10 +8,9 @@ import tempfile
 from contextlib import contextmanager
 from importlib import metadata as importlib_metadata
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import joblib
-import pandas as pd
 
 from saber.benchmark.results import BenchmarkResult
 from saber.datasets import DatasetBundle, FeatureSchema, PartitionPlan
@@ -19,7 +18,10 @@ from saber.exceptions import PersistenceError
 from saber.persistence.checksums import write_checksums
 from saber.persistence.environment import environment_snapshot
 from saber.persistence.metadata import ArtifactManifest
-from saber.utils.serialization import stable_json_dumps, write_json
+from saber.utils.serialization import write_json
+
+if TYPE_CHECKING:
+    import polars as pl
 
 
 def save_model_artifact(
@@ -194,20 +196,8 @@ def save_benchmark_artifact(
     return target
 
 
-def _write_frame(frame: pd.DataFrame, path: Path) -> None:
-    normalized = frame.copy()
-    for column in normalized.columns:
-        if normalized[column].dtype == object:
-            normalized[column] = normalized[column].map(_csv_cell)
-    normalized.to_csv(path, index=False)
-
-
-def _csv_cell(value: Any) -> Any:
-    if value is None:
-        return None
-    if isinstance(value, (dict, list, tuple, set, frozenset)):
-        return stable_json_dumps(value)
-    return value
+def _write_frame(frame: pl.DataFrame, path: Path) -> None:
+    frame.write_csv(path)
 
 
 @contextmanager

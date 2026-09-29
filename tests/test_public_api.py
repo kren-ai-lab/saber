@@ -1,12 +1,18 @@
 from __future__ import annotations
 
+import subprocess
+import sys
+
+import numpy as np
 import pandas as pd
+import pytest
 from sklearn.datasets import make_classification, make_regression
 
 import saber
 from saber.benchmark import BenchmarkConfig
 from saber.core import Categorical, SearchSpace
 from saber.datasets import DatasetBundle, PartitionPlan
+from saber.exceptions import FeatureSchemaMismatchError
 from saber.preprocessing import PreprocessingConfig
 from saber.tuning import TuningConfig
 
@@ -118,6 +124,62 @@ def test_public_benchmark_runs_matrix_without_reimplementing_engines():
     assert set(result.aggregate_metrics_frame()["seed"]) == {42, 43}
 
 
+def _named_classification_dataset(n=60):
+    X, y = make_classification(n_samples=n, n_features=4, n_informative=3, n_redundant=0, random_state=11)
+    frame = pd.DataFrame(X, columns=list("abcd"))
+    return DatasetBundle(frame, y, sample_ids=[f"s{i}" for i in range(n)])
+
+
+def test_predict_rejects_reordered_dataframe_columns():
+    dataset = _named_classification_dataset()
+    result = saber.train(dataset=dataset, algorithm="logistic_regression", random_state=42)
+    reordered = dataset.X[list("dcba")]
+    with pytest.raises(FeatureSchemaMismatchError):
+        saber.predict(result, X=reordered)
+
+
+def test_evaluate_rejects_reordered_dataframe_columns():
+    dataset = _named_classification_dataset()
+    result = saber.train(dataset=dataset, algorithm="logistic_regression", random_state=42)
+    reordered = DatasetBundle(dataset.X[list("dcba")], dataset.y, sample_ids=dataset.sample_ids)
+    with pytest.raises(FeatureSchemaMismatchError):
+        saber.evaluate(dataset=reordered, model=result, metrics=("accuracy",))
+
+
+def test_predict_and_evaluate_accept_dataset_feature_name_overrides():
+    dataset = _named_classification_dataset()
+    result = saber.train(dataset=dataset, algorithm="logistic_regression", random_state=42)
+
+    renamed = dataset.X.rename({"a": "x0", "b": "x1", "c": "x2", "d": "x3"})
+    overridden = DatasetBundle(renamed, dataset.y, sample_ids=dataset.sample_ids, feature_names=list("abcd"))
+
+    prediction = saber.predict(result, dataset=overridden)
+    evaluation = saber.evaluate(dataset=overridden, model=result, metrics=("accuracy",))
+
+    assert prediction.n_samples == dataset.n_samples
+    assert evaluation.metrics["accuracy"] >= 0.0
+
+
+def test_predict_forwards_explicit_feature_names_override_without_dataset():
+    dataset = _named_classification_dataset()
+    result = saber.train(dataset=dataset, algorithm="logistic_regression", random_state=42)
+
+    renamed = dataset.X.rename({"a": "x0", "b": "x1", "c": "x2", "d": "x3"})
+    prediction = saber.predict(result, X=renamed, feature_names=list("abcd"))
+
+    assert prediction.n_samples == dataset.n_samples
+
+
+def test_predict_accepts_same_order_dataframe_and_matching_width_numpy_array():
+    dataset = _named_classification_dataset()
+    result = saber.train(dataset=dataset, algorithm="logistic_regression", random_state=42)
+
+    same_order = saber.predict(result, X=dataset.X)
+    from_numpy = saber.predict(result, X=np.asarray(dataset.X))
+
+    np.testing.assert_array_equal(same_order.predictions, from_numpy.predictions)
+
+
 def test_public_api_regression_end_to_end():
     X, y = make_regression(n_samples=60, n_features=5, noise=0.2, random_state=3)
     dataset = DatasetBundle(
@@ -129,3 +191,18 @@ def test_public_api_regression_end_to_end():
     evaluation = saber.evaluate(dataset=dataset, model=result, metrics=("rmse", "mae"))
     assert evaluation.metrics["rmse"] >= 0.0
     assert evaluation.metrics["mae"] >= 0.0
+
+
+def test_saber_works_without_pandas():
+    # Blocks pandas the way an environment without it would; optional providers
+    # (xgboost/lightgbm) import it opportunistically and must tolerate its absence.
+    code = (
+        "import sys; sys.modules['pandas'] = None\n"
+        "import numpy as np, saber\n"
+        "from saber.datasets import DatasetBundle\n"
+        "DatasetBundle(X=np.ones((4, 2)), y=np.array([0, 1, 0, 1]))\n"
+        "print('ok')"
+    )
+    completed = subprocess.run([sys.executable, "-c", code], text=True, capture_output=True, check=False)
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.strip() == "ok"

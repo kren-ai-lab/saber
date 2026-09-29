@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import pandas as pd
+import polars as pl
 
 from saber.api import benchmark, evaluate, predict, train, tune, validate
 from saber.benchmark import BenchmarkResult
@@ -27,6 +27,7 @@ from saber.config.schema import WorkflowConfig
 from saber.exceptions import ConfigurationError
 from saber.persistence import load_model_artifact, save_benchmark_artifact, save_model_artifact
 from saber.utils.serialization import to_jsonable
+from saber.utils.tabular import records_frame
 from saber.validation import ValidationResult
 
 
@@ -198,7 +199,7 @@ def _run_tune(config: WorkflowConfig) -> WorkflowExecution:
         directory = config.resolve_path(output["directory"])
         directory.mkdir(parents=True, exist_ok=True)
         history_path = directory / "optimization_history.csv"
-        result.history_frame().to_csv(history_path, index=False)
+        result.history_frame().write_csv(history_path)
         outputs["optimization_history"] = str(history_path)
 
     artifact = _optional_mapping(payload.get("artifact"), "artifact")
@@ -327,7 +328,7 @@ def _run_predict(config: WorkflowConfig) -> WorkflowExecution:
     if output and output.get("path"):
         target = config.resolve_path(output["path"])
         target.parent.mkdir(parents=True, exist_ok=True)
-        _prediction_frame(result).to_csv(target, index=False)
+        _prediction_frame(result).write_csv(target)
         outputs["predictions"] = str(target)
     _write_summary(config, summary, outputs)
     return WorkflowExecution(config, result, summary, outputs)
@@ -356,11 +357,11 @@ def _write_result_tables(config: WorkflowConfig, result: Any, outputs: dict[str,
             for metric, score in fold.evaluation.metrics.items():
                 rows.append({"split": fold.split_name, "metric": metric, "score": score})
         path = directory / "metrics.csv"
-        pd.DataFrame(rows).to_csv(path, index=False)
+        records_frame(rows).write_csv(path)
         outputs["metrics"] = str(path)
         if result.oof_prediction is not None:
             pred_path = directory / "predictions.csv"
-            _prediction_frame(result.oof_prediction).to_csv(pred_path, index=False)
+            _prediction_frame(result.oof_prediction).write_csv(pred_path)
             outputs["predictions"] = str(pred_path)
     elif isinstance(result, BenchmarkResult):
         tables = {
@@ -371,7 +372,7 @@ def _write_result_tables(config: WorkflowConfig, result: Any, outputs: dict[str,
         }
         for name, frame in tables.items():
             path = directory / f"{name}.csv"
-            frame.to_csv(path, index=False)
+            frame.write_csv(path)
             outputs[name] = str(path)
 
 
@@ -390,9 +391,10 @@ def _write_summary(config: WorkflowConfig, summary: dict[str, Any], outputs: dic
         outputs["summary"] = str(target)
 
 
-def _prediction_frame(result: Any) -> pd.DataFrame:
+def _prediction_frame(result: Any) -> pl.DataFrame:
+    sample_ids = list(result.sample_ids) if result.sample_ids is not None else list(range(result.n_samples))
     frame: dict[str, Any] = {
-        "sample_id": result.sample_ids if result.sample_ids is not None else np.arange(result.n_samples),
+        "sample_id": sample_ids,
         "prediction": result.predictions,
     }
     if result.probabilities is not None:
@@ -406,7 +408,7 @@ def _prediction_frame(result: Any) -> pd.DataFrame:
         scores = np.asarray(result.decision_scores)
         if scores.ndim == 1:
             frame["decision_score"] = scores
-    return pd.DataFrame(frame)
+    return pl.DataFrame(frame)
 
 
 def _mapping(value: Any, label: str) -> dict[str, Any]:

@@ -6,10 +6,11 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 import numpy as np
-import pandas as pd
+import polars as pl
 
 from saber.core.prediction import PredictionResult
 from saber.tuning.results import OptimizationResult
+from saber.utils.tabular import cell_value, records_frame
 from saber.validation.results import ValidationResult
 
 BenchmarkStatus = Literal["complete", "failed"]
@@ -69,7 +70,7 @@ class BenchmarkResult:
     def n_runs(self) -> int:
         return len(self.runs)
 
-    def aggregate_metrics_frame(self) -> pd.DataFrame:
+    def aggregate_metrics_frame(self) -> pl.DataFrame:
         """Return one long-form row per completed run and aggregate metric."""
         rows: list[dict[str, Any]] = []
         for run in self.successes:
@@ -85,9 +86,9 @@ class BenchmarkResult:
                         "elapsed_seconds": float(run.elapsed_seconds),
                     }
                 )
-        return pd.DataFrame(rows)
+        return records_frame(rows)
 
-    def fold_metrics_frame(self) -> pd.DataFrame:
+    def fold_metrics_frame(self) -> pl.DataFrame:
         """Return one long-form row per fold/split and metric."""
         rows: list[dict[str, Any]] = []
         for run in self.successes:
@@ -107,17 +108,17 @@ class BenchmarkResult:
                             "elapsed_seconds": float(run.elapsed_seconds),
                         }
                     )
-        return pd.DataFrame(rows)
+        return records_frame(rows)
 
-    def metrics_frame(self) -> pd.DataFrame:
+    def metrics_frame(self) -> pl.DataFrame:
         """Return aggregate and fold metrics in one analysis-ready table."""
         frames = [self.aggregate_metrics_frame(), self.fold_metrics_frame()]
-        non_empty = [frame for frame in frames if not frame.empty]
+        non_empty = [frame for frame in frames if not frame.is_empty()]
         if not non_empty:
-            return pd.DataFrame()
-        return pd.concat(non_empty, ignore_index=True, sort=False)
+            return pl.DataFrame()
+        return pl.concat(non_empty, how="diagonal_relaxed")
 
-    def predictions_frame(self) -> pd.DataFrame:
+    def predictions_frame(self) -> pl.DataFrame:
         """Return sample-level held-out predictions for every successful run."""
         rows: list[dict[str, Any]] = []
         for run in self.successes:
@@ -150,28 +151,32 @@ class BenchmarkResult:
                             for class_index, class_label in enumerate(prediction.classes):
                                 row[f"decision_score__{class_label}"] = float(values[index, class_index])
                     rows.append(row)
-        return pd.DataFrame(rows)
+        return records_frame(rows)
 
-    def optimization_history_frame(self) -> pd.DataFrame:
+    def optimization_history_frame(self) -> pl.DataFrame:
         """Return tuning candidate/trial history annotated with benchmark identity."""
-        frames: list[pd.DataFrame] = []
+        frames: list[pl.DataFrame] = []
         for run in self.successes:
             if run.optimization is None:
                 continue
-            frame = run.optimization.history_frame().copy()
-            if frame.empty:
+            frame = run.optimization.history_frame()
+            if frame.is_empty():
                 continue
             identity = _run_identity(run)
-            for column, value in reversed(tuple(identity.items())):
-                frame.insert(0, column, value)
+            # Serialize nested identity values (e.g. "parameters") the same way
+            # records_frame does, so this column stays consistent across every result table.
+            serialized_identity = {key: cell_value(value) for key, value in identity.items()}
+            frame = frame.with_columns(**{k: pl.lit(v) for k, v in serialized_identity.items()}).select(
+                [*identity, *frame.columns]
+            )
             frames.append(frame)
         if not frames:
-            return pd.DataFrame()
-        return pd.concat(frames, ignore_index=True, sort=False)
+            return pl.DataFrame()
+        return pl.concat(frames, how="diagonal_relaxed")
 
-    def failures_frame(self) -> pd.DataFrame:
+    def failures_frame(self) -> pl.DataFrame:
         """Return failed runs without discarding successful benchmark results."""
-        return pd.DataFrame(
+        return records_frame(
             [
                 {
                     **_run_identity(run),
@@ -182,7 +187,7 @@ class BenchmarkResult:
             ]
         )
 
-    def runs_frame(self) -> pd.DataFrame:
+    def runs_frame(self) -> pl.DataFrame:
         """Return one row per requested benchmark run."""
         rows = []
         for run in self.runs:
@@ -194,7 +199,7 @@ class BenchmarkResult:
             }
             row.update({f"metric__{name}": value for name, value in run.aggregate_metrics.items()})
             rows.append(row)
-        return pd.DataFrame(rows)
+        return records_frame(rows)
 
 
 def _run_identity(run: BenchmarkRun) -> dict[str, Any]:

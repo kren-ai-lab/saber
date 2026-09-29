@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pandas as pd
+import polars as pl
 import pytest
 from sklearn.datasets import make_classification
 
@@ -79,14 +80,13 @@ def test_missing_feature_is_rejected_before_model_prediction(tmp_path):
     dataset, _, path = _trained(tmp_path)
     loaded = load_model_artifact(path)
     with pytest.raises(FeatureSchemaMismatchError):
-        loaded.predict(dataset.X.iloc[:, :-1])
+        loaded.predict(dataset.X[:, :-1])
 
 
 def test_extra_feature_is_rejected_before_model_prediction(tmp_path):
     dataset, _, path = _trained(tmp_path)
     loaded = load_model_artifact(path)
-    extra = dataset.X.copy()
-    extra["extra"] = 0.0
+    extra = dataset.X.with_columns(pl.lit(0.0).alias("extra"))
     with pytest.raises(FeatureSchemaMismatchError):
         loaded.predict(extra)
 

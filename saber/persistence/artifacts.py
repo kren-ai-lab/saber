@@ -4,14 +4,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import pandas as pd
 
 from saber.core.prediction import PredictionResult
 from saber.datasets import FeatureSchema
 from saber.persistence.metadata import ArtifactManifest
+from saber.preprocessing import pipeline_input
+
+if TYPE_CHECKING:
+    import polars as pl
 
 
 @dataclass(slots=True)
@@ -58,7 +61,7 @@ class LoadedModelArtifact:
         feature_names: tuple[str, ...] | list[str] | None = None,
     ) -> np.ndarray:
         self.validate_features(X, feature_names=feature_names)
-        return np.asarray(self.model.predict(X))
+        return np.asarray(self.model.predict(pipeline_input(self.model, X)))
 
     def predict_result(
         self,
@@ -69,6 +72,7 @@ class LoadedModelArtifact:
         positive_class: Any | None = None,
     ) -> PredictionResult:
         self.validate_features(X, feature_names=feature_names)
+        X = pipeline_input(self.model, X)
         predictions = np.asarray(self.model.predict(X))
 
         probabilities = None
@@ -114,12 +118,12 @@ class LoadedBenchmarkArtifact:
     manifest: ArtifactManifest
     metadata: dict[str, Any]
     environment: dict[str, Any]
-    tables: dict[str, pd.DataFrame] = field(default_factory=dict)
+    tables: dict[str, pl.DataFrame] = field(default_factory=dict)
     result: Any | None = None
     compatibility_warnings: tuple[str, ...] = ()
 
-    def table(self, name: str) -> pd.DataFrame:
+    def table(self, name: str) -> pl.DataFrame:
         try:
-            return self.tables[name].copy()
+            return self.tables[name].clone()
         except KeyError as exc:
             raise KeyError(f"Benchmark artifact does not contain table '{name}'.") from exc

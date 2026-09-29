@@ -13,6 +13,7 @@ from sklearn.datasets import make_classification
 import saber
 from saber.cli.main import EXIT_CONFIG, EXIT_OK, _doctor_payload, main
 from saber.datasets import DatasetBundle, PartitionPlan
+from saber.utils.tabular import read_table
 
 ROOT = Path(__file__).parents[2]
 
@@ -31,11 +32,11 @@ def _validate_config(tmp_path: Path) -> Path:
     data_path = tmp_path / "data.csv"
     frame.to_csv(data_path, index=False)
 
-    loaded = pd.read_csv(data_path)
+    loaded = read_table(data_path, separator=",")
     dataset = DatasetBundle(
-        loaded[[f"f{i}" for i in range(5)]],
+        loaded.select([f"f{i}" for i in range(5)]),
         loaded["label"].to_numpy(),
-        sample_ids=loaded["sample_id"].tolist(),
+        sample_ids=loaded["sample_id"].to_list(),
     )
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=dataset.sample_ids,
@@ -57,6 +58,58 @@ def _validate_config(tmp_path: Path) -> Path:
     config_path = tmp_path / "validate.yaml"
     config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
     return config_path
+
+
+def _benchmark_config(tmp_path: Path) -> Path:
+    X, y = make_classification(
+        n_samples=48,
+        n_features=5,
+        n_informative=4,
+        n_redundant=0,
+        random_state=11,
+    )
+    frame = pd.DataFrame(X, columns=[f"f{i}" for i in range(5)])
+    frame.insert(0, "sample_id", [f"s{i}" for i in range(len(frame))])
+    frame["label"] = y
+    data_path = tmp_path / "data.csv"
+    frame.to_csv(data_path, index=False)
+
+    loaded = read_table(data_path, separator=",")
+    dataset = DatasetBundle(
+        loaded.select([f"f{i}" for i in range(5)]),
+        loaded["label"].to_numpy(),
+        sample_ids=loaded["sample_id"].to_list(),
+    )
+    plan = PartitionPlan.from_predefined_folds(
+        sample_ids=dataset.sample_ids,
+        fold_assignments=[i % 3 for i in range(dataset.n_samples)],
+        dataset_fingerprint=dataset.fingerprint,
+    )
+    folds = tmp_path / "folds.json"
+    folds.write_text(json.dumps(plan.to_dict()), encoding="utf-8")
+
+    config = {
+        "workflow": "benchmark",
+        "datasets": {"rep_a": {"path": "data.csv", "target": "label", "sample_id": "sample_id"}},
+        "algorithms": ["logistic_regression"],
+        "partitions": {"cv": {"path": "folds.json"}},
+        "benchmark": {
+            "metrics": ["accuracy"],
+            "seeds": [42],
+            "modes": ["untuned"],
+            "include_baselines": False,
+        },
+    }
+    config_path = tmp_path / "benchmark.yaml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    return config_path
+
+
+def test_benchmark_human_output_renders_metric_table(tmp_path, capsys):
+    config = _benchmark_config(tmp_path)
+    assert main(["benchmark", str(config)]) == EXIT_OK
+    output = capsys.readouterr().out
+    assert "accuracy" in output
 
 
 def test_dry_run_validates_without_creating_outputs(tmp_path, capsys):
@@ -149,6 +202,9 @@ COMMANDS = (
 
 def _cli(*args: str) -> subprocess.CompletedProcess[str]:
     env = {**os.environ, "COLUMNS": "200", "NO_COLOR": "1"}
+    env.pop("GITHUB_ACTIONS", None)
+    env.pop("FORCE_COLOR", None)
+    env.pop("PY_COLORS", None)
     return subprocess.run(  # noqa: S603
         [sys.executable, "-m", "saber", *args], text=True, capture_output=True, env=env, check=False
     )
@@ -194,3 +250,29 @@ def test_cli2_contains_no_scientific_engine_imports_or_splitters():
     )
     for token in forbidden:
         assert token not in combined
+
+
+def test_benchmark_preview_lists_nan_scores_last():
+    from types import SimpleNamespace
+
+    import polars as pl
+    from rich.console import Console
+
+    from saber.cli.render import _render_benchmark
+
+    frame = pl.DataFrame(
+        {
+            "representation": ["r"] * 3,
+            "partition": ["p"] * 3,
+            "algorithm": ["nan_model", "low_model", "high_model"],
+            "mode": ["untuned"] * 3,
+            "seed": [0] * 3,
+            "metric": ["accuracy"] * 3,
+            "score": [float("nan"), 0.5, 0.9],
+        }
+    )
+    result = SimpleNamespace(n_runs=3, successes=(), failures=(), aggregate_metrics_frame=lambda: frame)
+    console = Console(record=True, width=200)
+    _render_benchmark(console, result)
+    text = console.export_text()
+    assert text.index("high_model") < text.index("low_model") < text.index("nan_model")

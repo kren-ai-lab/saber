@@ -13,6 +13,7 @@ from saber.datasets.schemas import DatasetBundle
 from saber.preprocessing.imputation import build_imputer
 from saber.preprocessing.scaling import build_scaler, resolve_scaler_name
 from saber.preprocessing.validation import validate_estimator_dataset_requirements
+from saber.utils.tabular import as_frame, to_numpy
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +89,20 @@ def build_model_pipeline(
             ("estimator", estimator),
         ]
     )
+
+
+def pipeline_input(model: Any, X: Any) -> Any:
+    """Select the estimator-facing form of ``X`` for a given pipeline.
+
+    A pipeline with a custom "preprocess" step (an arbitrary transformer, e.g.
+    a ``ColumnTransformer`` selecting columns by name) needs a DataFrame so
+    that column selection by name keeps working; every other pipeline keeps
+    the NumPy boundary towards sklearn/XGBoost/LightGBM.
+    """
+    named_steps = getattr(model, "named_steps", None)
+    if named_steps is not None and "preprocess" in named_steps:
+        return as_frame(X)
+    return to_numpy(X)
 
 
 def _normalize_config(preprocessing: PreprocessingConfig | Any | None) -> PreprocessingConfig:

@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
-import pandas as pd
+import polars as pl
 
 from saber.datasets._fingerprint import (
     dataset_fingerprint,
@@ -21,6 +21,7 @@ from saber.datasets.validation import (
     validate_target_for_task,
 )
 from saber.exceptions import DatasetValidationError, FeatureSchemaMismatchError
+from saber.utils.tabular import as_frame, canonical_dtype
 
 
 @dataclass(frozen=True)
@@ -63,10 +64,11 @@ class FeatureSchema:
         *,
         feature_names: tuple[str, ...] | list[str] | None = None,
     ) -> FeatureSchema:
+        X = as_frame(X)
         _, n_features = validate_feature_matrix(X)
 
         if feature_names is None:
-            if isinstance(X, pd.DataFrame):
+            if isinstance(X, pl.DataFrame):
                 names = tuple(str(column) for column in X.columns)
             else:
                 names = tuple(f"feature_{index}" for index in range(n_features))
@@ -80,8 +82,8 @@ class FeatureSchema:
         if len(set(names)) != len(names):
             raise DatasetValidationError("feature_names must be unique.")
 
-        if isinstance(X, pd.DataFrame):
-            dtypes = tuple(str(X[column].dtype) for column in X.columns)
+        if isinstance(X, pl.DataFrame):
+            dtypes = tuple(canonical_dtype(dtype) for dtype in X.dtypes)
         else:
             dtype = str(np.asarray(X).dtype)
             dtypes = tuple(dtype for _ in range(n_features))
@@ -95,7 +97,19 @@ class FeatureSchema:
         feature_names: tuple[str, ...] | list[str] | None = None,
         check_dtypes: bool = False,
     ) -> None:
-        """Validate that another feature matrix matches this schema."""
+        """Validate that another feature matrix matches this schema.
+
+        Unnamed NumPy inputs carry no feature names, so only their width is checked
+        (sklearn itself only warns, never raises, when names are simply absent).
+        """
+        X = as_frame(X)
+        if feature_names is None and not isinstance(X, pl.DataFrame):
+            _, n_features = validate_feature_matrix(X)
+            if n_features != self.n_features:
+                raise FeatureSchemaMismatchError(
+                    f"X has {n_features} features; expected {self.n_features} from the training schema."
+                )
+            feature_names = self.names
         candidate = FeatureSchema.from_data(X, feature_names=feature_names)
         if candidate.names != self.names:
             raise FeatureSchemaMismatchError("Feature names/order do not match the expected training schema.")
@@ -119,6 +133,7 @@ class DatasetBundle:
     _generated_sample_ids: bool = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
+        self.X = as_frame(self.X)
         n_samples, _ = validate_feature_matrix(self.X)
         self.y = validate_target(self.y, n_samples=n_samples)
 
@@ -214,10 +229,7 @@ class DatasetBundle:
         """Create a sample-identity-preserving subset in original dataset order."""
         indices = self.indices_for(sample_ids)
 
-        if isinstance(self.X, pd.DataFrame):
-            X_subset = self.X.iloc[indices].copy()
-        else:
-            X_subset = np.asarray(self.X)[indices].copy()
+        X_subset = self.X[indices] if isinstance(self.X, pl.DataFrame) else np.asarray(self.X)[indices].copy()
 
         y_subset = np.asarray(self.y)[indices].copy()
         ids_subset = tuple(self.sample_ids[index] for index in indices)

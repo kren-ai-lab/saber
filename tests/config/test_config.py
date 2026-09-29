@@ -1,16 +1,21 @@
 from __future__ import annotations
 
 import json
+import warnings
 
+import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 import yaml
 from sklearn.datasets import make_classification, make_regression
 
 import saber
 from saber.config import CONFIG_SCHEMA_VERSION, dump_config, load_config, run_config
+from saber.config.builders import load_dataset, load_prediction_frame
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.exceptions import ConfigurationError
+from saber.utils.tabular import read_table
 
 
 def _write_classification_inputs(tmp_path):
@@ -21,11 +26,11 @@ def _write_classification_inputs(tmp_path):
     data_path = tmp_path / "data.csv"
     frame.to_csv(data_path, index=False)
 
-    loaded = pd.read_csv(data_path)
+    loaded = read_table(data_path, separator=",")
     bundle = DatasetBundle(
-        loaded[[f"f{i}" for i in range(5)]],
+        loaded.select([f"f{i}" for i in range(5)]),
         loaded["label"].to_numpy(),
-        sample_ids=loaded["sample_id"].tolist(),
+        sample_ids=loaded["sample_id"].to_list(),
     )
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=bundle.sample_ids,
@@ -136,6 +141,31 @@ def test_tuning_yaml_executes_typed_search_space(tmp_path):
     assert execution.summary["workflow"] == "tune"
 
 
+def test_tuning_yaml_with_output_directory_writes_readable_history_csv(tmp_path):
+    _write_classification_inputs(tmp_path)
+    config = {
+        "workflow": "tune",
+        "dataset": {"path": str(tmp_path / "data.csv"), "target": "label", "sample_id": "sample_id"},
+        "algorithm": "logistic_regression",
+        "partition": {"path": str(tmp_path / "folds.json")},
+        "tuning": {
+            "optimizer": "grid",
+            "metrics": ["accuracy"],
+            "refit_metric": "accuracy",
+            "random_state": 42,
+        },
+        "search_space": {
+            "C": {"type": "categorical", "values": [0.1, 1.0]},
+        },
+        "output": {"directory": str(tmp_path / "results")},
+    }
+    execution = run_config(config)
+    history_path = tmp_path / "results" / "optimization_history.csv"
+    assert history_path.exists()
+    assert not read_table(history_path, separator=",").is_empty()
+    assert execution.outputs["optimization_history"] == str(history_path)
+
+
 def test_train_yaml_artifact_then_predict_yaml_round_trip(tmp_path):
     X, y = make_regression(n_samples=40, n_features=4, random_state=19)
     frame = pd.DataFrame(X, columns=["a", "b", "c", "d"])
@@ -204,9 +234,38 @@ def test_benchmark_yaml_runs_same_public_engine(tmp_path):
     )
     assert execution.result.n_runs == direct.n_runs == 1
     assert (
-        execution.result.aggregate_metrics_frame()["score"].tolist()
-        == direct.aggregate_metrics_frame()["score"].tolist()
+        execution.result.aggregate_metrics_frame()["score"].to_list()
+        == direct.aggregate_metrics_frame()["score"].to_list()
     )
+
+
+def test_benchmark_yaml_with_output_directory_writes_readable_result_tables(tmp_path):
+    _write_classification_inputs(tmp_path)
+    config = {
+        "workflow": "benchmark",
+        "datasets": {
+            "rep_a": {
+                "path": str(tmp_path / "data.csv"),
+                "target": "label",
+                "sample_id": "sample_id",
+            }
+        },
+        "algorithms": ["logistic_regression"],
+        "partitions": {"cv": {"path": str(tmp_path / "folds.json")}},
+        "benchmark": {
+            "metrics": ["accuracy"],
+            "seeds": [42],
+            "modes": ["untuned"],
+            "include_baselines": False,
+        },
+        "output": {"directory": str(tmp_path / "results")},
+    }
+    execution = run_config(config)
+    for name in ("metrics", "predictions", "failures", "optimization_history"):
+        path = tmp_path / "results" / f"{name}.csv"
+        assert path.exists()
+        read_table(path, separator=",")  # must parse without error
+        assert execution.outputs[name] == str(path)
 
 
 def test_config_validate_rejects_unknown_nested_keys():
@@ -246,6 +305,76 @@ def test_evaluate_yaml_uses_persisted_artifact(tmp_path):
     assert set(execution.result.metrics) == {"rmse", "mae"}
 
 
+def test_csv_and_tsv_dataset_loading_give_same_fingerprint(tmp_path):
+    rows = [
+        "sample_id,target,group,weight,f0,f1",
+        "s0,0,g1,1.0,0.5,NA",
+        "s1,1,g1,2.0,1.5,3.0",
+        "s2,0,g2,1.0,2.5,4.0",
+    ]
+    csv_path = tmp_path / "data.csv"
+    csv_path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    tsv_path = tmp_path / "data.tsv"
+    tsv_path.write_text("\n".join(line.replace(",", "\t") for line in rows) + "\n", encoding="utf-8")
+
+    def _bundle(path):
+        config = load_config(
+            {
+                "workflow": "train",
+                "dataset": {
+                    "path": str(path),
+                    "target": "target",
+                    "sample_id": "sample_id",
+                    "groups": "group",
+                    "sample_weight": "weight",
+                },
+                "algorithm": "ridge_regressor",
+            }
+        )
+        return load_dataset(config, config.payload["dataset"])
+
+    csv_bundle = _bundle(csv_path)
+    tsv_bundle = _bundle(tsv_path)
+
+    assert csv_bundle.fingerprint == tsv_bundle.fingerprint
+    assert csv_bundle.feature_names == ("f0", "f1")
+    assert np.isnan(csv_bundle.X["f1"].to_numpy()[0])
+    assert np.isnan(tsv_bundle.X["f1"].to_numpy()[0])
+
+
+def test_dataset_sep_rejects_multi_character_separator(tmp_path):
+    data_path = tmp_path / "data.csv"
+    data_path.write_text("sample_id::target::f0\ns0::0::1.0\n", encoding="utf-8")
+    config = load_config(
+        {
+            "workflow": "train",
+            "dataset": {
+                "path": str(data_path),
+                "target": "target",
+                "sample_id": "sample_id",
+                "sep": "::",
+            },
+            "algorithm": "ridge_regressor",
+        }
+    )
+    with pytest.raises(ConfigurationError, match="single character"):
+        load_dataset(config, config.payload["dataset"])
+
+
+def test_prediction_frame_sep_rejects_multi_character_separator(tmp_path):
+    data_path = tmp_path / "data.csv"
+    data_path.write_text("sample_id::f0\ns0::1.0\n", encoding="utf-8")
+    config = load_config(
+        {
+            "workflow": "predict",
+            "dataset": {"path": str(data_path), "sample_id": "sample_id", "sep": "::"},
+            "artifact": str(tmp_path / "model"),
+        }
+    )
+    with pytest.raises(ConfigurationError, match="single character"):
+        load_prediction_frame(config, config.payload["dataset"])
+
+
 def test_benchmark_config_requires_partitions_or_biosieve():
     with pytest.raises(ConfigurationError, match="requires either 'partitions'"):
         load_config(
@@ -256,3 +385,28 @@ def test_benchmark_config_requires_partitions_or_biosieve():
                 "benchmark": {"metrics": ["rmse"]},
             }
         )
+
+
+def test_all_empty_feature_column_is_typed_float64_and_workflow_runs(tmp_path):
+    rows = ["sample_id,f0,f1,label"]
+    rows += [f"s{i},{float(i)},,{i % 2}" for i in range(20)]
+    data_path = tmp_path / "data.csv"
+    data_path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+    frame = read_table(data_path, separator=",")
+    assert frame["f1"].dtype == pl.Float64
+    assert frame["f1"].null_count() == frame.height
+
+    with warnings.catch_warnings():
+        # SimpleImputer warns that the all-null column has no observed values
+        # to impute from, regardless of strategy; the workflow still runs.
+        warnings.simplefilter("ignore")
+        execution = run_config(
+            {
+                "workflow": "train",
+                "dataset": {"path": str(data_path), "target": "label", "sample_id": "sample_id"},
+                "algorithm": "logistic_regression",
+                "preprocessing": {"imputation": "constant", "fill_value": 0.0},
+            }
+        )
+    assert execution.result.model is not None

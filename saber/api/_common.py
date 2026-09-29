@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -12,7 +12,10 @@ from saber.core.registry import MODEL_REGISTRY, AlgorithmRegistry
 from saber.core.results import TrainResult
 from saber.datasets import DatasetBundle
 from saber.exceptions import ValidationContractError
-from saber.preprocessing import PreprocessingConfig, build_model_pipeline
+from saber.preprocessing import PreprocessingConfig, build_model_pipeline, pipeline_input
+
+if TYPE_CHECKING:
+    from saber.datasets import FeatureSchema
 
 
 def fit_dataset(
@@ -45,7 +48,7 @@ def fit_dataset(
             raise ValidationContractError(f"Algorithm '{spec.name}' does not support sample weights.")
         fit_kwargs["estimator__sample_weight"] = np.asarray(dataset.sample_weight)
 
-    pipeline.fit(dataset.X, dataset.y, **fit_kwargs)
+    pipeline.fit(pipeline_input(pipeline, dataset.X), dataset.y, **fit_kwargs)
 
     estimator_params = {}
     fitted_estimator = pipeline.named_steps.get("estimator")
@@ -56,6 +59,7 @@ def fit_dataset(
         model=pipeline,
         spec=spec,
         parameters=estimator_params,
+        feature_schema=dataset.feature_schema,
         metadata={
             "algorithm": spec.name,
             "provider": spec.provider,
@@ -69,17 +73,30 @@ def fit_dataset(
     )
 
 
+def _validate_feature_schema(
+    schema: FeatureSchema | None,
+    X: Any,
+    *,
+    feature_names: Sequence[str] | None = None,
+) -> None:
+    """Validate X against the training feature schema before the NumPy conversion."""
+    if schema is not None:
+        schema.validate_compatible(X, feature_names=feature_names)
+
+
 def prediction_from_model(
     *,
     result: TrainResult,
     dataset: DatasetBundle | None = None,
     X: Any | None = None,
+    feature_names: Sequence[str] | None = None,
     sample_ids: Sequence[Any] | None = None,
     positive_class: Any | None = None,
 ) -> PredictionResult:
     """Generate a structured prediction from a high-level TrainResult."""
     if dataset is not None:
         X = dataset.X
+        feature_names = dataset.feature_names
         sample_ids = dataset.sample_ids
     if X is None:
         raise ValidationContractError("Prediction requires dataset=... or X=....")
@@ -88,6 +105,8 @@ def prediction_from_model(
     if model is None:
         raise ValidationContractError("TrainResult does not contain a fitted model.")
 
+    _validate_feature_schema(result.feature_schema, X, feature_names=feature_names)
+    X = pipeline_input(model, X)
     predictions = np.asarray(model.predict(X))
     probabilities = None
     if (
