@@ -181,3 +181,38 @@ class PredictionResult:
                 self.class_index(self.positive_class)
         elif self.positive_class is not None:
             raise PredictionContractError("positive_class is only valid for binary classification.")
+
+
+def collect_model_outputs(
+    model: Any,
+    X: Any,
+    *,
+    task: str,
+    use_proba: bool = True,
+    use_decision: bool = True,
+    tolerant: bool = False,
+) -> dict[str, Any]:
+    """Collect predictions, probabilities, decision scores and classes from a fitted model.
+
+    ``use_proba``/``use_decision`` are capability gates; ``tolerant`` swallows
+    ``AttributeError``/``NotImplementedError`` from estimators that expose the
+    method but cannot serve it. Returns keyword arguments for ``PredictionResult``.
+    """
+    classification = task == "classification"
+
+    def _call(name: str, *, enabled: bool) -> np.ndarray | None:
+        if not (classification and enabled and hasattr(model, name)):
+            return None
+        if not tolerant:
+            return np.asarray(getattr(model, name)(X))
+        try:
+            return np.asarray(getattr(model, name)(X))
+        except (AttributeError, NotImplementedError):
+            return None
+
+    return {
+        "predictions": np.asarray(model.predict(X)),
+        "probabilities": _call("predict_proba", enabled=use_proba),
+        "decision_scores": _call("decision_function", enabled=use_decision),
+        "classes": np.asarray(model.classes_) if classification and hasattr(model, "classes_") else None,
+    }

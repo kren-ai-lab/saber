@@ -166,7 +166,7 @@ class TuningEngine:
             preprocessing=preprocessing,
         )
 
-        fit_params = _fit_params(search_dataset, spec)
+        fit_params = spec.sample_weight_fit_params(search_dataset.sample_weight)
         start = perf_counter()
 
         if config.optimizer == "optuna":
@@ -331,7 +331,7 @@ class TuningEngine:
             best_index = _best_index(results[mean_key], spec.name, refit_metric, optimizer)
             best_score = float(results[mean_key][best_index])
             best_scores = {metric: float(results[f"mean_test_{metric}"][best_index]) for metric in scorers}
-            history = _history_from_multimetric_results(results, tuple(scorers))
+            history = _history_from_results(results, {metric: metric for metric in scorers})
         else:
             best_index = _best_index(
                 results["mean_test_score"],
@@ -340,7 +340,7 @@ class TuningEngine:
                 optimizer,
             )
             best_score = float(results["mean_test_score"][best_index])
-            history = _history_from_singlemetric_results(results, refit_metric)
+            history = _history_from_results(results, {refit_metric: "score"})
             # sklearn *SearchCV stubs omit `.estimator`, though it's always set
             # from the constructor arg at runtime.
             best_scores = _evaluate_selected_metrics(
@@ -550,19 +550,6 @@ class TuningEngine:
         )
 
 
-def _fit_params(dataset: DatasetBundle, spec: Any) -> dict[str, Any]:
-    if dataset.sample_weight is None:
-        return {}
-    if not spec.capabilities.sample_weight:
-        raise ValidationContractError(
-            f"Dataset supplies sample_weight but algorithm '{spec.name}' "
-            "does not advertise sample-weight support."
-        )
-    return {
-        "estimator__sample_weight": np.asarray(dataset.sample_weight, dtype=float),
-    }
-
-
 def _finite_trial_value(trial: Any) -> float:
     """Return an optuna trial's objective value, already known to be finite/non-None.
 
@@ -627,23 +614,20 @@ def _strip_estimator_prefix(params: dict[str, Any]) -> dict[str, Any]:
     return {key.removeprefix(prefix): value for key, value in params.items()}
 
 
-def _candidate_status(value: float) -> str:
-    return "complete" if np.isfinite(float(value)) else "failed"
-
-
-def _history_from_multimetric_results(
+def _history_from_results(
     results: Mapping[str, Any],
-    metrics: tuple[str, ...],
+    metrics: Mapping[str, str],
 ) -> list[dict[str, Any]]:
+    """Build candidate history; ``metrics`` maps metric name to its cv_results_ key suffix."""
     history: list[dict[str, Any]] = []
     for index, raw_params in enumerate(results["params"]):
         metric_payload = {
             metric: {
-                "mean": float(results[f"mean_test_{metric}"][index]),
-                "std": float(results[f"std_test_{metric}"][index]),
-                "rank": int(results[f"rank_test_{metric}"][index]),
+                "mean": float(results[f"mean_test_{suffix}"][index]),
+                "std": float(results[f"std_test_{suffix}"][index]),
+                "rank": int(results[f"rank_test_{suffix}"][index]),
             }
-            for metric in metrics
+            for metric, suffix in metrics.items()
         }
         finite = all(np.isfinite(payload["mean"]) for payload in metric_payload.values())
         history.append(
@@ -652,30 +636,6 @@ def _history_from_multimetric_results(
                 "metrics": metric_payload,
                 "status": "complete" if finite else "failed",
                 "error": None if finite else "non-finite candidate score",
-            }
-        )
-    return history
-
-
-def _history_from_singlemetric_results(
-    results: Mapping[str, Any],
-    metric: str,
-) -> list[dict[str, Any]]:
-    history: list[dict[str, Any]] = []
-    for index, raw_params in enumerate(results["params"]):
-        mean = float(results["mean_test_score"][index])
-        history.append(
-            {
-                "params": _strip_estimator_prefix(dict(raw_params)),
-                "metrics": {
-                    metric: {
-                        "mean": mean,
-                        "std": float(results["std_test_score"][index]),
-                        "rank": int(results["rank_test_score"][index]),
-                    }
-                },
-                "status": _candidate_status(mean),
-                "error": None if np.isfinite(mean) else "non-finite candidate score",
                 **({"iteration": int(results["iter"][index])} if "iter" in results else {}),
             }
         )

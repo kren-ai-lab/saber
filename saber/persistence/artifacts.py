@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
-from saber.core.prediction import PredictionResult
+from saber.core.prediction import PredictionResult, collect_model_outputs
 from saber.preprocessing import pipeline_input
 
 if TYPE_CHECKING:
@@ -83,35 +83,14 @@ class LoadedModelArtifact:
         """Validate ``X`` and return a structured prediction result."""
         self.validate_features(X, feature_names=feature_names)
         X = pipeline_input(self.model, X)
-        predictions = np.asarray(self.model.predict(X))
-
-        probabilities = None
-        if self.task == "classification" and hasattr(self.model, "predict_proba"):
-            try:
-                probabilities = np.asarray(self.model.predict_proba(X))
-            except (AttributeError, NotImplementedError):
-                probabilities = None
-
-        decision_scores = None
-        if self.task == "classification" and hasattr(self.model, "decision_function"):
-            try:
-                decision_scores = np.asarray(self.model.decision_function(X))
-            except (AttributeError, NotImplementedError):
-                decision_scores = None
-
-        classes = None
-        if self.task == "classification" and hasattr(self.model, "classes_"):
-            classes = np.asarray(self.model.classes_)
+        outputs = collect_model_outputs(self.model, X, task=self.task, tolerant=True)
 
         ids = None if sample_ids is None else np.asarray(sample_ids, dtype=object)
         return PredictionResult(
             # The persisted manifest always records "classification"/"regression";
             # pyrefly can't see that invariant through the deserialized dict.
             task=cast("TaskType", self.task),
-            predictions=predictions,
-            probabilities=probabilities,
-            decision_scores=decision_scores,
-            classes=classes,
+            **outputs,
             positive_class=(self.positive_class if positive_class is None else positive_class),
             sample_ids=ids,
             metadata={

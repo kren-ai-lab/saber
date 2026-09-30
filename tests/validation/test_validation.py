@@ -273,3 +273,27 @@ def test_fold_aggregation_skips_non_finite_values_and_uses_sample_std():
     assert means == pytest.approx({"accuracy": 0.8, "roc_auc": 0.9})
     assert summary["accuracy"] == pytest.approx({"mean": 0.8, "std": 0.2, "min": 0.6, "max": 1.0, "n": 3.0})
     assert summary["roc_auc"] == pytest.approx({"mean": 0.9, "std": 0.0, "min": 0.9, "max": 0.9, "n": 1.0})
+
+
+def test_oof_prediction_carries_probabilities_decision_scores_and_classes():
+    X, y = make_classification(n_samples=60, n_features=6, random_state=3)
+    ids = [f"s{i}" for i in range(60)]
+    dataset = DatasetBundle(X=X, y=y, sample_ids=ids)
+    plan = PartitionPlan.from_predefined_folds(
+        sample_ids=ids,
+        fold_assignments=np.arange(60) % 3,
+        dataset_fingerprint=dataset.fingerprint,
+    )
+    result = ValidationEngine().run(
+        dataset=dataset,
+        algorithm="logistic_regression",
+        partition_plan=plan,
+        metrics=("accuracy",),
+        random_state=3,
+    )
+    oof = result.oof_prediction
+    assert oof is not None
+    assert oof.probabilities is not None
+    assert oof.probabilities.shape == (60, 2)
+    assert oof.decision_scores is not None
+    np.testing.assert_array_equal(oof.classes, [0, 1])

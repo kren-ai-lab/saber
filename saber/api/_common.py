@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from saber.core.prediction import PredictionResult
+from saber.core.prediction import PredictionResult, collect_model_outputs
 from saber.core.registry import get_algorithm
 from saber.core.results import TrainResult
 from saber.exceptions import ValidationContractError
@@ -105,33 +105,18 @@ def prediction_from_model(
 
     _validate_feature_schema(result.feature_schema, X, feature_names=feature_names)
     X = pipeline_input(model, X)
-    predictions = np.asarray(model.predict(X))
-    probabilities = None
-    if (
-        result.spec.task == "classification"
-        and result.spec.resolved_capabilities.predict_proba
-        and hasattr(model, "predict_proba")
-    ):
-        probabilities = np.asarray(model.predict_proba(X))
-
-    decision_scores = None
-    if (
-        result.spec.task == "classification"
-        and result.spec.resolved_capabilities.decision_function
-        and hasattr(model, "decision_function")
-    ):
-        decision_scores = np.asarray(model.decision_function(X))
-
-    classes = None
-    if result.spec.task == "classification" and hasattr(model, "classes_"):
-        classes = np.asarray(model.classes_)
+    capabilities = result.spec.resolved_capabilities
+    outputs = collect_model_outputs(
+        model,
+        X,
+        task=result.spec.task,
+        use_proba=capabilities.predict_proba,
+        use_decision=capabilities.decision_function,
+    )
 
     return PredictionResult(
         task=result.spec.task,
-        predictions=predictions,
-        probabilities=probabilities,
-        decision_scores=decision_scores,
-        classes=classes,
+        **outputs,
         positive_class=positive_class,
         sample_ids=None if sample_ids is None else np.asarray(sample_ids),
         metadata={

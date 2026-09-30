@@ -93,6 +93,9 @@ def test_model_artifact_round_trip_preserves_predictions_and_probabilities(tmp_p
     assert result.probabilities is not None
     np.testing.assert_allclose(result.probabilities, expected_probability)
     assert result.positive_class == 1
+    np.testing.assert_array_equal(result.classes, pipeline.classes_)
+    assert result.decision_scores is not None
+    np.testing.assert_allclose(result.decision_scores, pipeline.decision_function(to_numpy(dataset.X)))
     assert loaded.provenance["positive_class"] == 1
     assert loaded.feature_schema.fingerprint == dataset.feature_schema.fingerprint
     assert loaded.provenance["dataset_fingerprint"] == dataset.fingerprint

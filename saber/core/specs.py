@@ -6,11 +6,14 @@ from dataclasses import dataclass, field
 from inspect import Parameter, signature
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+
 from saber.core.capabilities import (
     EstimatorCapabilities,
     EstimatorRequirements,
     infer_estimator_capabilities,
 )
+from saber.exceptions import ValidationContractError
 
 if TYPE_CHECKING:
     from saber.core.search_space import SearchSpace
@@ -51,6 +54,17 @@ class AlgorithmSpec:
         if self.capabilities is None:
             raise AssertionError(f"AlgorithmSpec {self.name!r} has unresolved capabilities.")
         return self.capabilities
+
+    def sample_weight_fit_params(self, sample_weight: Any | None) -> dict[str, Any]:
+        """Return pipeline fit kwargs carrying ``sample_weight``, or ``{}`` when it is None."""
+        if sample_weight is None:
+            return {}
+        if not self.resolved_capabilities.sample_weight:
+            raise ValidationContractError(
+                f"Dataset supplies sample_weight but algorithm '{self.name}' "
+                "does not advertise sample-weight support."
+            )
+        return {"estimator__sample_weight": np.asarray(sample_weight, dtype=float)}
 
     def build_estimator(
         self,

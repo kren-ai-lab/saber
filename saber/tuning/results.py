@@ -43,10 +43,6 @@ class OptimizationResult:
         self.metrics = tuple(self.metrics)
         self.best_scores = {name: float(value) for name, value in self.best_scores.items()}
         self.metadata = dict(self.metadata)
-        if self.metric is not None and not self.metrics:
-            self.metrics = (self.metric,)
-        if self.refit_metric is None:
-            self.refit_metric = self.metric
         if self.metric is not None and self.metric not in self.best_scores:
             self.best_scores[self.metric] = self.best_score
         if not np.isfinite(self.best_score):

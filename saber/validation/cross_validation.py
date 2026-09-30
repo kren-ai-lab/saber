@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from saber.core.prediction import PredictionResult
+from saber.core.prediction import PredictionResult, collect_model_outputs
 from saber.core.registry import get_algorithm
 from saber.evaluation import evaluate_prediction
 from saber.exceptions import DatasetValidationError, ValidationContractError
@@ -94,17 +94,7 @@ class ValidationEngine:
                 preprocessing=preprocessing,
             )
 
-            fit_kwargs: dict[str, Any] = {}
-            if resolved.train.sample_weight is not None:
-                if not spec.resolved_capabilities.sample_weight:
-                    raise ValidationContractError(
-                        f"Dataset supplies sample_weight but algorithm '{spec.name}' "
-                        "does not advertise sample-weight support."
-                    )
-                fit_kwargs["estimator__sample_weight"] = np.asarray(
-                    resolved.train.sample_weight,
-                    dtype=float,
-                )
+            fit_kwargs = spec.sample_weight_fit_params(resolved.train.sample_weight)
 
             start = perf_counter()
             pipeline.fit(pipeline_input(pipeline, resolved.train.X), resolved.train.y, **fit_kwargs)
@@ -179,32 +169,11 @@ def _prediction_from_pipeline(
     provider: str,
 ) -> PredictionResult:
     X = pipeline_input(pipeline, X)
-    predictions = np.asarray(pipeline.predict(X))
-
-    probabilities = None
-    if spec_task == "classification" and hasattr(pipeline, "predict_proba"):
-        try:
-            probabilities = np.asarray(pipeline.predict_proba(X))
-        except (AttributeError, NotImplementedError):
-            probabilities = None
-
-    decision_scores = None
-    if spec_task == "classification" and hasattr(pipeline, "decision_function"):
-        try:
-            decision_scores = np.asarray(pipeline.decision_function(X))
-        except (AttributeError, NotImplementedError):
-            decision_scores = None
-
-    classes = None
-    if spec_task == "classification" and hasattr(pipeline, "classes_"):
-        classes = np.asarray(pipeline.classes_)
+    outputs = collect_model_outputs(pipeline, X, task=spec_task, tolerant=True)
 
     return PredictionResult(
         task=spec_task,
-        predictions=predictions,
-        probabilities=probabilities,
-        decision_scores=decision_scores,
-        classes=classes,
+        **outputs,
         positive_class=positive_class,
         sample_ids=np.asarray(sample_ids, dtype=object),
         metadata={
