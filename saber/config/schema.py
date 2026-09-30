@@ -66,6 +66,7 @@ _ALLOWED_KEYS = {
         "evaluation_role",
         "require_complete",
         "model_params",
+        "positive_class",
         "biosieve_extra_columns",
         "artifact",
     },

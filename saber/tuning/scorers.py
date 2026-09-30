@@ -33,11 +33,16 @@ def get_scorer(
     *,
     task: str | None = None,
     y: Sequence[Any] | np.ndarray | None = None,
+    positive_class: Any | None = None,
 ) -> Any:
-    """Retrieve a scorer, optionally validating task and target regime."""
+    """Retrieve a scorer, optionally validating task and target regime.
+
+    ``positive_class`` is the resolved binary positive class (see
+    ``resolve_positive_class``); ``None`` keeps class-averaged scoring.
+    """
     spec = get_metric_spec(name) if task is None else validate_metric(name, task=task, y=y)
 
-    return spec.make_scorer()
+    return spec.make_scorer(positive_class=positive_class)
 
 
 def list_scorers() -> list[str]:

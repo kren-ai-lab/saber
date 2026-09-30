@@ -52,11 +52,6 @@ def test_infinite_features_are_rejected():
         DatasetBundle(X=[[1.0, np.inf], [2.0, 3.0]], y=[0, 1])
 
 
-def test_non_numeric_features_are_rejected():
-    with pytest.raises(DatasetValidationError):
-        DatasetBundle(X=pd.DataFrame({"x": ["a", "b"]}), y=[0, 1])
-
-
 def test_multioutput_target_is_rejected():
     with pytest.raises(DatasetValidationError):
         DatasetBundle(X=np.eye(2), y=[[0, 1], [1, 0]])

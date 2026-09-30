@@ -45,6 +45,17 @@ def test_continuous_float_requires_discretization_for_grid() -> None:
 def test_stepped_float_can_be_gridded() -> None:
     space = SearchSpace("typed", {"alpha": Float(0.0, 1.0, step=0.5)})
     assert space.to_grid()["alpha"] == [0.0, 0.5, 1.0]
+    # Grid points land on the step lattice and end exactly on the upper bound.
+    values = Float(0.0, 0.9, step=0.3).grid_values()
+    assert values == pytest.approx([0.0, 0.3, 0.6, 0.9])
+    assert values[-1] == 0.9
+
+
+def test_stepped_float_rejects_range_not_divisible_by_step() -> None:
+    # Grid would add an off-lattice upper bound while Optuna silently drops it,
+    # so the same space would explore different candidates per backend.
+    with pytest.raises(ValueError, match="divisible"):
+        Float(0.0, 1.0, step=0.3)
 
 
 def test_log_float_supports_random_and_optuna_but_not_grid() -> None:
@@ -62,6 +73,7 @@ def test_typed_search_space_json_roundtrip(tmp_path) -> None:
     original = SearchSpace(
         "typed",
         {
+            "legacy": [1, 2],
             "kind": Categorical(["a", "b"]),
             "depth": Integer(1, 5, step=2),
             "rate": Float(0.1, 0.5, step=0.2),

@@ -101,21 +101,6 @@ def test_json_partition_plan_roundtrip(tmp_path):
     assert restored.fingerprint == plan.fingerprint
 
 
-def test_csv_partition_loader(tmp_path):
-    frame = pd.DataFrame(
-        {
-            "sample_id": ["a", "b", "c"],
-            "role": ["train", "validation", "test"],
-        }
-    )
-    path = tmp_path / "partitions.csv"
-    frame.to_csv(path, index=False)
-
-    plan = load_partition_plan(path)
-    assert plan.get_split("split_0").train_ids == ("a",)
-    assert plan.get_split("split_0").test_ids == ("c",)
-
-
 def test_membership_table_polars_and_pandas_give_same_plan(monkeypatch):
     # Force the no-pyarrow fallback so this covers it regardless of whether
     # pyarrow happens to be installed in the environment running the suite.

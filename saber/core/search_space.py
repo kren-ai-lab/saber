@@ -117,6 +117,14 @@ class Float:
             raise ValueError("Float.low must be smaller than Float.high.")
         if self.step is not None and self.step <= 0:
             raise ValueError("Float.step must be positive when supplied.")
+        if self.step is not None:
+            n_steps = (self.high - self.low) / self.step
+            # Grid and Optuna must see the same lattice; Optuna truncates a
+            # non-divisible range while a grid would add the off-step bound.
+            if not np.isclose(n_steps, round(n_steps)):
+                raise ValueError(
+                    f"Float range [{self.low}, {self.high}] must be divisible by step={self.step}."
+                )
 
     def grid_values(self) -> list[float]:
         """Return stepped float values, when a step is defined."""
@@ -125,11 +133,8 @@ class Float:
                 "Continuous Float parameters are not directly enumerable for grid search. "
                 "Provide step=... or use random/Optuna optimization."
             )
-        count = int(np.floor((self.high - self.low) / self.step))
-        values = [self.low + index * self.step for index in range(count + 1)]
-        if not np.isclose(values[-1], self.high) and values[-1] < self.high:
-            values.append(self.high)
-        return [float(value) for value in values]
+        count = round((self.high - self.low) / self.step)
+        return [float(value) for value in np.linspace(self.low, self.high, count + 1)]
 
     def random_distribution(self) -> Any:
         """Return stepped values when defined, otherwise a continuous uniform distribution."""

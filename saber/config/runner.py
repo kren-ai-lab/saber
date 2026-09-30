@@ -193,6 +193,7 @@ def _run_tune(config: WorkflowConfig) -> WorkflowExecution:
         evaluation_role=cast("EvaluationRole", str(payload.get("evaluation_role", "auto"))),
         require_complete=bool(payload.get("require_complete", True)),
         model_params=_optional_mapping(payload.get("model_params"), "model_params"),
+        positive_class=payload.get("positive_class"),
     )
     summary = {
         "workflow": "tune",
@@ -228,6 +229,7 @@ def _run_tune(config: WorkflowConfig) -> WorkflowExecution:
             parameters=dict(result.best_params),
             metrics=result.display_scores,
             training_config={"tuning": _mapping(payload["tuning"], "tuning")},
+            positive_class=payload.get("positive_class"),
             metadata=config.metadata,
             overwrite=bool(artifact.get("overwrite", False)),
         )

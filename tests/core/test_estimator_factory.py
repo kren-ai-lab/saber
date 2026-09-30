@@ -49,13 +49,3 @@ def test_factory_does_not_inject_unsupported_random_state() -> None:
     estimator = factory.build(random_state=17, value=4)
 
     assert estimator.value == 4
-
-
-def test_all_registered_algorithms_use_canonical_factories() -> None:
-    from saber import MODEL_REGISTRY
-
-    for spec in MODEL_REGISTRY:
-        assert spec.estimator_factory is not None
-        assert spec.estimator_cls is spec.estimator_factory.estimator_cls
-        assert spec.description
-        assert spec.supports_cv

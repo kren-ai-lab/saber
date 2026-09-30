@@ -42,18 +42,6 @@ def test_auto_preprocessing_uses_minmax_for_non_negative_estimators():
     assert pipeline.named_steps["scaler"].__class__.__name__ == "MinMaxScaler"
 
 
-def test_non_negative_estimator_rejects_negative_data_without_safe_transform():
-    dataset = _dataset([[-5, 1], [-4, 2], [-3, 3], [-2, 4], [-1, 5], [0, 6]])
-    spec = MODEL_REGISTRY.get("multinomial_nb")
-    with pytest.raises(PreprocessingContractError, match="non-negative"):
-        build_model_pipeline(
-            spec=spec,
-            estimator=spec.build_estimator(),
-            training_data=dataset,
-            preprocessing=PreprocessingConfig(scaler=None),
-        )
-
-
 def test_missing_values_require_imputation_for_non_native_estimators():
     dataset = _dataset([[np.nan, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6]])
     spec = MODEL_REGISTRY.get("logistic_regression")

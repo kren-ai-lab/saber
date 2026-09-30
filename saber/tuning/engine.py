@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, cross_validate
 
+from saber.core.metrics import resolve_positive_class
 from saber.exceptions import (
     DatasetValidationError,
     NonFiniteScoreError,
@@ -101,8 +102,13 @@ class TuningEngine:
         evaluation_role: EvaluationRole = "auto",
         require_complete: bool = True,
         model_params: Mapping[str, Any] | None = None,
+        positive_class: Any | None = None,
     ) -> OptimizationResult:
-        """Tune an algorithm over explicit/BioSieve partitions and return the best result."""
+        """Tune an algorithm over explicit/BioSieve partitions and return the best result.
+
+        Binary positive-class metrics (precision, recall, F1, ROC AUC) are scored
+        for ``positive_class``, defaulting to the last sorted class as evaluation does.
+        """
         spec = self.registry.get(algorithm)
         dataset.validate(task=spec.task)
 
@@ -142,7 +148,15 @@ class TuningEngine:
         if not metrics:
             raise ValidationContractError("At least one tuning metric is required.")
         refit_metric = config.resolved_refit_metric()
-        scorers = {metric: get_scorer(metric, task=spec.task, y=search_dataset.y) for metric in metrics}
+        scoring_positive_class = resolve_positive_class(
+            task=spec.task, y=search_dataset.y, positive_class=positive_class
+        )
+        scorers = {
+            metric: get_scorer(
+                metric, task=spec.task, y=search_dataset.y, positive_class=scoring_positive_class
+            )
+            for metric in metrics
+        }
 
         first_train_index = cv[0][0]
         first_train = search_dataset.subset(tuple(search_dataset_ids[index] for index in first_train_index))

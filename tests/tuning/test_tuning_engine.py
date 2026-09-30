@@ -4,6 +4,7 @@ import warnings
 
 import numpy as np
 import pytest
+from sklearn.base import clone
 from sklearn.datasets import make_classification, make_regression
 from sklearn.pipeline import Pipeline
 
@@ -12,6 +13,7 @@ from saber.core.search_space import LogFloat, SearchSpace
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.exceptions import ValidationContractError
 from saber.tuning import TuningConfig, TuningEngine
+from saber.validation import ValidationEngine
 
 
 def _classification_dataset(n: int = 60, *, sample_weight: bool = False):
@@ -22,7 +24,7 @@ def _classification_dataset(n: int = 60, *, sample_weight: bool = False):
         random_state=42,
     )
     ids = [f"sample_{i}" for i in range(n)]
-    weights = np.linspace(1.0, 2.0, n) if sample_weight else None
+    weights = np.linspace(0.05, 5.0, n) if sample_weight else None
     return DatasetBundle(X=X, y=y, sample_ids=ids, sample_weight=weights)
 
 
@@ -174,7 +176,12 @@ def test_sample_weights_are_propagated_for_supported_estimator() -> None:
         partition_plan=_three_fold_plan(dataset),
         search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
     )
-    assert result.best_model is not None
+    X, y, weights = np.asarray(dataset.X), dataset.y, dataset.sample_weight
+    weighted = clone(result.best_model).fit(X, y, estimator__sample_weight=weights)
+    unweighted = clone(result.best_model).fit(X, y)
+    coef = result.best_model.named_steps["estimator"].coef_
+    np.testing.assert_allclose(coef, weighted.named_steps["estimator"].coef_)
+    assert not np.allclose(coef, unweighted.named_steps["estimator"].coef_)
 
 
 def test_sample_weights_are_rejected_when_estimator_does_not_support_them() -> None:
@@ -203,6 +210,7 @@ def test_failed_candidate_is_explicit_in_history() -> None:
     assert result.failures
     assert result.failures[0]["status"] == "failed"
     assert np.isfinite(result.best_score)
+    assert result.best_params["C"] == 1.0
 
 
 def test_regression_loss_scores_keep_natural_display_direction() -> None:
@@ -239,3 +247,79 @@ def test_optimization_history_exports_as_flat_dataframe() -> None:
     assert "param__C" in frame.columns
     assert "metric__accuracy__mean" in frame.columns
     assert len(frame) == len(result.history)
+
+
+def test_protected_test_rows_do_not_influence_search_or_selection() -> None:
+    X, y = make_classification(n_samples=60, n_features=6, n_informative=4, random_state=1)
+    ids = [f"sample_{i}" for i in range(60)]
+
+    def tune(features):
+        dataset = DatasetBundle(X=features, y=y, sample_ids=ids)
+        plan = PartitionPlan.holdout(
+            train_ids=ids[:30],
+            validation_ids=ids[30:45],
+            test_ids=ids[45:],
+            dataset_fingerprint=dataset.fingerprint,
+        )
+        return TuningEngine(MODEL_REGISTRY).run(
+            dataset=dataset,
+            algorithm="logistic_regression",
+            config=TuningConfig(optimizer="grid", metrics=("accuracy",), n_jobs=1),
+            partition_plan=plan,
+            search_space=SearchSpace("lr", {"C": [0.01, 0.1, 1.0, 10.0]}),
+        )
+
+    shifted_test = X.copy()
+    shifted_test[45:] = 1e6
+    base, shifted = tune(X), tune(shifted_test)
+
+    assert shifted.best_params == base.best_params
+    assert shifted.history_frame().equals(base.history_frame())
+    np.testing.assert_allclose(
+        shifted.best_model.named_steps["estimator"].coef_,
+        base.best_model.named_steps["estimator"].coef_,
+    )
+
+
+@pytest.mark.parametrize("positive_class", [None, "active"], ids=["default-positive", "explicit-positive"])
+def test_binary_tuning_scores_match_evaluation_of_the_positive_class(positive_class) -> None:
+    # Imbalanced string labels: a class-weighted average would diverge from the
+    # positive-class scores that evaluation reports.
+    X, y_int = make_classification(
+        n_samples=90, n_features=6, n_informative=4, weights=[0.8], flip_y=0.05, random_state=3
+    )
+    y = np.where(y_int == 1, "active", "inactive")
+    dataset = DatasetBundle(X=X, y=y, sample_ids=[f"sample_{i}" for i in range(90)])
+    plan = _three_fold_plan(dataset)
+    metrics = ("precision", "recall", "f1", "roc_auc")
+
+    tuned = TuningEngine(MODEL_REGISTRY).run(
+        dataset=dataset,
+        algorithm="logistic_regression",
+        config=TuningConfig(optimizer="grid", metrics=metrics, refit_metric="f1", n_jobs=1),
+        partition_plan=plan,
+        search_space=SearchSpace("lr", {"C": [1.0]}),
+        positive_class=positive_class,
+    )
+    validated = ValidationEngine(MODEL_REGISTRY).run(
+        dataset=dataset,
+        algorithm="logistic_regression",
+        partition_plan=plan,
+        metrics=metrics,
+        positive_class=positive_class,
+    )
+
+    assert tuned.best_scores == pytest.approx(validated.aggregate_metrics)
+
+
+def test_tuning_rejects_positive_class_outside_the_binary_target() -> None:
+    dataset = _classification_dataset()
+    with pytest.raises(ValidationContractError, match="positive_class"):
+        TuningEngine(MODEL_REGISTRY).run(
+            dataset=dataset,
+            algorithm="logistic_regression",
+            config=TuningConfig(optimizer="grid", metrics=("f1",), n_jobs=1),
+            partition_plan=_three_fold_plan(dataset),
+            search_space=SearchSpace("lr", {"C": [1.0]}),
+            positive_class="missing",
+        )

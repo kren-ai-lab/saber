@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 import pytest
+from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler
 
@@ -72,3 +73,32 @@ def test_custom_preprocess_pipeline_keeps_numpy_x_as_numpy(custom_transformer_pi
     array = np.asarray(_named_frame())
     result = pipeline_input(custom_transformer_pipeline, array)
     assert isinstance(result, np.ndarray)
+
+
+class _InputTypeSpy(BaseEstimator, ClassifierMixin):
+    def fit(self, X, y):
+        self.fit_input_type_ = type(X)
+        self.classes_ = np.unique(y)
+        return self
+
+    def predict(self, X):
+        self.predict_input_type_ = type(X)
+        return np.zeros(len(X), dtype=int)
+
+
+def test_estimator_receives_numpy_when_custom_transformer_outputs_a_frame():
+    frame = _named_frame()
+    dataset = DatasetBundle(X=frame, y=np.array([0, 1, 0, 1, 0, 1]), sample_ids=[f"s{i}" for i in range(6)])
+    spec = MODEL_REGISTRY.get("logistic_regression")
+    pipeline = build_model_pipeline(
+        spec=spec,
+        estimator=_InputTypeSpy(),
+        training_data=dataset,
+        preprocessing=PreprocessingConfig(transformer=StandardScaler().set_output(transform="polars")),
+    )
+    X = pipeline_input(pipeline, frame)
+    pipeline.fit(X, dataset.y)
+    pipeline.predict(X)
+    estimator = pipeline.named_steps["estimator"]
+    assert estimator.fit_input_type_ is np.ndarray
+    assert estimator.predict_input_type_ is np.ndarray

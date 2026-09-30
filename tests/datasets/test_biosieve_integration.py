@@ -306,3 +306,23 @@ def test_polars_dataset_sends_overridden_feature_names(monkeypatch):
     assert splitter.frame_seen is not None
     assert {"f_a", "f_b"} <= set(splitter.frame_seen.columns)
     assert not {"a", "b"} & set(splitter.frame_seen.columns)
+
+
+def test_installed_biosieve_generates_a_valid_stratified_kfold_plan():
+    # The other tests fake BioSieve; this one catches drift in the real package's API.
+    pytest.importorskip("biosieve")
+    ids = [f"s{i}" for i in range(30)]
+    dataset = DatasetBundle(
+        X=np.arange(60, dtype=float).reshape(30, 2),
+        y=[0, 1] * 15,
+        sample_ids=ids,
+    )
+    plan = partition_with_biosieve(
+        dataset,
+        BioSievePartitionConfig(strategy="stratified_kfold", params={"n_splits": 3}),
+    )
+    plan.validate_against(dataset)
+    assert plan.kind == "cross_validation"
+    assert plan.metadata["source"] == "biosieve"
+    test_ids = [sample_id for split in plan.splits for sample_id in split.test_ids]
+    assert sorted(test_ids) == sorted(ids)

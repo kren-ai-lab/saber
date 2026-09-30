@@ -1,85 +1,26 @@
-"""
-tests.test_regression_metrics
-=============================
-
-Unit tests for regression evaluation metrics.
-"""
+"""Unit tests for regression evaluation metrics."""
 
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
-from saber.evaluation.regression import (
-    REGRESSION_METRICS,
-    evaluate_regression,
-    metric_names,
-)
+from saber.evaluation.regression import REGRESSION_METRICS, evaluate_regression
 
 
-def test_regression_metric_names() -> None:
-    names = metric_names()
-
-    assert isinstance(names, tuple)
-    assert "mae" in names
-    assert "rmse" in names
-    assert "r2" in names
-    assert names == REGRESSION_METRICS
-
-
-def test_regression_metrics_output_keys() -> None:
+def test_each_regression_metric_name_maps_to_its_own_computation() -> None:
+    # Non-perfect predictions with distinct errors, so swapping any two metric
+    # implementations (e.g. MAE and MSE) changes the result.
     y_true = np.array([1.0, 2.0, 3.0, 4.0])
-    y_pred = np.array([1.1, 1.9, 3.2, 3.8])
+    y_pred = np.array([1.5, 2.0, 3.0, 5.0])
 
-    results = evaluate_regression(
-        y_true=y_true,
-        y_pred=y_pred,
-    )
+    results = evaluate_regression(y_true=y_true, y_pred=y_pred)
 
-    for metric in REGRESSION_METRICS:
-        assert metric in results
-
-
-def test_regression_metrics_are_floats() -> None:
-    y_true = np.array([1.0, 2.0, 3.0, 4.0])
-    y_pred = np.array([1.1, 1.9, 3.2, 3.8])
-
-    results = evaluate_regression(
-        y_true=y_true,
-        y_pred=y_pred,
-    )
-
-    for value in results.values():
-        assert isinstance(value, float)
-
-
-def test_perfect_regression_predictions() -> None:
-    y_true = np.array([1.0, 2.0, 3.0, 4.0])
-    y_pred = np.array([1.0, 2.0, 3.0, 4.0])
-
-    results = evaluate_regression(
-        y_true=y_true,
-        y_pred=y_pred,
-    )
-
-    assert results["mae"] == 0.0
-    assert results["mse"] == 0.0
-    assert results["rmse"] == 0.0
-    assert results["r2"] == 1.0
-    assert results["explained_variance"] == 1.0
-    assert results["pearson"] == 1.0
-    assert results["spearman"] == 1.0
-
-
-def test_rmse_is_square_root_of_mse() -> None:
-    y_true = np.array([1.0, 2.0, 3.0, 4.0])
-    y_pred = np.array([1.2, 1.8, 3.1, 4.1])
-
-    results = evaluate_regression(
-        y_true=y_true,
-        y_pred=y_pred,
-    )
-
-    assert np.isclose(
-        results["rmse"],
-        np.sqrt(results["mse"]),
-    )
+    assert set(results) == set(REGRESSION_METRICS)
+    assert all(isinstance(value, float) for value in results.values())
+    assert results["mae"] == pytest.approx(0.375)
+    assert results["median_ae"] == pytest.approx(0.25)
+    assert results["mape"] == pytest.approx(0.1875)
+    assert results["mse"] == pytest.approx(0.3125)
+    assert results["rmse"] == pytest.approx(np.sqrt(0.3125))
+    assert results["r2"] == pytest.approx(1.0 - 1.25 / 5.0)

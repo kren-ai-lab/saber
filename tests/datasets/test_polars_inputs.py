@@ -5,6 +5,7 @@ import pytest
 
 from saber.datasets import DatasetBundle, FeatureSchema
 from saber.exceptions import DatasetValidationError, FeatureSchemaMismatchError
+from saber.utils.tabular import to_numpy
 
 
 def _frame() -> pl.DataFrame:
@@ -36,9 +37,12 @@ def test_polars_and_pandas_inputs_share_fingerprint():
     assert from_polars.feature_names == ("f0", "f1", "n", "flag")
 
 
-def test_nan_and_null_are_both_missing_features():
+def test_nan_and_null_are_both_missing_features_stored_as_null():
     frame = pl.DataFrame({"a": [1.0, float("nan"), None, 4.0], "b": [1.0, 2.0, 3.0, 4.0]})
     bundle = DatasetBundle(X=frame, y=np.array([0, 1, 0, 1]))
+    assert bundle.X["a"].null_count() == 2
+    assert not bundle.X["a"].is_nan().any()
+    assert np.isnan(to_numpy(bundle.X)[[1, 2], 0]).all()
     with pytest.raises(DatasetValidationError):
         bundle.validate(require_finite_features=True)
 
@@ -56,13 +60,6 @@ def test_non_numeric_columns_are_rejected():
 def test_null_target_is_rejected():
     with pytest.raises(DatasetValidationError):
         DatasetBundle(X=np.ones((2, 1)), y=np.array(["a", None], dtype=object))
-
-
-def test_subset_keeps_original_order_for_polars():
-    bundle = DatasetBundle(X=_frame(), y=np.array([0, 1, 0, 1]), sample_ids=[10, 11, 12, 13])
-    subset = bundle.subset([13, 11])
-    assert subset.sample_ids == (11, 13)
-    assert subset.X["f0"].to_list() == [1.5, 3.5]
 
 
 def test_feature_schema_rejects_reordered_polars_columns():

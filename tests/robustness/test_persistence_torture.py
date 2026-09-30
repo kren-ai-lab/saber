@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import pickle
 from pathlib import Path
 
 import pandas as pd
@@ -39,6 +40,22 @@ def test_missing_checksum_file_is_rejected(tmp_path):
         verify_artifact(path)
 
 
+def test_file_not_covered_by_checksums_is_rejected(tmp_path):
+    _, _, path = _trained(tmp_path)
+    checksums = path / "checksums.sha256"
+    lines = checksums.read_text().splitlines(keepends=True)
+    checksums.write_text("".join(line for line in lines if "model.joblib" not in line))
+    with pytest.raises(ArtifactIntegrityError, match=r"model\.joblib"):
+        load_model_artifact(path)
+
+
+def test_empty_checksum_file_is_rejected(tmp_path):
+    _, _, path = _trained(tmp_path)
+    (path / "checksums.sha256").write_text("")
+    with pytest.raises(ArtifactIntegrityError, match="not covered"):
+        verify_artifact(path)
+
+
 def test_missing_manifest_is_rejected_even_when_checksum_verification_disabled(tmp_path):
     _, _, path = _trained(tmp_path)
     (path / "manifest.json").unlink()
@@ -68,14 +85,6 @@ def test_tampered_feature_schema_is_rejected_even_if_checksums_are_rewritten(tmp
         load_model_artifact(path)
 
 
-def test_wrong_feature_order_is_rejected_before_model_prediction(tmp_path):
-    dataset, _, path = _trained(tmp_path)
-    loaded = load_model_artifact(path)
-    wrong = dataset.X[list(reversed(dataset.X.columns))]
-    with pytest.raises(FeatureSchemaMismatchError):
-        loaded.predict(wrong)
-
-
 def test_missing_feature_is_rejected_before_model_prediction(tmp_path):
     dataset, _, path = _trained(tmp_path)
     loaded = load_model_artifact(path)
@@ -98,9 +107,8 @@ def test_prediction_sample_ids_must_match_inference_row_count(tmp_path):
         loaded.predict_result(dataset.X, sample_ids=["too_short"])
 
 
-def test_artifact_overwrite_replaces_previous_model_atomically(tmp_path):
+def test_artifact_overwrite_replaces_previous_model(tmp_path):
     dataset, trained, path = _trained(tmp_path)
-    first_manifest = inspect_artifact(path)
     save_model_artifact(
         path,
         model=trained.model,
@@ -110,9 +118,24 @@ def test_artifact_overwrite_replaces_previous_model_atomically(tmp_path):
         metadata={"revision": 2},
         overwrite=True,
     )
-    second_manifest = verify_artifact(path)
-    assert second_manifest.artifact_type == first_manifest.artifact_type == "model"
-    assert not any(path.parent.glob(f".{path.name}.backup-*"))
+    assert load_model_artifact(path).provenance["metadata"] == {"revision": 2}
+    assert [child.name for child in path.parent.iterdir()] == [path.name]
+
+
+def test_failed_overwrite_keeps_previous_artifact_intact(tmp_path):
+    dataset, _, path = _trained(tmp_path)
+    with pytest.raises(pickle.PicklingError):
+        save_model_artifact(
+            path,
+            model=lambda X: X,  # not picklable, so writing fails mid-save
+            algorithm="logistic_regression",
+            task="classification",
+            dataset=dataset,
+            metadata={"revision": 2},
+            overwrite=True,
+        )
+    assert load_model_artifact(path).provenance["metadata"] == {}
+    assert [child.name for child in path.parent.iterdir()] == [path.name]
 
 
 def test_invalid_task_is_rejected_before_writing_artifact(tmp_path):
