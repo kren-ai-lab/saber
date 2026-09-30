@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import pickle
 from pathlib import Path
 
 import pandas as pd
@@ -106,9 +107,8 @@ def test_prediction_sample_ids_must_match_inference_row_count(tmp_path):
         loaded.predict_result(dataset.X, sample_ids=["too_short"])
 
 
-def test_artifact_overwrite_replaces_previous_model_atomically(tmp_path):
+def test_artifact_overwrite_replaces_previous_model(tmp_path):
     dataset, trained, path = _trained(tmp_path)
-    first_manifest = inspect_artifact(path)
     save_model_artifact(
         path,
         model=trained.model,
@@ -118,9 +118,24 @@ def test_artifact_overwrite_replaces_previous_model_atomically(tmp_path):
         metadata={"revision": 2},
         overwrite=True,
     )
-    second_manifest = verify_artifact(path)
-    assert second_manifest.artifact_type == first_manifest.artifact_type == "model"
-    assert not any(path.parent.glob(f".{path.name}.backup-*"))
+    assert load_model_artifact(path).provenance["metadata"] == {"revision": 2}
+    assert [child.name for child in path.parent.iterdir()] == [path.name]
+
+
+def test_failed_overwrite_keeps_previous_artifact_intact(tmp_path):
+    dataset, _, path = _trained(tmp_path)
+    with pytest.raises(pickle.PicklingError):
+        save_model_artifact(
+            path,
+            model=lambda X: X,  # not picklable, so writing fails mid-save
+            algorithm="logistic_regression",
+            task="classification",
+            dataset=dataset,
+            metadata={"revision": 2},
+            overwrite=True,
+        )
+    assert load_model_artifact(path).provenance["metadata"] == {}
+    assert [child.name for child in path.parent.iterdir()] == [path.name]
 
 
 def test_invalid_task_is_rejected_before_writing_artifact(tmp_path):

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
+from sklearn.base import clone
 from sklearn.datasets import make_classification, make_regression
 
 from saber import MODEL_REGISTRY
@@ -10,6 +13,7 @@ from saber.datasets.biosieve import BioSievePartitionConfig
 from saber.exceptions import ValidationContractError
 from saber.preprocessing import PreprocessingConfig
 from saber.validation import ValidationEngine
+from saber.validation.results import aggregate_fold_metrics
 
 
 def test_validation_fits_scaler_only_on_training_partition():
@@ -162,26 +166,26 @@ def test_partition_plan_and_biosieve_configuration_are_mutually_exclusive():
         )
 
 
-def test_sample_weights_are_forwarded_when_supported():
+def test_sample_weights_are_forwarded_aligned_with_the_training_fold():
     X, y = make_classification(n_samples=40, n_features=6, random_state=7)
-    dataset = DatasetBundle(
-        X=X,
-        y=y,
-        sample_ids=[f"s{i}" for i in range(40)],
-        sample_weight=np.linspace(1.0, 2.0, 40),
-    )
-    assert dataset.sample_ids is not None
-    plan = PartitionPlan.holdout(
-        train_ids=dataset.sample_ids[:30],
-        test_ids=dataset.sample_ids[30:],
-    )
+    weights = np.linspace(0.05, 5.0, 40)
+    ids = [f"s{i}" for i in range(40)]
+    dataset = DatasetBundle(X=X, y=y, sample_ids=ids, sample_weight=weights)
+    # Train on a non-prefix block so a misaligned weight slice would be detected.
+    plan = PartitionPlan.holdout(train_ids=ids[10:], test_ids=ids[:10])
     result = ValidationEngine(MODEL_REGISTRY).run(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,
         evaluation_role="test",
     )
-    assert result.folds[0].estimator is not None
+    fitted = result.folds[0].estimator
+    assert fitted is not None
+    weighted = clone(fitted).fit(X[10:], y[10:], estimator__sample_weight=weights[10:])
+    unweighted = clone(fitted).fit(X[10:], y[10:])
+    coef = fitted.named_steps["estimator"].coef_
+    np.testing.assert_allclose(coef, weighted.named_steps["estimator"].coef_)
+    assert not np.allclose(coef, unweighted.named_steps["estimator"].coef_)
 
 
 def test_sample_weights_fail_for_estimator_without_weight_support():
@@ -254,3 +258,19 @@ def test_cross_validation_auto_role_uses_biosieve_style_test_fold():
     assert all(fold.evaluation_role == "test" for fold in result.folds)
     assert result.oof_prediction is not None
     assert result.metadata["oof_complete"] is True
+
+
+def _fold(metrics):
+    return SimpleNamespace(evaluation=SimpleNamespace(metrics=metrics))
+
+
+def test_fold_aggregation_skips_non_finite_values_and_uses_sample_std():
+    folds = (
+        _fold({"accuracy": 0.6, "roc_auc": float("nan")}),
+        _fold({"accuracy": 0.8, "roc_auc": 0.9}),
+        _fold({"accuracy": 1.0}),
+    )
+    means, summary = aggregate_fold_metrics(folds)  # pyrefly: ignore[bad-argument-type]
+    assert means == pytest.approx({"accuracy": 0.8, "roc_auc": 0.9})
+    assert summary["accuracy"] == pytest.approx({"mean": 0.8, "std": 0.2, "min": 0.6, "max": 1.0, "n": 3.0})
+    assert summary["roc_auc"] == pytest.approx({"mean": 0.9, "std": 0.0, "min": 0.9, "max": 0.9, "n": 1.0})

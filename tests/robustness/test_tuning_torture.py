@@ -4,8 +4,11 @@ import warnings
 
 import numpy as np
 import pytest
+from sklearn import model_selection
 from sklearn.datasets import make_classification
+from sklearn.experimental import enable_halving_search_cv  # noqa: F401  # exposes the halving classes
 
+import saber.tuning.engine as tuning_engine_module
 from saber import MODEL_REGISTRY
 from saber.core.search_space import Categorical, Float, SearchSpace
 from saber.datasets import DatasetBundle, PartitionPlan
@@ -31,9 +34,27 @@ def _classification(n=60, seed=7):
     return DatasetBundle(X=X, y=y, sample_ids=[f"s{i}" for i in range(n)])
 
 
+SEARCH_CLASSES = {
+    "grid": (tuning_engine_module, "GridSearchCV"),
+    "random": (tuning_engine_module, "RandomizedSearchCV"),
+    "halving_grid": (model_selection, "HalvingGridSearchCV"),
+    "halving_random": (model_selection, "HalvingRandomSearchCV"),
+}
+
+
 @pytest.mark.parametrize("optimizer", ["grid", "random", "halving_grid", "halving_random"])
-def test_all_sklearn_tuning_backends_respect_explicit_cv(optimizer):
+def test_all_sklearn_tuning_backends_respect_explicit_cv(optimizer, monkeypatch):
     dataset = _classification(54)
+    plan = _cv(dataset)
+    module, name = SEARCH_CLASSES[optimizer]
+    search_class = getattr(module, name)
+    received_cv = []
+
+    def recording_search(*args, **kwargs):
+        received_cv.append(kwargs["cv"])
+        return search_class(*args, **kwargs)
+
+    monkeypatch.setattr(module, name, recording_search)
     space = SearchSpace("lr", {"C": Categorical([0.2, 1.0])})
     config = TuningConfig(
         optimizer=optimizer,
@@ -51,12 +72,16 @@ def test_all_sklearn_tuning_backends_respect_explicit_cv(optimizer):
             dataset=dataset,
             algorithm="logistic_regression",
             config=config,
-            partition_plan=_cv(dataset),
+            partition_plan=plan,
             search_space=space,
         )
     assert result.best_model is not None
     assert np.isfinite(result.best_score)
-    assert result.metadata["n_splits"] == 3
+    ids = np.asarray(dataset.sample_ids)
+    (cv,) = received_cv
+    assert [(set(ids[train]), set(ids[test])) for train, test in cv] == [
+        (set(split.train_ids), set(split.validation_ids)) for split in plan.splits
+    ]
 
 
 def test_tuning_rejects_regression_metric_for_classifier():
@@ -123,7 +148,7 @@ def test_tuning_rejects_any_explicit_training_fold_with_single_class_before_sear
         test_ids=ids[18:],
         dataset_fingerprint=dataset.fingerprint,
     )
-    with pytest.raises(Exception, match=r"at least two|binary|multiclass"):
+    with pytest.raises(ValidationContractError, match="at least two target classes"):
         TuningEngine(MODEL_REGISTRY).run(
             dataset=dataset,
             algorithm="logistic_regression",

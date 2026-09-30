@@ -99,8 +99,9 @@ def test_predict_and_evaluate_accept_dataset_feature_name_overrides():
     prediction = saber.predict(result, dataset=overridden)
     evaluation = saber.evaluate(dataset=overridden, model=result, metrics=("accuracy",))
 
-    assert prediction.n_samples == dataset.n_samples
-    assert evaluation.metrics["accuracy"] >= 0.0
+    reference = saber.evaluate(dataset=dataset, model=result, metrics=("accuracy",))
+    np.testing.assert_array_equal(prediction.predictions, saber.predict(result, dataset=dataset).predictions)
+    assert evaluation.metrics == reference.metrics
 
 
 def test_predict_forwards_explicit_feature_names_override_without_dataset():
@@ -110,7 +111,7 @@ def test_predict_forwards_explicit_feature_names_override_without_dataset():
     renamed = dataset.X.rename({"a": "x0", "b": "x1", "c": "x2", "d": "x3"})
     prediction = saber.predict(result, X=renamed, feature_names=list("abcd"))
 
-    assert prediction.n_samples == dataset.n_samples
+    np.testing.assert_array_equal(prediction.predictions, saber.predict(result, X=dataset.X).predictions)
 
 
 def test_predict_accepts_same_order_dataframe_and_matching_width_numpy_array():

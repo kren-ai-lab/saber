@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, Ridge
 
 from saber.core.registry import AlgorithmRegistry
 from saber.core.specs import AlgorithmSpec
@@ -47,7 +47,14 @@ def test_duplicate_names_and_aliases_are_rejected() -> None:
 
 def test_filtering_uses_provider_task_and_tags() -> None:
     registry = AlgorithmRegistry()
-    registry.register_many([_spec(), _spec("logistic_regression", aliases=("logreg",))])
+    other = AlgorithmSpec(
+        provider="other",
+        task="regression",
+        name="ridge",
+        estimator_cls=Ridge,
+        tags=("regression", "linear"),
+    )
+    registry.register_many([_spec(), _spec("logistic_regression", aliases=("logreg",)), other])
 
     assert {spec.name for spec in registry.filter(task="classification")} == {
         "random_forest",
@@ -57,9 +64,10 @@ def test_filtering_uses_provider_task_and_tags() -> None:
         "random_forest",
         "logistic_regression",
     }
+    assert [spec.name for spec in registry.filter(task="regression", tags=("linear",))] == ["ridge"]
     assert [spec.name for spec in registry.filter(tags=("tree",))] == ["random_forest"]
     assert registry.get_by_provider("sklearn") == registry.filter(provider="sklearn")
-    assert registry.providers() == {"sklearn"}
+    assert registry.providers() == {"sklearn", "other"}
 
 
 def test_registry_metadata_factory_and_summary() -> None:

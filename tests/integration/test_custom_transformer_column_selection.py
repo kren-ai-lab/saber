@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import polars as pl
 from sklearn.compose import ColumnTransformer
@@ -97,4 +98,7 @@ def test_train_validate_tune_predict_and_artifact_round_trip_with_named_column_s
     )
     loaded = load_model_artifact(artifact_path)
     loaded_prediction = loaded.predict_result(dataset.X, sample_ids=dataset.sample_ids)
-    assert loaded_prediction.predictions.shape[0] == dataset.n_samples
+    np.testing.assert_array_equal(loaded_prediction.predictions, prediction.predictions)
+    assert loaded_prediction.probabilities is not None
+    assert prediction.probabilities is not None
+    np.testing.assert_allclose(loaded_prediction.probabilities, prediction.probabilities)

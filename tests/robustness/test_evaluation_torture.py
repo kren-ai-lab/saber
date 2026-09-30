@@ -224,7 +224,7 @@ def test_validation_rejects_training_fold_with_single_class_before_estimator_fit
         test_ids=ids[8:],
         dataset_fingerprint=dataset.fingerprint,
     )
-    with pytest.raises(Exception, match=r"at least two|binary|multiclass"):
+    with pytest.raises(ValidationContractError, match="at least two target classes"):
         ValidationEngine(MODEL_REGISTRY).run(
             dataset=dataset,
             algorithm="logistic_regression",

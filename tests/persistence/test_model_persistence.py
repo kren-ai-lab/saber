@@ -25,8 +25,13 @@ from saber.persistence import (
     save_model_artifact,
     verify_artifact,
 )
+from saber.persistence import load as load_module
 from saber.preprocessing import build_model_pipeline
 from saber.utils.tabular import to_numpy
+
+
+def _forbidden_joblib_load(*_args, **_kwargs):
+    raise AssertionError("joblib.load must not be called")
 
 
 def _fitted_fixture():
@@ -113,7 +118,7 @@ def test_feature_schema_mismatch_is_detected_before_prediction(tmp_path):
         loaded.predict(wrong_order)
 
 
-def test_corrupted_model_is_rejected_before_deserialization(tmp_path):
+def test_corrupted_model_is_rejected_before_deserialization(tmp_path, monkeypatch):
     dataset, _, pipeline = _fitted_fixture()
     artifact_path = tmp_path / "model_artifact"
     save_model_artifact(
@@ -125,6 +130,7 @@ def test_corrupted_model_is_rejected_before_deserialization(tmp_path):
     )
     with (artifact_path / "model.joblib").open("ab") as handle:
         handle.write(b"corruption")
+    monkeypatch.setattr(load_module.joblib, "load", _forbidden_joblib_load)
 
     with pytest.raises(ArtifactIntegrityError, match="Checksum mismatch"):
         load_model_artifact(artifact_path)
@@ -226,7 +232,7 @@ print('PHASE7_SUBPROCESS_OK')
     assert "PHASE7_SUBPROCESS_OK" in completed.stdout
 
 
-def test_inspect_does_not_need_to_load_joblib(tmp_path):
+def test_inspect_does_not_need_to_load_joblib(tmp_path, monkeypatch):
     dataset, _, pipeline = _fitted_fixture()
     artifact_path = tmp_path / "model_artifact"
     save_model_artifact(
@@ -236,5 +242,6 @@ def test_inspect_does_not_need_to_load_joblib(tmp_path):
         task="classification",
         dataset=dataset,
     )
+    monkeypatch.setattr(load_module.joblib, "load", _forbidden_joblib_load)
     manifest = inspect_artifact(artifact_path)
     assert manifest.metadata["algorithm"] == "logistic_regression"

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import subprocess
@@ -15,7 +16,8 @@ from saber.cli.main import EXIT_CONFIG, EXIT_OK, _doctor_payload, main
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.utils.tabular import read_table
 
-ROOT = Path(__file__).parents[2]
+# saber.cli re-exports the main() function under the module name, so import the module explicitly.
+cli_main = importlib.import_module("saber.cli.main")
 
 
 def _validate_config(tmp_path: Path) -> Path:
@@ -109,16 +111,22 @@ def test_benchmark_human_output_renders_metric_table(tmp_path, capsys):
     config = _benchmark_config(tmp_path)
     assert main(["benchmark", str(config)]) == EXIT_OK
     output = capsys.readouterr().out
-    assert "accuracy" in output
+    assert "Aggregate results (preview)" in output
+    assert "logistic_regression" in output
 
 
-def test_dry_run_validates_without_creating_outputs(tmp_path, capsys):
+def test_dry_run_validates_without_creating_outputs(tmp_path, capsys, monkeypatch):
     config = _validate_config(tmp_path)
+    monkeypatch.setattr(cli_main, "run_config", _forbidden_run_config)
     assert main(["validate", str(config), "--dry-run"]) == EXIT_OK
     output = capsys.readouterr().out
     assert "execution plan" in output.lower()
     assert "No workflow was executed" in output
     assert not (tmp_path / "results").exists()
+
+
+def _forbidden_run_config(*_args, **_kwargs):
+    raise AssertionError("dry-run must not execute the workflow")
 
 
 def test_workflow_json_mode_is_machine_readable(tmp_path, capsys):
