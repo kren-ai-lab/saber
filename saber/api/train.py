@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from saber.api._common import fit_dataset
-from saber.persistence import save_model_artifact
+from saber.persistence import save_model
 from saber.preprocessing import PreprocessingConfig
 
 if TYPE_CHECKING:
@@ -43,7 +43,7 @@ def train(
     )
 
     if artifact_path is not None:
-        save_model_artifact(
+        save_model(
             artifact_path,
             model=result.model,
             algorithm=result.spec.name,

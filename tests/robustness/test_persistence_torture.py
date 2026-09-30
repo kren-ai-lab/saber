@@ -17,7 +17,7 @@ from saber.exceptions import (
     PersistenceError,
     PredictionContractError,
 )
-from saber.persistence import inspect_artifact, load_model_artifact, save_model_artifact, verify_artifact
+from saber.persistence import inspect_artifact, load_model, save_model, verify_artifact
 from saber.persistence.checksums import write_checksums
 
 
@@ -27,7 +27,7 @@ def _trained(tmp_path: Path):
     dataset = DatasetBundle(frame, y, sample_ids=[f"s{i}" for i in range(50)])
     trained = saber.train(dataset=dataset, algorithm="logistic_regression", random_state=42)
     path = tmp_path / "model"
-    save_model_artifact(
+    save_model(
         path, model=trained.model, algorithm="logistic_regression", task="classification", dataset=dataset
     )
     return dataset, trained, path
@@ -46,7 +46,7 @@ def test_file_not_covered_by_checksums_is_rejected(tmp_path):
     lines = checksums.read_text().splitlines(keepends=True)
     checksums.write_text("".join(line for line in lines if "model.joblib" not in line))
     with pytest.raises(ArtifactIntegrityError, match=r"model\.joblib"):
-        load_model_artifact(path)
+        load_model(path)
 
 
 def test_empty_checksum_file_is_rejected(tmp_path):
@@ -71,7 +71,7 @@ def test_manifest_missing_required_model_entry_is_rejected(tmp_path):
     manifest_path.write_text(json.dumps(payload))
     write_checksums(path)
     with pytest.raises(ArtifactIntegrityError, match="required file 'model'"):
-        load_model_artifact(path)
+        load_model(path)
 
 
 def test_tampered_feature_schema_is_rejected_even_if_checksums_are_rewritten(tmp_path):
@@ -82,19 +82,19 @@ def test_tampered_feature_schema_is_rejected_even_if_checksums_are_rewritten(tmp
     schema_path.write_text(json.dumps(payload))
     write_checksums(path)
     with pytest.raises(ArtifactIntegrityError, match="fingerprint"):
-        load_model_artifact(path)
+        load_model(path)
 
 
 def test_missing_feature_is_rejected_before_model_prediction(tmp_path):
     dataset, _, path = _trained(tmp_path)
-    loaded = load_model_artifact(path)
+    loaded = load_model(path)
     with pytest.raises(FeatureSchemaMismatchError):
         loaded.predict(dataset.X[:, :-1])
 
 
 def test_extra_feature_is_rejected_before_model_prediction(tmp_path):
     dataset, _, path = _trained(tmp_path)
-    loaded = load_model_artifact(path)
+    loaded = load_model(path)
     extra = dataset.X.with_columns(pl.lit(0.0).alias("extra"))
     with pytest.raises(FeatureSchemaMismatchError):
         loaded.predict(extra)
@@ -102,14 +102,14 @@ def test_extra_feature_is_rejected_before_model_prediction(tmp_path):
 
 def test_prediction_sample_ids_must_match_inference_row_count(tmp_path):
     dataset, _, path = _trained(tmp_path)
-    loaded = load_model_artifact(path)
+    loaded = load_model(path)
     with pytest.raises(PredictionContractError, match="sample_ids"):
         loaded.predict_result(dataset.X, sample_ids=["too_short"])
 
 
 def test_artifact_overwrite_replaces_previous_model(tmp_path):
     dataset, trained, path = _trained(tmp_path)
-    save_model_artifact(
+    save_model(
         path,
         model=trained.model,
         algorithm="logistic_regression",
@@ -118,14 +118,14 @@ def test_artifact_overwrite_replaces_previous_model(tmp_path):
         metadata={"revision": 2},
         overwrite=True,
     )
-    assert load_model_artifact(path).provenance["metadata"] == {"revision": 2}
+    assert load_model(path).provenance["metadata"] == {"revision": 2}
     assert [child.name for child in path.parent.iterdir()] == [path.name]
 
 
 def test_failed_overwrite_keeps_previous_artifact_intact(tmp_path):
     dataset, _, path = _trained(tmp_path)
     with pytest.raises(pickle.PicklingError):
-        save_model_artifact(
+        save_model(
             path,
             model=lambda X: X,  # not picklable, so writing fails mid-save
             algorithm="logistic_regression",
@@ -134,14 +134,14 @@ def test_failed_overwrite_keeps_previous_artifact_intact(tmp_path):
             metadata={"revision": 2},
             overwrite=True,
         )
-    assert load_model_artifact(path).provenance["metadata"] == {}
+    assert load_model(path).provenance["metadata"] == {}
     assert [child.name for child in path.parent.iterdir()] == [path.name]
 
 
 def test_invalid_task_is_rejected_before_writing_artifact(tmp_path):
     dataset, trained, _ = _trained(tmp_path)
     with pytest.raises(PersistenceError, match=r"classification.*regression"):
-        save_model_artifact(
+        save_model(
             tmp_path / "bad",
             model=trained.model,
             algorithm="logistic_regression",

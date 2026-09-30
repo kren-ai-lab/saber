@@ -98,10 +98,10 @@ def _(
 
 @app.cell
 def _(BenchmarkConfig, DEMO_TEST, balanced, benchmark, dataset, group_blocked, pl):
-    bench=benchmark(datasets={"prepared":dataset},algorithms=("logistic_regression","random_forest"),
+    bench=benchmark(datasets={"prepared":dataset},algorithms=("logistic_regression","random_forest_classifier"),
                     partitions={"balanced":balanced,"group_blocked":group_blocked},
                     config=BenchmarkConfig(metrics=("mcc","balanced_accuracy","f1","roc_auc"),seeds=(42,),modes=("untuned",),include_baselines=True),
-                    model_params={"random_forest":{"n_estimators":50 if DEMO_TEST else 120,"max_depth":7}})
+                    model_params={"random_forest_classifier":{"n_estimators":50 if DEMO_TEST else 120,"max_depth":7}})
     assert not bench.failures
     metrics=bench.aggregate_metrics_frame(); folds=bench.fold_metrics_frame()
     comparison=metrics.filter(pl.col("metric")=="mcc").pivot(on="partition",index="algorithm",values="score")

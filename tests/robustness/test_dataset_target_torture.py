@@ -70,7 +70,7 @@ def test_gamma_regression_rejects_nonpositive_training_targets_early():
     with pytest.raises(PreprocessingContractError, match="positive target"):
         validate(
             dataset=dataset,
-            algorithm="gamma_regression",
+            algorithm="gamma_regressor",
             partition_plan=plan,
             metrics=("rmse",),
             evaluation_role="test",

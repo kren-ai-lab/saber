@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from saber.datasets import DatasetBundle, FeatureSchema, PartitionPlan
 
 
-def save_model_artifact(
+def save_model(
     path: str | Path,
     *,
     model: Any,
@@ -47,9 +47,7 @@ def save_model_artifact(
     if task not in {"classification", "regression"}:
         raise PersistenceError("task must be 'classification' or 'regression'.")
     if dataset is None and feature_schema is None:
-        raise PersistenceError(
-            "save_model_artifact requires dataset or feature_schema for inference validation."
-        )
+        raise PersistenceError("save_model requires dataset or feature_schema for inference validation.")
     schema = dataset.feature_schema if dataset is not None else feature_schema
     if schema is None:
         raise PersistenceError("Feature schema could not be resolved.")
@@ -130,7 +128,7 @@ def save_model_artifact(
     return target
 
 
-def save_benchmark_artifact(
+def save_benchmark(
     path: str | Path,
     result: BenchmarkResult,
     *,

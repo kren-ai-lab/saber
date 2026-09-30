@@ -7,7 +7,7 @@ All notable changes to Saber are recorded here. Versions follow
 
 First public release, published on PyPI as `saberlib`.
 
-- Classical supervised classification and regression with a shared registry/factory execution path.
+- Classical supervised classification and regression with a static algorithm catalog.
 - Leakage-safe preprocessing, explicit and BioSieve-generated partitions, protected-test tuning.
 - Grid, random, successive-halving and Optuna optimization; multi-representation benchmarking.
 - Reproducible model and benchmark artifacts with checksums, fingerprints and environment metadata.
@@ -39,3 +39,24 @@ First public release, published on PyPI as `saberlib`.
 - A multi-character `sep` in a dataset config is a configuration error.
 - Fixed: benchmark `optimization_history_frame()` tables now carry the `parameters` column (it was
   always empty before).
+- Algorithms live in a static `saber.ALGORITHMS` catalog with `saber.get_algorithm(name)`; the
+  model registry, `AlgorithmRegistry`, name aliases, `EstimatorFactory`, `saber.optimize`,
+  `PublicAPIError` and the scorers module were removed.
+- `validate`, `tune` and `benchmark` are plain functions; the engine classes were removed.
+- The CLI is reduced to `saber run`, `saber models` and `saber artifact`; the other commands
+  (including `list`) were removed.
+- Algorithm names: models offered for both tasks end in `_classifier`/`_regressor`, single-task
+  models use the plain model name. Renamed:
+
+  | Old | New |
+  |-----|-----|
+  | `adaboost`, `bagging`, `decision_tree`, `extra_tree`, `extra_trees`, `gaussian_process`, `gradient_boosting`, `hist_gradient_boosting`, `knn`, `radius_neighbors`, `random_forest` | same name + `_classifier` |
+  | `xgbrf_regressor` | `xgb_rf_regressor` |
+  | `huber_regression` | `huber_regressor` |
+  | `gamma_regression` | `gamma_regressor` |
+  | `lasso_regressor` | `lasso` |
+  | `lars_regressor` | `lars` |
+  | `lasso_lars_regressor` | `lasso_lars` |
+
+- Artifact functions are `save_model`, `load_model`, `save_benchmark` and `load_benchmark`
+  (`saber.persistence` and top-level `saber`); the `*_artifact` names were removed.

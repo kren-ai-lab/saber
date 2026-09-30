@@ -106,11 +106,11 @@ def _(
     tuning=TuningConfig(optimizer="grid",metrics=("mcc","roc_auc"),refit_metric="mcc",random_state=None,n_jobs=1)
     search_spaces={
         "logistic_regression":SearchSpace("logreg",{"C":Categorical([0.1,1.0,3.0]),"solver":Categorical(["lbfgs"])}),
-        "random_forest":SearchSpace("rf",{"n_estimators":Categorical([40,80] if DEMO_TEST else [80,160]),"max_depth":Categorical([4,8])}),
+        "random_forest_classifier":SearchSpace("rf",{"n_estimators":Categorical([40,80] if DEMO_TEST else [80,160]),"max_depth":Categorical([4,8])}),
     }
     bench=benchmark(
         datasets={"representation_A":rep_a,"representation_B":rep_b},
-        algorithms=("logistic_regression","random_forest"), partitions={"development_plus_protected_test":plan},
+        algorithms=("logistic_regression","random_forest_classifier"), partitions={"development_plus_protected_test":plan},
         config=BenchmarkConfig(metrics=("mcc","balanced_accuracy","f1","roc_auc"),seeds=seeds,modes=("untuned","tuned"),
                                include_baselines=True,tuning=tuning),
         search_spaces=search_spaces,
@@ -157,7 +157,7 @@ def _(history, leader, mo, np, pl, plt, runs):
 
 @app.cell
 def _(FIGURE_COUNT, bench, history, leader, metrics, preds, runs, seeds):
-    nonbaseline={"logistic_regression","random_forest"}
+    nonbaseline={"logistic_regression","random_forest_classifier"}
     expected=len(seeds)*2*(1+2*len(nonbaseline))
     DEMO_CHECKS={
         "benchmark_matrix":bench.n_runs==expected,

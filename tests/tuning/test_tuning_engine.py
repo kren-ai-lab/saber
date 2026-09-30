@@ -187,10 +187,10 @@ def test_sample_weights_are_rejected_when_estimator_does_not_support_them() -> N
     with pytest.raises(ValidationContractError, match="sample-weight support"):
         tune(
             dataset=dataset,
-            algorithm="knn",
+            algorithm="knn_classifier",
             config=TuningConfig(optimizer="grid", metrics=("accuracy",), n_jobs=1),
             partition_plan=_three_fold_plan(dataset),
-            search_space=SearchSpace("knn", {"n_neighbors": [3, 5]}),
+            search_space=SearchSpace("knn_classifier", {"n_neighbors": [3, 5]}),
         )
 
 

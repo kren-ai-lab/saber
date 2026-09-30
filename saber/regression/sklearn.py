@@ -54,7 +54,7 @@ _DEFAULT_PARAMS: dict[str, dict[str, object]] = {
 
 _SCALING_RECOMMENDED = {
     "ridge_regressor",
-    "lasso_regressor",
+    "lasso",
     "elastic_net",
     "bayesian_ridge",
     "knn_regressor",
@@ -63,9 +63,9 @@ _SCALING_RECOMMENDED = {
     "nu_svr",
     "gaussian_process_regressor",
     "ard_regression",
-    "huber_regression",
-    "lars_regressor",
-    "lasso_lars_regressor",
+    "huber_regressor",
+    "lars",
+    "lasso_lars",
     "orthogonal_matching_pursuit",
     "radius_neighbors_regressor",
 }
@@ -73,7 +73,7 @@ _SCALING_RECOMMENDED = {
 
 def _requirements_for(name: str) -> EstimatorRequirements:
     return EstimatorRequirements(
-        positive_y=(name == "gamma_regression"),
+        positive_y=(name == "gamma_regressor"),
         scaling=("recommended" if name in _SCALING_RECOMMENDED else "not_required"),
     )
 
@@ -100,7 +100,7 @@ def _build_specs() -> tuple[AlgorithmSpec, ...]:
             search_spaces.RIDGE_REGRESSOR,
         ),
         (
-            "lasso_regressor",
+            "lasso",
             Lasso,
             ("regression", "linear", "regularized"),
             search_spaces.LASSO_REGRESSOR,
@@ -202,25 +202,25 @@ def _build_specs() -> tuple[AlgorithmSpec, ...]:
             search_spaces.ARD_REGRESSION,
         ),
         (
-            "gamma_regression",
+            "gamma_regressor",
             GammaRegressor,
             ("regression", "linear"),
             search_spaces.GAMMA_REGRESSION,
         ),
         (
-            "huber_regression",
+            "huber_regressor",
             HuberRegressor,
             ("regression", "linear"),
             search_spaces.HUBER_REGRESSION,
         ),
         (
-            "lars_regressor",
+            "lars",
             Lars,
             ("regression", "linear"),
             search_spaces.LARS_REGRESSOR,
         ),
         (
-            "lasso_lars_regressor",
+            "lasso_lars",
             LassoLars,
             ("regression", "linear"),
             search_spaces.LASSO_LARS_REGRESSOR,

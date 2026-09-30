@@ -8,7 +8,7 @@ from sklearn.datasets import make_classification
 
 from saber.benchmark import BenchmarkConfig, benchmark
 from saber.datasets import DatasetBundle, PartitionPlan
-from saber.persistence import load_benchmark_artifact, save_benchmark_artifact, verify_artifact
+from saber.persistence import load_benchmark, save_benchmark, verify_artifact
 
 
 def _benchmark_result():
@@ -45,12 +45,12 @@ def _benchmark_result():
 def test_benchmark_artifact_persists_analysis_tables(tmp_path):
     result = _benchmark_result()
     artifact_path = tmp_path / "benchmark_artifact"
-    save_benchmark_artifact(
+    save_benchmark(
         artifact_path,
         result,
         metadata={"study": "phase7"},
     )
-    loaded = load_benchmark_artifact(artifact_path)
+    loaded = load_benchmark(artifact_path)
 
     assert loaded.manifest.artifact_type == "benchmark"
     assert loaded.metadata["n_runs"] == 1
@@ -64,12 +64,12 @@ def test_benchmark_artifact_persists_analysis_tables(tmp_path):
 def test_benchmark_artifact_can_optionally_round_trip_python_object(tmp_path):
     result = _benchmark_result()
     artifact_path = tmp_path / "benchmark_artifact"
-    save_benchmark_artifact(
+    save_benchmark(
         artifact_path,
         result,
         include_object=True,
     )
-    loaded = load_benchmark_artifact(artifact_path, load_object=True)
+    loaded = load_benchmark(artifact_path, load_object=True)
     assert loaded.result is not None
     assert loaded.result.n_runs == result.n_runs
     assert loaded.result.runs[0].run_id == result.runs[0].run_id
@@ -78,8 +78,8 @@ def test_benchmark_artifact_can_optionally_round_trip_python_object(tmp_path):
 def test_loaded_benchmark_table_is_polars_and_matches_result_frame(tmp_path):
     result = _benchmark_result()
     artifact_path = tmp_path / "benchmark_artifact"
-    save_benchmark_artifact(artifact_path, result)
-    loaded = load_benchmark_artifact(artifact_path)
+    save_benchmark(artifact_path, result)
+    loaded = load_benchmark(artifact_path)
 
     for name, expected in (
         ("metrics", result.metrics_frame()),
@@ -96,7 +96,7 @@ def test_loaded_benchmark_table_is_polars_and_matches_result_frame(tmp_path):
 def test_benchmark_artifact_file_set_is_human_inspectable(tmp_path):
     result = _benchmark_result()
     artifact_path = tmp_path / "benchmark_artifact"
-    save_benchmark_artifact(artifact_path, result)
+    save_benchmark(artifact_path, result)
     expected = {
         "manifest.json",
         "environment.json",

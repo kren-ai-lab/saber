@@ -24,7 +24,7 @@ from saber.config.builders import (
 from saber.config.io import load_config
 from saber.config.schema import as_mapping
 from saber.exceptions import ConfigurationError
-from saber.persistence import load_model_artifact, save_benchmark_artifact, save_model_artifact
+from saber.persistence import load_model, save_benchmark, save_model
 from saber.utils.serialization import to_jsonable
 from saber.utils.tabular import records_frame
 from saber.validation import ValidationResult
@@ -110,7 +110,7 @@ def _run_evaluate(config: WorkflowConfig) -> WorkflowExecution:
         artifact_path = config.resolve_path(_required(artifact, "path", "artifact"))
     else:
         artifact_path = config.resolve_path(str(artifact))
-    model = load_model_artifact(
+    model = load_model(
         artifact_path,
         strict_environment=bool(payload.get("strict_environment", False)),
     )
@@ -219,7 +219,7 @@ def _run_tune(config: WorkflowConfig) -> WorkflowExecution:
         if result.best_model is None:
             raise ConfigurationError("Cannot save tuned artifact because tuning used refit=False.")
         artifact_path = config.resolve_path(_required(artifact, "path", "artifact"))
-        save_model_artifact(
+        save_model(
             artifact_path,
             model=result.best_model,
             algorithm=result.algorithm,
@@ -308,7 +308,7 @@ def _run_benchmark(config: WorkflowConfig) -> WorkflowExecution:
     artifact = _optional_mapping(payload.get("artifact"), "artifact")
     if artifact is not None:
         artifact_path = config.resolve_path(_required(artifact, "path", "artifact"))
-        save_benchmark_artifact(
+        save_benchmark(
             artifact_path,
             result,
             metadata=config.metadata,

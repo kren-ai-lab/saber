@@ -74,7 +74,7 @@ from saber.datasets import BioSievePartitionConfig
 
 result = saber.validate(
     dataset=dataset,
-    algorithm="random_forest",
+    algorithm="random_forest_classifier",
     partitioning=BioSievePartitionConfig(
         strategy="stratified_kfold",
         params={"n_splits": 5, "seed": 42},

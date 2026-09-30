@@ -9,7 +9,7 @@ from saber.benchmark import BenchmarkConfig
 
 result = saber.benchmark(
     datasets={"repr_a": dataset_a, "repr_b": dataset_b},
-    algorithms=("logistic_regression", "random_forest", "svc"),
+    algorithms=("logistic_regression", "random_forest_classifier", "svc"),
     partitions={"shared_cv": plan},
     config=BenchmarkConfig(
         metrics=("mcc", "balanced_accuracy"),

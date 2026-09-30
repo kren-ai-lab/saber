@@ -10,7 +10,7 @@ SHA-256 checksum file.
 ```python
 import saber
 
-trained = saber.train(dataset=dataset, algorithm="random_forest", random_state=42)
+trained = saber.train(dataset=dataset, algorithm="random_forest_classifier", random_state=42)
 saber.save_model(
     "artifacts/model",
     model=trained.model,

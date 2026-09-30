@@ -27,7 +27,7 @@ saber models list
 saber models list --task classification
 saber models list --provider sklearn
 saber models list --tag baseline
-saber models show random_forest
+saber models show random_forest_classifier
 ```
 
 Use `--json` for programmatic discovery.

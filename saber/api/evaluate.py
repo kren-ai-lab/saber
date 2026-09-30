@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from saber.api._common import prediction_from_model
 from saber.core.results import TrainResult
 from saber.evaluation import EvaluationResult, evaluate_prediction
-from saber.persistence import LoadedModelArtifact, load_model_artifact
+from saber.persistence import LoadedModelArtifact, load_model
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -25,7 +25,7 @@ def evaluate(
 ) -> EvaluationResult:
     """Evaluate one already-fitted model on a labeled prepared dataset."""
     if isinstance(model, (str, Path)):
-        model = load_model_artifact(model)
+        model = load_model(model)
 
     if isinstance(model, LoadedModelArtifact):
         dataset.validate(task=model.task)

@@ -98,7 +98,7 @@ datasets:
     target: label
     sample_id: sample_id
 
-algorithms: [logistic_regression, random_forest]
+algorithms: [logistic_regression, random_forest_classifier]
 
 partitions:
   external_cv:

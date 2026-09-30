@@ -190,7 +190,7 @@ def test_benchmark_runs_algorithm_matrix_with_baseline_and_repeated_seeds() -> N
     dataset = _classification_dataset()
     result = benchmark(
         datasets=dataset,
-        algorithms=("logistic_regression", "decision_tree"),
+        algorithms=("logistic_regression", "decision_tree_classifier"),
         config=BenchmarkConfig(
             metrics=("accuracy", "balanced_accuracy"),
             seeds=(3, 7),
@@ -205,7 +205,7 @@ def test_benchmark_runs_algorithm_matrix_with_baseline_and_repeated_seeds() -> N
     assert {run.algorithm for run in result.successes} == {
         "dummy_classifier",
         "logistic_regression",
-        "decision_tree",
+        "decision_tree_classifier",
     }
     for run in result.successes:
         assert run.oof_prediction is not None
@@ -322,14 +322,14 @@ def test_seeded_benchmark_is_score_reproducible() -> None:
     dataset = _classification_dataset()
     kwargs = {
         "datasets": dataset,
-        "algorithms": ("random_forest",),
+        "algorithms": ("random_forest_classifier",),
         "config": BenchmarkConfig(
             metrics=("accuracy", "mcc"),
             seeds=(123,),
             include_baselines=False,
         ),
         "partitions": _cv_plan(dataset),
-        "model_params": {"random_forest": {"n_estimators": 20}},
+        "model_params": {"random_forest_classifier": {"n_estimators": 20}},
     }
     first = benchmark(**kwargs)
     second = benchmark(**kwargs)

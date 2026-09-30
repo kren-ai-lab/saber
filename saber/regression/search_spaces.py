@@ -24,7 +24,7 @@ RIDGE_REGRESSOR = SearchSpace(
 )
 
 LASSO_REGRESSOR = SearchSpace(
-    name="lasso_regressor",
+    name="lasso",
     parameters={
         "alpha": [0.0001, 0.001, 0.01, 0.1, 1.0],
     },
@@ -59,14 +59,14 @@ ARD_REGRESSION = SearchSpace(
 )
 
 GAMMA_REGRESSION = SearchSpace(
-    name="gamma_regression",
+    name="gamma_regressor",
     parameters={
         "alpha": [0.0, 0.001, 0.01, 0.1, 1.0],
     },
 )
 
 HUBER_REGRESSION = SearchSpace(
-    name="huber_regression",
+    name="huber_regressor",
     parameters={
         "epsilon": [1.1, 1.2, 1.35, 1.5, 2.0],
         "alpha": [0.0001, 0.001, 0.01],
@@ -74,14 +74,14 @@ HUBER_REGRESSION = SearchSpace(
 )
 
 LARS_REGRESSOR = SearchSpace(
-    name="lars_regressor",
+    name="lars",
     parameters={
         "n_nonzero_coefs": [100, 250, 500],
     },
 )
 
 LASSO_LARS_REGRESSOR = SearchSpace(
-    name="lasso_lars_regressor",
+    name="lasso_lars",
     parameters={
         "alpha": [0.0001, 0.001, 0.01, 0.1, 1.0],
     },
@@ -257,7 +257,7 @@ XGB_REGRESSOR = SearchSpace(
 )
 
 XGBRF_REGRESSOR = SearchSpace(
-    name="xgbrf_regressor",
+    name="xgb_rf_regressor",
     parameters={
         "n_estimators": [100, 200, 500],
         "max_depth": [3, 5, 7, 10],

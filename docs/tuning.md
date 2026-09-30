@@ -39,7 +39,7 @@ config = TuningConfig(
 )
 result = saber.tune(
     dataset=dataset,
-    algorithm="random_forest",
+    algorithm="random_forest_classifier",
     partition_plan=plan,
     search_space=space,
     config=config,

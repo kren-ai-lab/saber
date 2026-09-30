@@ -68,12 +68,12 @@ _SCALING_RECOMMENDED = {
     "svc",
     "linear_svc",
     "nu_svc",
-    "knn",
-    "radius_neighbors",
+    "knn_classifier",
+    "radius_neighbors_classifier",
     "nearest_centroid",
     "ridge_classifier",
     "sgd_classifier",
-    "gaussian_process",
+    "gaussian_process_classifier",
 }
 
 
@@ -100,19 +100,19 @@ def _build_specs() -> tuple[AlgorithmSpec, ...]:
             search_spaces.LOGISTIC_REGRESSION,
         ),
         (
-            "random_forest",
+            "random_forest_classifier",
             RandomForestClassifier,
             ("classification", "random_forest", "ensemble", "bagging"),
             search_spaces.RANDOM_FOREST,
         ),
         (
-            "extra_trees",
+            "extra_trees_classifier",
             ExtraTreesClassifier,
             ("classification", "extra_trees", "tree", "bagging"),
             search_spaces.EXTRA_TREES,
         ),
         (
-            "gradient_boosting",
+            "gradient_boosting_classifier",
             GradientBoostingClassifier,
             ("classification", "gradient_boosting", "tree", "boosting"),
             search_spaces.GRADIENT_BOOSTING,
@@ -120,9 +120,14 @@ def _build_specs() -> tuple[AlgorithmSpec, ...]:
         ("svc", SVC, ("classification", "svc", "svm"), search_spaces.SVC_SPACE),
         ("linear_svc", LinearSVC, ("classification", "svc", "linear_svm"), search_spaces.LINEAR_SVC),
         ("nu_svc", NuSVC, ("classification", "svc", "nu_svc"), search_spaces.NU_SVC),
-        ("knn", KNeighborsClassifier, ("classification", "knn", "distance_based"), search_spaces.KNN),
         (
-            "radius_neighbors",
+            "knn_classifier",
+            KNeighborsClassifier,
+            ("classification", "knn", "distance_based"),
+            search_spaces.KNN,
+        ),
+        (
+            "radius_neighbors_classifier",
             RadiusNeighborsClassifier,
             ("classification", "radius_neighbors", "distance_based"),
             search_spaces.RADIUS_NEIGHBORS,
@@ -134,31 +139,31 @@ def _build_specs() -> tuple[AlgorithmSpec, ...]:
             search_spaces.NEAREST_CENTROID,
         ),
         (
-            "decision_tree",
+            "decision_tree_classifier",
             DecisionTreeClassifier,
             ("classification", "decision_tree", "tree"),
             search_spaces.DECISION_TREE,
         ),
         (
-            "extra_tree",
+            "extra_tree_classifier",
             ExtraTreeClassifier,
             ("classification", "extra_tree", "tree"),
             search_spaces.EXTRA_TREE,
         ),
         (
-            "adaboost",
+            "adaboost_classifier",
             AdaBoostClassifier,
             ("classification", "adaboost", "tree", "boosting"),
             search_spaces.ADABOOST,
         ),
         (
-            "bagging",
+            "bagging_classifier",
             BaggingClassifier,
             ("classification", "bagging", "tree", "bagging"),
             search_spaces.BAGGING,
         ),
         (
-            "hist_gradient_boosting",
+            "hist_gradient_boosting_classifier",
             HistGradientBoostingClassifier,
             ("classification", "hist_gradient_boosting", "tree", "boosting"),
             search_spaces.HIST_GRADIENT_BOOSTING,
@@ -173,7 +178,7 @@ def _build_specs() -> tuple[AlgorithmSpec, ...]:
         ("lda", LinearDiscriminantAnalysis, ("classification", "lda", "linear"), search_spaces.LDA),
         ("qda", QuadraticDiscriminantAnalysis, ("classification", "qda", "quadratic"), search_spaces.QDA),
         (
-            "gaussian_process",
+            "gaussian_process_classifier",
             GaussianProcessClassifier,
             ("classification", "gaussian_process"),
             search_spaces.GAUSSIAN_PROCESS,
@@ -210,7 +215,7 @@ def _build_specs() -> tuple[AlgorithmSpec, ...]:
     for name, model_cls, tags, search_space in models:
         capabilities = infer_estimator_capabilities(
             model_cls,
-            native_missing_values=(name == "hist_gradient_boosting"),
+            native_missing_values=(name == "hist_gradient_boosting_classifier"),
         )
 
         spec = AlgorithmSpec(

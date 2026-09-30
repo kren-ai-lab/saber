@@ -11,16 +11,16 @@ from saber.datasets import DatasetBundle
 from saber.preprocessing import PreprocessingConfig
 
 # These need purpose-built data and have their own tests below.
-SPECIAL_DATA = {"categorical_nb", "gamma_regression"}
+SPECIAL_DATA = {"categorical_nb", "gamma_regressor"}
 SPECS = [spec for spec in saber.ALGORITHMS.values() if spec.name not in SPECIAL_DATA]
 # Keep the matrix fast; everything else runs with registry defaults.
 FAST_PARAMS = {
-    "gaussian_process": {"max_iter_predict": 30},
+    "gaussian_process_classifier": {"max_iter_predict": 30},
     "qda": {"reg_param": 0.1},
     "xgb_classifier": {"verbosity": 0},
     "xgb_regressor": {"verbosity": 0},
     "xgb_rf_classifier": {"verbosity": 0},
-    "xgbrf_regressor": {"verbosity": 0},
+    "xgb_rf_regressor": {"verbosity": 0},
     "lgbm_classifier": {"verbose": -1},
     "lgbm_regressor": {"verbose": -1},
 }
@@ -88,6 +88,6 @@ def test_gamma_regression_runs_on_strictly_positive_target():
     X = rng.normal(size=(60, 5))
     y = np.exp(0.2 * X[:, 0] - 0.1 * X[:, 1]) + 0.1
     dataset = DatasetBundle(X=X, y=y, sample_ids=[f"g{i}" for i in range(60)])
-    result = saber.train(dataset=dataset, algorithm="gamma_regression")
+    result = saber.train(dataset=dataset, algorithm="gamma_regressor")
     evaluation = saber.evaluate(dataset=dataset, model=result, metrics=("rmse",))
     assert np.isfinite(evaluation.metrics["rmse"])

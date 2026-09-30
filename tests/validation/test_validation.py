@@ -206,7 +206,7 @@ def test_sample_weights_fail_for_estimator_without_weight_support():
     with pytest.raises(ValidationContractError, match="sample-weight support"):
         validate(
             dataset=dataset,
-            algorithm="knn",
+            algorithm="knn_classifier",
             partition_plan=plan,
             evaluation_role="test",
         )

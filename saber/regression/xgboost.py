@@ -33,7 +33,7 @@ def _build_specs() -> tuple[AlgorithmSpec, ...]:
             search_spaces.XGB_REGRESSOR,
         ),
         (
-            "xgbrf_regressor",
+            "xgb_rf_regressor",
             XGBRFRegressor,
             (
                 "regression",

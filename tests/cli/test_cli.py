@@ -10,7 +10,7 @@ from saber import train
 from saber.cli.main import EXIT_CONFIG, EXIT_OK, main
 from saber.config import run_config
 from saber.datasets import DatasetBundle, PartitionPlan
-from saber.persistence import save_model_artifact
+from saber.persistence import save_model
 from saber.utils.tabular import read_table
 
 
@@ -60,7 +60,7 @@ def test_cli_artifact_inspection_and_verification(tmp_path):
     _, bundle = _workflow_files(tmp_path)
     trained = train(dataset=bundle, algorithm="logistic_regression", random_state=42)
     artifact = tmp_path / "artifact"
-    save_model_artifact(
+    save_model(
         artifact,
         model=trained.model,
         algorithm=trained.spec.name,
