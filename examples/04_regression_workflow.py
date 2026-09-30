@@ -74,7 +74,7 @@ def _(DEMO_TEST, DatasetBundle, PartitionPlan, make_regression, np):
     ids=[f"reg_{i:04d}" for i in range(len(y))]
     dataset=DatasetBundle(X=X,y=y,sample_ids=ids,feature_names=[f"f{i:02d}" for i in range(X.shape[1])])
     plan=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=np.arange(len(y))%5,
-                                             dataset_fingerprint=dataset.fingerprint)
+                                             dataset=dataset)
     return dataset, ids, plan, y
 
 

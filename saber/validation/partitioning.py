@@ -6,14 +6,11 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
-from saber.datasets.biosieve import partition_with_biosieve
+from saber.datasets.biosieve import BioSievePartitionConfig, partition_with_biosieve
 from saber.exceptions import ValidationContractError
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
-
     from saber.datasets import DatasetBundle, PartitionPlan
-    from saber.datasets.biosieve import BioSievePartitionConfig
 
 EvaluationRole = Literal["auto", "validation", "test"]
 
@@ -21,28 +18,17 @@ EvaluationRole = Literal["auto", "validation", "test"]
 def resolve_partition_plan(
     *,
     dataset: DatasetBundle,
-    partition_plan: PartitionPlan | None,
-    partitioning: BioSievePartitionConfig | None,
-    biosieve_extra_columns: Mapping[str, Sequence[Any]] | None,
+    partition_plan: PartitionPlan | BioSievePartitionConfig | None,
 ) -> PartitionPlan:
     """Resolve supplied partitions or delegate generation exclusively to BioSieve."""
-    if partition_plan is not None and partitioning is not None:
+    if partition_plan is None:
         raise ValidationContractError(
-            "Provide either partition_plan (already partitioned data) or "
-            "partitioning (BioSieve generation), not both."
-        )
-    if partition_plan is not None:
-        return partition_plan
-    if partitioning is None:
-        raise ValidationContractError(
-            "Unpartitioned data require an explicit BioSievePartitionConfig. "
+            "Unpartitioned data require a PartitionPlan or an explicit BioSievePartitionConfig. "
             "saber does not generate its own fallback splits."
         )
-    return partition_with_biosieve(
-        dataset,
-        partitioning,
-        extra_columns=biosieve_extra_columns,
-    )
+    if isinstance(partition_plan, BioSievePartitionConfig):
+        return partition_with_biosieve(dataset, partition_plan)
+    return partition_plan
 
 
 def resolve_evaluation_dataset(

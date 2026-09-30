@@ -244,14 +244,17 @@ class PartitionPlan:
         train_ids: Any,
         test_ids: Any,
         validation_ids: Any = (),
-        dataset_fingerprint: str | None = None,
+        dataset: DatasetBundle | None = None,
         name: str = "holdout",
         metadata: dict[str, Any] | None = None,
     ) -> PartitionPlan:
-        """Build a single train/validation/test holdout partition."""
+        """Build a single train/validation/test holdout partition.
+
+        ``dataset`` binds the plan to that dataset's fingerprint.
+        """
         return cls(
             kind="holdout",
-            dataset_fingerprint=dataset_fingerprint,
+            dataset_fingerprint=None if dataset is None else dataset.fingerprint,
             splits=(
                 PartitionSplit(
                     name=name,
@@ -270,13 +273,14 @@ class PartitionPlan:
         sample_ids: Any,
         fold_assignments: Any,
         always_train_value: Any = -1,
-        dataset_fingerprint: str | None = None,
+        dataset: DatasetBundle | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> PartitionPlan:
         """Build explicit CV splits from sklearn-style fold assignments.
 
         Samples assigned ``always_train_value`` are included in every training
-        fold and never used as validation samples.
+        fold and never used as validation samples.  ``dataset`` binds the plan
+        to that dataset's fingerprint.
         """
         ids = tuple(sample_ids)
         assignments = tuple(fold_assignments)
@@ -319,7 +323,7 @@ class PartitionPlan:
 
         return cls(
             kind="predefined",
-            dataset_fingerprint=dataset_fingerprint,
+            dataset_fingerprint=None if dataset is None else dataset.fingerprint,
             splits=tuple(splits),
             metadata=plan_metadata,
         )

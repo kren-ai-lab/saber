@@ -8,7 +8,6 @@ from sklearn.base import clone
 from sklearn.datasets import make_classification, make_regression
 
 from saber.datasets import DatasetBundle, PartitionPlan
-from saber.datasets.biosieve import BioSievePartitionConfig
 from saber.exceptions import ValidationContractError
 from saber.preprocessing import PreprocessingConfig
 from saber.validation import validate
@@ -34,7 +33,7 @@ def test_validation_fits_scaler_only_on_training_partition():
     plan = PartitionPlan.holdout(
         train_ids=list("abcd"),
         test_ids=list("ef"),
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
     result = validate(
         dataset=dataset,
@@ -98,7 +97,7 @@ def test_predefined_folds_produce_complete_identity_preserving_oof_predictions()
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=ids,
         fold_assignments=assignments,
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
     result = validate(
         dataset=dataset,
@@ -148,22 +147,6 @@ def test_unpartitioned_data_require_explicit_biosieve_configuration():
         validate(
             dataset=dataset,
             algorithm="logistic_regression",
-        )
-
-
-def test_partition_plan_and_biosieve_configuration_are_mutually_exclusive():
-    X, y = make_classification(n_samples=30, n_features=5, random_state=2)
-    dataset = DatasetBundle(X=X, y=y)
-    plan = PartitionPlan.holdout(
-        train_ids=range(20),
-        test_ids=range(20, 30),
-    )
-    with pytest.raises(ValidationContractError, match="not both"):
-        validate(
-            dataset=dataset,
-            algorithm="logistic_regression",
-            partition_plan=plan,
-            partitioning=BioSievePartitionConfig(strategy="random"),
         )
 
 
@@ -285,7 +268,7 @@ def test_oof_prediction_carries_probabilities_decision_scores_and_classes():
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=ids,
         fold_assignments=np.arange(60) % 3,
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
     result = validate(
         dataset=dataset,

@@ -85,7 +85,7 @@ def _(
     compressed_X = X[:, :6] + 0.05*rng.normal(size=(len(y),6))
     compressed = DatasetBundle(X=compressed_X, y=y, sample_ids=ids, feature_names=[f"compressed_{i}" for i in range(6)])
     plan = PartitionPlan.from_predefined_folds(sample_ids=ids, fold_assignments=balanced_fold_labels(y,4),
-                                               dataset_fingerprint=compact.fingerprint)
+                                               dataset=compact)
     return compact, compressed, expanded, plan
 
 
@@ -105,7 +105,7 @@ def _(
         datasets={"compact":compact, "expanded_noisy":expanded, "compressed":compressed},
         algorithms=("logistic_regression", "random_forest_classifier", "svc"),
         partitions={"prepared_4fold":plan},
-        config=BenchmarkConfig(metrics=("mcc","balanced_accuracy","f1","roc_auc"),
+        metrics=("mcc","balanced_accuracy","f1","roc_auc"),config=BenchmarkConfig(
                                seeds=seeds, modes=("untuned",), include_baselines=True),
         model_params={"random_forest_classifier":{"n_estimators":50 if DEMO_TEST else 120,"max_depth":7}},
     )

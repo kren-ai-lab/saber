@@ -72,7 +72,7 @@ class LoadedModelArtifact:
         self.validate_features(X, feature_names=feature_names)
         return np.asarray(self.model.predict(pipeline_input(self.model, X)))
 
-    def predict_result(
+    def _predict_result(
         self,
         X: Any,
         *,

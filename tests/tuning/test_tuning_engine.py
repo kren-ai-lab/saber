@@ -31,7 +31,7 @@ def _three_fold_plan(dataset: DatasetBundle) -> PartitionPlan:
     return PartitionPlan.from_predefined_folds(
         sample_ids=dataset.sample_ids,
         fold_assignments=[i % 3 for i in range(dataset.n_samples)],
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
 
 
@@ -42,13 +42,13 @@ def test_grid_tuning_uses_pipeline_explicit_folds_and_multiple_metrics() -> None
         algorithm="logistic_regression",
         config=TuningConfig(
             optimizer="grid",
-            metrics=("accuracy", "balanced_accuracy"),
             refit_metric="balanced_accuracy",
-            random_state=42,
             n_jobs=1,
         ),
         partition_plan=_three_fold_plan(dataset),
         search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
+        metrics=("accuracy", "balanced_accuracy"),
+        random_state=42,
     )
 
     assert isinstance(result.best_model, Pipeline)
@@ -70,15 +70,16 @@ def test_holdout_validation_protects_final_test_from_search_and_refit() -> None:
         train_ids=ids[:20],
         validation_ids=ids[20:30],
         test_ids=ids[30:],
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
 
     result = tune(
         dataset=dataset,
         algorithm="logistic_regression",
-        config=TuningConfig(optimizer="grid", metrics=("accuracy",), n_jobs=1),
+        config=TuningConfig(optimizer="grid", n_jobs=1),
         partition_plan=plan,
         search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
+        metrics=("accuracy",),
     )
 
     assert result.metadata["n_search_samples"] == 30
@@ -93,8 +94,9 @@ def test_unpartitioned_tuning_never_falls_back_to_internal_splitter() -> None:
         tune(
             dataset=dataset,
             algorithm="logistic_regression",
-            config=TuningConfig(optimizer="grid", metrics=("accuracy",)),
+            config=TuningConfig(optimizer="grid"),
             search_space=SearchSpace("lr", {"C": [1.0]}),
+            metrics=("accuracy",),
         )
 
 
@@ -104,8 +106,6 @@ def test_random_tuning_consumes_continuous_log_space_reproducibly() -> None:
     space = SearchSpace("lr", {"C": LogFloat(1e-3, 10.0)})
     config = TuningConfig(
         optimizer="random",
-        metrics=("accuracy",),
-        random_state=123,
         n_jobs=1,
         n_iter=4,
     )
@@ -115,6 +115,8 @@ def test_random_tuning_consumes_continuous_log_space_reproducibly() -> None:
         config=config,
         partition_plan=plan,
         search_space=space,
+        metrics=("accuracy",),
+        random_state=123,
     )
     second = tune(
         dataset=dataset,
@@ -122,6 +124,8 @@ def test_random_tuning_consumes_continuous_log_space_reproducibly() -> None:
         config=config,
         partition_plan=plan,
         search_space=space,
+        metrics=("accuracy",),
+        random_state=123,
     )
     assert first.best_params == second.best_params
     assert first.best_score == pytest.approx(second.best_score)
@@ -134,13 +138,13 @@ def test_halving_grid_reports_requested_secondary_metrics() -> None:
         algorithm="logistic_regression",
         config=TuningConfig(
             optimizer="halving_grid",
-            metrics=("accuracy", "balanced_accuracy"),
             refit_metric="accuracy",
-            random_state=42,
             n_jobs=1,
         ),
         partition_plan=_three_fold_plan(dataset),
         search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
+        metrics=("accuracy", "balanced_accuracy"),
+        random_state=42,
     )
     assert set(result.best_scores) == {"accuracy", "balanced_accuracy"}
     assert result.best_model is not None
@@ -153,12 +157,12 @@ def test_refit_false_keeps_best_configuration_without_fitted_model() -> None:
         algorithm="logistic_regression",
         config=TuningConfig(
             optimizer="grid",
-            metrics=("accuracy",),
             refit=False,
             n_jobs=1,
         ),
         partition_plan=_three_fold_plan(dataset),
         search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
+        metrics=("accuracy",),
     )
     assert result.best_model is None
     assert result.best_params
@@ -170,9 +174,10 @@ def test_sample_weights_are_propagated_for_supported_estimator() -> None:
     result = tune(
         dataset=dataset,
         algorithm="logistic_regression",
-        config=TuningConfig(optimizer="grid", metrics=("accuracy",), n_jobs=1),
+        config=TuningConfig(optimizer="grid", n_jobs=1),
         partition_plan=_three_fold_plan(dataset),
         search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
+        metrics=("accuracy",),
     )
     X, y, weights = np.asarray(dataset.X), dataset.y, dataset.sample_weight
     weighted = clone(result.best_model).fit(X, y, estimator__sample_weight=weights)
@@ -188,9 +193,10 @@ def test_sample_weights_are_rejected_when_estimator_does_not_support_them() -> N
         tune(
             dataset=dataset,
             algorithm="knn_classifier",
-            config=TuningConfig(optimizer="grid", metrics=("accuracy",), n_jobs=1),
+            config=TuningConfig(optimizer="grid", n_jobs=1),
             partition_plan=_three_fold_plan(dataset),
             search_space=SearchSpace("knn_classifier", {"n_neighbors": [3, 5]}),
+            metrics=("accuracy",),
         )
 
 
@@ -201,9 +207,10 @@ def test_failed_candidate_is_explicit_in_history() -> None:
         result = tune(
             dataset=dataset,
             algorithm="logistic_regression",
-            config=TuningConfig(optimizer="grid", metrics=("accuracy",), n_jobs=1),
+            config=TuningConfig(optimizer="grid", n_jobs=1),
             partition_plan=_three_fold_plan(dataset),
             search_space=SearchSpace("lr", {"C": [-1.0, 1.0]}),
+            metrics=("accuracy",),
         )
     assert result.failures
     assert result.failures[0]["status"] == "failed"
@@ -218,9 +225,10 @@ def test_regression_loss_scores_keep_natural_display_direction() -> None:
     result = tune(
         dataset=dataset,
         algorithm="ridge_regressor",
-        config=TuningConfig(optimizer="grid", metrics=("rmse", "r2"), refit_metric="rmse", n_jobs=1),
+        config=TuningConfig(optimizer="grid", refit_metric="rmse", n_jobs=1),
         partition_plan=_three_fold_plan(dataset),
         search_space=SearchSpace("ridge", {"alpha": [0.1, 1.0]}),
+        metrics=("rmse", "r2"),
     )
     assert result.best_score < 0
     assert result.display_score > 0
@@ -234,12 +242,12 @@ def test_optimization_history_exports_as_flat_dataframe() -> None:
         algorithm="logistic_regression",
         config=TuningConfig(
             optimizer="grid",
-            metrics=("accuracy", "balanced_accuracy"),
             refit_metric="accuracy",
             n_jobs=1,
         ),
         partition_plan=_three_fold_plan(dataset),
         search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
+        metrics=("accuracy", "balanced_accuracy"),
     )
     frame = result.history_frame()
     assert "param__C" in frame.columns
@@ -257,14 +265,15 @@ def test_protected_test_rows_do_not_influence_search_or_selection() -> None:
             train_ids=ids[:30],
             validation_ids=ids[30:45],
             test_ids=ids[45:],
-            dataset_fingerprint=dataset.fingerprint,
+            dataset=dataset,
         )
         return tune(
             dataset=dataset,
             algorithm="logistic_regression",
-            config=TuningConfig(optimizer="grid", metrics=("accuracy",), n_jobs=1),
+            config=TuningConfig(optimizer="grid", n_jobs=1),
             partition_plan=plan,
             search_space=SearchSpace("lr", {"C": [0.01, 0.1, 1.0, 10.0]}),
+            metrics=("accuracy",),
         )
 
     shifted_test = X.copy()
@@ -294,10 +303,11 @@ def test_binary_tuning_scores_match_evaluation_of_the_positive_class(positive_cl
     tuned = tune(
         dataset=dataset,
         algorithm="logistic_regression",
-        config=TuningConfig(optimizer="grid", metrics=metrics, refit_metric="f1", n_jobs=1),
+        config=TuningConfig(optimizer="grid", refit_metric="f1", n_jobs=1),
         partition_plan=plan,
         search_space=SearchSpace("lr", {"C": [1.0]}),
         positive_class=positive_class,
+        metrics=metrics,
     )
     validated = validate(
         dataset=dataset,
@@ -316,8 +326,9 @@ def test_tuning_rejects_positive_class_outside_the_binary_target() -> None:
         tune(
             dataset=dataset,
             algorithm="logistic_regression",
-            config=TuningConfig(optimizer="grid", metrics=("f1",), n_jobs=1),
+            config=TuningConfig(optimizer="grid", n_jobs=1),
             partition_plan=_three_fold_plan(dataset),
             search_space=SearchSpace("lr", {"C": [1.0]}),
             positive_class="missing",
+            metrics=("f1",),
         )

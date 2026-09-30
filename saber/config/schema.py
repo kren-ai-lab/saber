@@ -227,10 +227,15 @@ def workflow_config_from_mapping(
 
 DATASET_KEYS = {"path", "target", "sample_id", "features", "groups", "sample_weight", "sep"}
 PARTITION_KEYS = {"path", "sample_id_col", "role_col", "split_col", "fold_col", "always_train_value"}
-PARTITIONING_KEYS = _field_names(BioSievePartitionConfig)
+# Workflow knobs that YAML nests under ``tuning``/``benchmark`` but the Python
+# API takes as keyword arguments of tune()/benchmark().
+TUNING_KWARG_KEYS = {"metrics", "random_state"}
+BENCHMARK_KWARG_KEYS = {"metrics", "evaluation_role", "require_complete", "return_estimators"}
+# ``extra_columns`` comes from the top-level ``biosieve_extra_columns`` key.
+PARTITIONING_KEYS = _field_names(BioSievePartitionConfig) - {"extra_columns"}
 PREPROCESSING_KEYS = _field_names(PreprocessingConfig) - {"transformer"}
-TUNING_KEYS = _field_names(TuningConfig)
-BENCHMARK_KEYS = _field_names(BenchmarkConfig)
+TUNING_KEYS = _field_names(TuningConfig) | TUNING_KWARG_KEYS
+BENCHMARK_KEYS = _field_names(BenchmarkConfig) | BENCHMARK_KWARG_KEYS
 _ARTIFACT_KEYS = {"path", "overwrite", "include_object"}
 _OUTPUT_KEYS = {"path", "directory", "summary"}
 

@@ -31,7 +31,7 @@ def _write_classification_case(tmp_path: Path):
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=ids,
         fold_assignments=np.arange(45) % 3,
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
     part_path = tmp_path / "folds.json"
     part_path.write_text(json.dumps(plan.to_dict(), indent=2))
@@ -96,7 +96,8 @@ def test_regression_yaml_evaluate_artifact_roundtrip(tmp_path):
     ids = [f"r{i}" for i in range(45)]
     frame = pd.DataFrame(X, columns=[f"x{i}" for i in range(4)])
     dataset = DatasetBundle(frame, y, sample_ids=ids)
-    saber.train(dataset=dataset, algorithm="ridge_regressor", artifact_path=tmp_path / "artifact")
+    trained = saber.train(dataset=dataset, algorithm="ridge_regressor")
+    saber.save_model(tmp_path / "artifact", trained, dataset=dataset)
 
     eval_frame = frame.copy()
     eval_frame.insert(0, "sample_id", ids)

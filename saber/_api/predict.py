@@ -2,61 +2,49 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from saber._api._common import prediction_from_model
-from saber.core.results import TrainResult
-from saber.persistence import LoadedModelArtifact, load_model
+from saber._api._common import load_active_model, predict_model
+from saber.datasets import DatasetBundle
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from pathlib import Path
 
     from saber.core.prediction import PredictionResult
-    from saber.datasets import DatasetBundle
+    from saber.core.results import TrainResult
+    from saber.persistence import LoadedModelArtifact
 
 
 def predict(
     model: str | Path | TrainResult | LoadedModelArtifact,
+    X: Any,
     *,
-    dataset: DatasetBundle | None = None,
-    X: Any | None = None,
-    feature_names: Sequence[str] | None = None,
     sample_ids: Sequence[Any] | None = None,
     positive_class: Any | None = None,
-    strict_environment: bool = False,
 ) -> PredictionResult:
-    """Generate a structured PredictionResult from a fitted/persisted model."""
-    active = model
-    if isinstance(model, (str, Path)):
-        active = load_model(model, strict_environment=strict_environment)
+    """Generate a structured PredictionResult from a fitted or persisted model.
 
-    if dataset is not None:
-        X = dataset.X
-        feature_names = dataset.feature_names
-        sample_ids = dataset.sample_ids
-
-    if isinstance(active, LoadedModelArtifact):
-        if X is None:
-            raise ValueError("Prediction requires dataset=... or X=....")
-        return active.predict_result(
-            X,
-            feature_names=feature_names,
-            sample_ids=sample_ids,
-            positive_class=positive_class,
-        )
-
-    if isinstance(active, TrainResult):
-        return prediction_from_model(
-            result=active,
-            dataset=dataset,
-            X=X,
-            feature_names=feature_names,
-            sample_ids=sample_ids,
-            positive_class=positive_class,
-        )
-
-    raise TypeError("model must be an artifact path, LoadedModelArtifact, or TrainResult.")
+    ``X`` is a :class:`DatasetBundle`, a NumPy array, or a Polars/pandas
+    DataFrame.  DataFrames and datasets are checked against the training
+    feature names/order; a NumPy array only against the feature count.  A path
+    is loaded with :func:`saber.load_model` defaults; call ``load_model``
+    yourself for ``strict_environment`` or ``verify`` control.
+    """
+    active = load_active_model(model)
+    feature_names = None
+    if isinstance(X, DatasetBundle):
+        feature_names = X.feature_names
+        if sample_ids is None:
+            sample_ids = X.sample_ids
+        X = X.X
+    return predict_model(
+        active,
+        X,
+        feature_names=feature_names,
+        sample_ids=sample_ids,
+        positive_class=positive_class,
+    )
 
 
 __all__ = ["predict"]

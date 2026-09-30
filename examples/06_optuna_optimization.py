@@ -83,7 +83,7 @@ def _(
     X,y=make_classification(n_samples=n_samples,n_features=12,n_informative=8,class_sep=1.05,random_state=54)
     ids=[f"opt_{i:04d}" for i in range(len(y))]
     dataset=DatasetBundle(X=X,y=y,sample_ids=ids,feature_names=[f"f{i}" for i in range(X.shape[1])])
-    plan=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=balanced_fold_labels(y,4),dataset_fingerprint=dataset.fingerprint)
+    plan=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=balanced_fold_labels(y,4),dataset=dataset)
     space=SearchSpace("svc_optuna",{"C":LogFloat(1e-2,30.0),"gamma":LogFloat(1e-4,1.0),"kernel":Categorical(["rbf"])})
     return dataset, plan, space
 
@@ -91,8 +91,9 @@ def _(
 @app.cell
 def _(DEMO_TEST, TuningConfig, dataset, pl, plan, space, tune):
     n_trials=8 if DEMO_TEST else 28
-    config=TuningConfig(optimizer="optuna",metrics=("mcc","roc_auc","balanced_accuracy"),refit_metric="mcc",n_trials=n_trials,random_state=123,n_jobs=1)
-    opt=tune(dataset=dataset,algorithm="svc",config=config,partition_plan=plan,search_space=space)
+    config=TuningConfig(optimizer="optuna",refit_metric="mcc",n_trials=n_trials,n_jobs=1)
+    opt=tune(dataset=dataset,algorithm="svc",config=config,partition_plan=plan,search_space=space,
+             metrics=("mcc","roc_auc","balanced_accuracy"),random_state=123)
     history=opt.history_frame(); completed=history.filter(pl.col("status")=="complete")
     score_col=next(c for c in completed.columns if c in {"metric__mcc","metric__mcc__mean"})
     completed=completed.with_columns(pl.col(score_col).cum_max().alias("best_so_far"))

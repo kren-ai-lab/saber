@@ -29,7 +29,7 @@ def _workflow_files(tmp_path):
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=bundle.sample_ids,
         fold_assignments=[i % 3 for i in range(45)],
-        dataset_fingerprint=bundle.fingerprint,
+        dataset=bundle,
     )
     (tmp_path / "folds.json").write_text(json.dumps(plan.to_dict()), encoding="utf-8")
     config = {
@@ -60,14 +60,7 @@ def test_cli_artifact_inspection_and_verification(tmp_path):
     _, bundle = _workflow_files(tmp_path)
     trained = train(dataset=bundle, algorithm="logistic_regression", random_state=42)
     artifact = tmp_path / "artifact"
-    save_model(
-        artifact,
-        model=trained.model,
-        algorithm=trained.spec.name,
-        task=trained.spec.task,
-        dataset=bundle,
-        provider=trained.spec.provider,
-    )
+    save_model(artifact, trained, dataset=bundle)
     assert main(["artifact", "verify", str(artifact)]) == EXIT_OK
     assert main(["artifact", "inspect", str(artifact), "--json"]) == EXIT_OK
 

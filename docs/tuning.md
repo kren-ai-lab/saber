@@ -32,10 +32,8 @@ from saber import TuningConfig
 
 config = TuningConfig(
     optimizer="optuna",
-    metrics=("mcc", "roc_auc", "balanced_accuracy"),
     refit_metric="mcc",
     n_trials=50,
-    random_state=42,
 )
 result = saber.tune(
     dataset=dataset,
@@ -43,12 +41,14 @@ result = saber.tune(
     partition_plan=plan,
     search_space=space,
     config=config,
+    metrics=("mcc", "roc_auc", "balanced_accuracy"),
+    random_state=42,
 )
 print(result.best_params)
 print(result.history_frame())
 ```
 
-`refit_metric` is the objective; the other metrics are recorded for every
+`metrics` and `random_state` are keyword arguments of `tune`. `refit_metric` (default: the first metric, and it must be in `metrics`) is the objective; the other metrics are recorded for every
 candidate. For binary targets, `precision`, `recall`, `f1` and `roc_auc` are
 scored for the positive class; pass `positive_class=` to change it.
 

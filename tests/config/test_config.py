@@ -35,7 +35,7 @@ def _write_classification_inputs(tmp_path):
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=bundle.sample_ids,
         fold_assignments=[i % 3 for i in range(60)],
-        dataset_fingerprint=bundle.fingerprint,
+        dataset=bundle,
     )
     partition_path = tmp_path / "folds.json"
     partition_path.write_text(json.dumps(plan.to_dict()), encoding="utf-8")
@@ -241,9 +241,12 @@ def test_benchmark_yaml_runs_same_public_engine(tmp_path):
         datasets={"rep_a": bundle},
         algorithms=("logistic_regression",),
         config=__import__("saber.benchmark", fromlist=["BenchmarkConfig"]).BenchmarkConfig(
-            metrics=("accuracy",), seeds=(42,), modes=("untuned",), include_baselines=False
+            seeds=(42,),
+            modes=("untuned",),
+            include_baselines=False,
         ),
         partitions={"cv": plan},
+        metrics=("accuracy",),
     )
     assert execution.result.n_runs == direct.n_runs == 1
     assert (

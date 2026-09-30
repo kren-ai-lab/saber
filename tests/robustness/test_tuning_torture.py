@@ -23,7 +23,7 @@ def _cv(dataset: DatasetBundle, n=3):
     return PartitionPlan.from_predefined_folds(
         sample_ids=dataset.sample_ids,
         fold_assignments=np.arange(dataset.n_samples) % n,
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
 
 
@@ -56,9 +56,7 @@ def test_all_sklearn_tuning_backends_respect_explicit_cv(optimizer, monkeypatch)
     space = SearchSpace("lr", {"C": Categorical([0.2, 1.0])})
     config = TuningConfig(
         optimizer=optimizer,
-        metrics=("accuracy",),
         refit_metric="accuracy",
-        random_state=4,
         n_jobs=1,
         n_iter=2,
         factor=2,
@@ -72,6 +70,8 @@ def test_all_sklearn_tuning_backends_respect_explicit_cv(optimizer, monkeypatch)
             config=config,
             partition_plan=plan,
             search_space=space,
+            metrics=("accuracy",),
+            random_state=4,
         )
     assert result.best_model is not None
     assert np.isfinite(result.best_score)
@@ -88,9 +88,10 @@ def test_tuning_rejects_regression_metric_for_classifier():
         tune(
             dataset=dataset,
             algorithm="logistic_regression",
-            config=TuningConfig(optimizer="grid", metrics=("rmse",), refit_metric="rmse"),
+            config=TuningConfig(optimizer="grid", refit_metric="rmse"),
             partition_plan=_cv(dataset),
             search_space=SearchSpace("lr", {"C": [1.0]}),
+            metrics=("rmse",),
         )
 
 
@@ -103,9 +104,10 @@ def test_tuning_rejects_binary_roc_auc_for_multiclass_problem():
         tune(
             dataset=dataset,
             algorithm="logistic_regression",
-            config=TuningConfig(optimizer="grid", metrics=("roc_auc",), refit_metric="roc_auc"),
+            config=TuningConfig(optimizer="grid", refit_metric="roc_auc"),
             partition_plan=_cv(dataset),
             search_space=SearchSpace("lr", {"C": [1.0]}),
+            metrics=("roc_auc",),
         )
 
 
@@ -115,9 +117,10 @@ def test_grid_rejects_unbounded_continuous_domain_that_cannot_be_enumerated():
         tune(
             dataset=dataset,
             algorithm="logistic_regression",
-            config=TuningConfig(optimizer="grid", metrics=("accuracy",), refit_metric="accuracy"),
+            config=TuningConfig(optimizer="grid", refit_metric="accuracy"),
             partition_plan=_cv(dataset),
             search_space=SearchSpace("lr", {"C": Float(0.01, 2.0)}),
+            metrics=("accuracy",),
         )
 
 
@@ -128,10 +131,14 @@ def test_all_invalid_grid_candidates_raise_nonfinite_score_error():
             dataset=dataset,
             algorithm="logistic_regression",
             config=TuningConfig(
-                optimizer="grid", metrics=("accuracy",), refit_metric="accuracy", n_jobs=1, error_score=np.nan
+                optimizer="grid",
+                refit_metric="accuracy",
+                n_jobs=1,
+                error_score=np.nan,
             ),
             partition_plan=_cv(dataset),
             search_space=SearchSpace("lr", {"C": Categorical([-1.0, -2.0])}),
+            metrics=("accuracy",),
         )
 
 
@@ -144,13 +151,14 @@ def test_tuning_rejects_any_explicit_training_fold_with_single_class_before_sear
         train_ids=ids[:12],
         validation_ids=ids[12:18],
         test_ids=ids[18:],
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
     with pytest.raises(ValidationContractError, match="at least two target classes"):
         tune(
             dataset=dataset,
             algorithm="logistic_regression",
-            config=TuningConfig(optimizer="grid", metrics=("accuracy",), refit_metric="accuracy"),
+            config=TuningConfig(optimizer="grid", refit_metric="accuracy"),
             partition_plan=plan,
             search_space=SearchSpace("lr", {"C": [1.0]}),
+            metrics=("accuracy",),
         )

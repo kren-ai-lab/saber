@@ -35,28 +35,25 @@ def validate(
     *,
     dataset: DatasetBundle,
     algorithm: str,
-    partition_plan: PartitionPlan | None = None,
-    partitioning: BioSievePartitionConfig | None = None,
-    biosieve_extra_columns: Mapping[str, Sequence[Any]] | None = None,
+    model_params: Mapping[str, Any] | None = None,
     preprocessing: PreprocessingConfig | None = None,
+    partition_plan: PartitionPlan | BioSievePartitionConfig | None = None,
     metrics: Sequence[str] | None = None,
     evaluation_role: EvaluationRole = "auto",
-    positive_class: Any | None = None,
-    random_state: int | None = None,
-    return_estimators: bool = False,
     require_complete: bool = True,
-    model_params: Mapping[str, Any] | None = None,
+    positive_class: Any | None = None,
+    return_estimators: bool = False,
+    random_state: int | None = None,
 ) -> ValidationResult:
-    """Validate one registered algorithm over an explicit/generated plan."""
+    """Validate one registered algorithm over an explicit or BioSieve-generated plan.
+
+    ``partition_plan`` is either an explicit :class:`PartitionPlan` or a
+    :class:`BioSievePartitionConfig` that delegates split generation to BioSieve.
+    """
     spec = get_algorithm(algorithm)
     dataset.validate(task=spec.task)
 
-    plan = resolve_partition_plan(
-        dataset=dataset,
-        partition_plan=partition_plan,
-        partitioning=partitioning,
-        biosieve_extra_columns=biosieve_extra_columns,
-    )
+    plan = resolve_partition_plan(dataset=dataset, partition_plan=partition_plan)
     plan.validate_against(dataset, require_complete=require_complete)
 
     folds: list[FoldValidationResult] = []

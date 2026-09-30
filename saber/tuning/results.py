@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     import polars as pl
 
     from saber.core.specs import AlgorithmSpec
+    from saber.datasets.schemas import FeatureSchema
 
 
 @dataclass(slots=True)
@@ -35,6 +36,8 @@ class OptimizationResult:
     refit_metric: str | None = None
     best_scores: dict[str, float] = field(default_factory=dict)
     partition_plan: Any = None
+    feature_schema: FeatureSchema | None = None
+    positive_class: Any | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:

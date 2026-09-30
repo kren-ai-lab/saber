@@ -39,7 +39,7 @@ plan = PartitionPlan.holdout(
     train_ids=train_ids,
     validation_ids=validation_ids,
     test_ids=test_ids,
-    dataset_fingerprint=dataset.fingerprint,
+    dataset=dataset,
 )
 ```
 
@@ -52,7 +52,7 @@ Cross-validation from a fold column:
 plan = PartitionPlan.from_predefined_folds(
     sample_ids=dataset.sample_ids,
     fold_assignments=fold_ids,
-    dataset_fingerprint=dataset.fingerprint,
+    dataset=dataset,
 )
 ```
 
@@ -74,8 +74,13 @@ partitioning = BioSievePartitionConfig(
     strategy="stratified_kfold",
     params={"n_splits": 5, "seed": 42},
 )
-result = saber.validate(dataset=dataset, algorithm="random_forest_classifier", partitioning=partitioning)
+result = saber.validate(dataset=dataset, algorithm="random_forest_classifier", partition_plan=partitioning)
 ```
+
+`partition_plan` accepts either a `PartitionPlan` or a `BioSievePartitionConfig`
+(unpartitioned data need one of the two). Extra columns that a strategy needs
+from the dataset are listed in `BioSievePartitionConfig.extra_columns`. The same
+applies to `partitions=` in `saber.benchmark`.
 
 The resulting plan keeps BioSieve's strategy, parameters and statistics. Saber
 has no splitters of its own and doesn't do redundancy reduction; if you need

@@ -156,8 +156,7 @@ def test_biosieve_extra_columns_must_be_aligned(
     with pytest.raises(PartitionIntegrationError, match="must contain 6"):
         partition_with_biosieve(
             dataset,
-            BioSievePartitionConfig(strategy="random"),
-            extra_columns={"sequence": ["AAA"]},
+            BioSievePartitionConfig(strategy="random", extra_columns={"sequence": ["AAA"]}),
             splitter=FakeSingleSplitter(),
         )
 

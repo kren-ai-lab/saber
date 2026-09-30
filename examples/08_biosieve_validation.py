@@ -85,12 +85,12 @@ def _(
     LIVE_BIOSIEVE=False
     try:
         result=validate(dataset=dataset,algorithm="logistic_regression",
-                        partitioning=BioSievePartitionConfig(strategy="stratified_kfold",params={"n_splits":5,"seed":42}),
+                        partition_plan=BioSievePartitionConfig(strategy="stratified_kfold",params={"n_splits":5,"seed":42}),
                         metrics=("mcc","balanced_accuracy","f1","roc_auc","pr_auc"),random_state=42)
         LIVE_BIOSIEVE=True
     except OptionalDependencyError:
         plan=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=balanced_fold_labels(y,5),
-            dataset_fingerprint=dataset.fingerprint,metadata={"source":"demo_prepartitioned_fallback","strategy":"stratified_like_5fold"})
+            dataset=dataset,metadata={"source":"demo_prepartitioned_fallback","strategy":"stratified_like_5fold"})
         result=validate(dataset=dataset,algorithm="logistic_regression",partition_plan=plan,
                         metrics=("mcc","balanced_accuracy","f1","roc_auc","pr_auc"),random_state=42)
     print("Live BioSieve:",LIVE_BIOSIEVE)

@@ -82,9 +82,9 @@ def _(
     X,y=make_classification(n_samples=120 if DEMO_TEST else 260,n_features=12,n_informative=8,class_sep=1.05,random_state=404)
     ids=[f"report_{i:04d}" for i in range(len(y))]
     dataset=DatasetBundle(X=X,y=y,sample_ids=ids,feature_names=[f"f{i}" for i in range(X.shape[1])])
-    plan=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=balanced_fold_labels(y,5),dataset_fingerprint=dataset.fingerprint)
+    plan=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=balanced_fold_labels(y,5),dataset=dataset)
     bench=benchmark(datasets={"prepared":dataset},algorithms=("logistic_regression","random_forest_classifier","svc"),partitions={"fivefold":plan},
-                    config=BenchmarkConfig(metrics=("mcc","balanced_accuracy","f1","roc_auc"),seeds=(42,) if DEMO_TEST else (42,123,777),modes=("untuned",),include_baselines=True),
+                    metrics=("mcc","balanced_accuracy","f1","roc_auc"),config=BenchmarkConfig(seeds=(42,) if DEMO_TEST else (42,123,777),modes=("untuned",),include_baselines=True),
                     model_params={"random_forest_classifier":{"n_estimators":45 if DEMO_TEST else 120,"max_depth":7}})
     assert not bench.failures
     metrics=bench.aggregate_metrics_frame(); runs=bench.runs_frame(); preds=bench.predictions_frame()

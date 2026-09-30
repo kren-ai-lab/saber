@@ -82,7 +82,7 @@ def _(
     X,y=make_classification(n_samples=140 if DEMO_TEST else 300,n_features=12,n_informative=8,class_sep=1.0,random_state=99)
     ids=[f"optimizer_{i:04d}" for i in range(len(y))]
     dataset=DatasetBundle(X=X,y=y,sample_ids=ids,feature_names=[f"f{i}" for i in range(X.shape[1])])
-    plan=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=balanced_fold_labels(y,4),dataset_fingerprint=dataset.fingerprint)
+    plan=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=balanced_fold_labels(y,4),dataset=dataset)
     space=SearchSpace("logreg_shared",{"C":Categorical([0.03,0.1,0.3,1.0,3.0,10.0]),"class_weight":Categorical([None,"balanced"]),"solver":Categorical(["lbfgs"])})
     return dataset, plan, space
 
@@ -91,9 +91,9 @@ def _(
 def _(DEMO_TEST, TuningConfig, dataset, pl, perf_counter, plan, space, tune):
     rows=[]; histories={}
     for name in ("grid","random","optuna"):
-        cfg=TuningConfig(optimizer=name,metrics=("mcc","roc_auc"),refit_metric="mcc",random_state=123,n_jobs=1,
+        cfg=TuningConfig(optimizer=name,refit_metric="mcc",n_jobs=1,
                          n_iter=6 if DEMO_TEST else 10,n_trials=6 if DEMO_TEST else 16)
-        t0=perf_counter(); res=tune(dataset=dataset,algorithm="logistic_regression",config=cfg,partition_plan=plan,search_space=space); elapsed=perf_counter()-t0
+        t0=perf_counter(); res=tune(dataset=dataset,algorithm="logistic_regression",config=cfg,partition_plan=plan,search_space=space,metrics=("mcc","roc_auc"),random_state=123); elapsed=perf_counter()-t0
         hist=res.history_frame(); histories[name]=hist
         rows.append({"optimizer":name,"best_mcc":res.display_scores["mcc"],"best_roc_auc":res.display_scores["roc_auc"],
                      "elapsed_seconds":elapsed,"candidates":len(hist),"best_params":res.best_params})

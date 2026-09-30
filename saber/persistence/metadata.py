@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 from saber.exceptions import ArtifactCompatibilityError
 
-ARTIFACT_SCHEMA_VERSION = "1.0"
+ARTIFACT_SCHEMA_VERSION = "2.0"
 ArtifactType = Literal["model", "benchmark"]
 
 

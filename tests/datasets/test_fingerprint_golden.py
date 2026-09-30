@@ -72,6 +72,6 @@ def test_partition_fingerprint_is_stable():
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=IDS,
         fold_assignments=[0, 1, 0, 1],
-        dataset_fingerprint=_float_bundle().fingerprint,
+        dataset=_float_bundle(),
     )
     assert plan.fingerprint == "eaf826d66fed2201f5202b68f235cf97ee587ff88f9b2fb828ee33bebcc133f0"

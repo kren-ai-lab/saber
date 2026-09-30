@@ -8,11 +8,13 @@ from typing import TYPE_CHECKING, Any
 from saber.benchmark import BenchmarkConfig
 from saber.config.schema import (
     BENCHMARK_KEYS,
+    BENCHMARK_KWARG_KEYS,
     DATASET_KEYS,
     PARTITION_KEYS,
     PARTITIONING_KEYS,
     PREPROCESSING_KEYS,
     TUNING_KEYS,
+    TUNING_KWARG_KEYS,
     validate_mapping_keys,
 )
 from saber.core import Categorical, Float, Integer, LogFloat, SearchSpace
@@ -135,46 +137,80 @@ def build_partition_inputs(
     *,
     partition: Mapping[str, Any] | None,
     partitioning: Mapping[str, Any] | None,
-) -> tuple[PartitionPlan | None, BioSievePartitionConfig | None]:
-    """Build a partition plan and/or BioSieve partitioning config from validated payloads."""
-    plan = None
-    biosieve = None
+    extra_columns: Mapping[str, Any] | None = None,
+) -> PartitionPlan | BioSievePartitionConfig | None:
+    """Build an external partition plan or a BioSieve partitioning config from validated payloads."""
     if partition is not None:
         validate_mapping_keys(partition, PARTITION_KEYS, "partition")
         if "path" not in partition:
             raise ConfigurationError("External partition config requires 'path'.")
         kwargs = {key: value for key, value in partition.items() if key != "path"}
-        plan = load_partition_plan(config.resolve_path(partition["path"]), **kwargs)
+        return load_partition_plan(config.resolve_path(partition["path"]), **kwargs)
     if partitioning is not None:
         validate_mapping_keys(partitioning, PARTITIONING_KEYS, "partitioning")
         if "strategy" not in partitioning:
             raise ConfigurationError("BioSieve partitioning requires 'strategy'.")
-        biosieve = BioSievePartitionConfig(**dict(partitioning))
-    return plan, biosieve
+        return BioSievePartitionConfig(**dict(partitioning), extra_columns=extra_columns)
+    return None
 
 
 def build_tuning_config(payload: Mapping[str, Any]) -> TuningConfig:
-    """Build a TuningConfig from a validated tuning payload."""
+    """Build a TuningConfig from a validated tuning payload.
+
+    ``metrics`` and ``random_state`` are tune() keyword arguments; read them
+    from the payload with :func:`tuning_kwargs`.
+    """
     validate_mapping_keys(payload, TUNING_KEYS, "tuning")
-    values = dict(payload)
-    values["metrics"] = tuple(values.get("metrics", ()))
-    return TuningConfig(**values)
+    return TuningConfig(**{key: value for key, value in payload.items() if key not in TUNING_KWARG_KEYS})
+
+
+def tuning_kwargs(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the tune() keyword arguments nested in a tuning payload."""
+    return {
+        "metrics": tuple(payload.get("metrics", ())),
+        "random_state": payload.get("random_state"),
+    }
 
 
 def build_benchmark_config(payload: Mapping[str, Any]) -> BenchmarkConfig:
-    """Build a BenchmarkConfig from a validated benchmark payload."""
+    """Build a BenchmarkConfig from a validated benchmark payload.
+
+    ``metrics``, ``evaluation_role``, ``require_complete`` and
+    ``return_estimators`` are benchmark() keyword arguments; read them with
+    :func:`benchmark_kwargs`.  Inside ``benchmark.tuning``, tuned runs select
+    on the benchmark metrics, so ``tuning.metrics`` only supplies the default
+    ``refit_metric`` (its first entry) and ``tuning.random_state`` is rejected:
+    each benchmark seed is the tuning seed.
+    """
     validate_mapping_keys(payload, BENCHMARK_KEYS, "benchmark")
     if "metrics" not in payload:
         raise ConfigurationError("Benchmark config requires 'metrics'.")
-    values = dict(payload)
-    values["metrics"] = tuple(values["metrics"])
+    values = {key: value for key, value in payload.items() if key not in BENCHMARK_KWARG_KEYS}
     if "seeds" in values:
         values["seeds"] = tuple(values["seeds"])
     if "modes" in values:
         values["modes"] = tuple(values["modes"])
     if values.get("tuning") is not None:
-        values["tuning"] = build_tuning_config(values["tuning"])
+        tuning = dict(values["tuning"])
+        if tuning.get("random_state") is not None:
+            raise ConfigurationError(
+                "'benchmark.tuning.random_state' is not supported; each benchmark seed is the tuning seed."
+            )
+        tuning_metrics = tuple(tuning.get("metrics", ()))
+        if tuning_metrics and tuning.get("refit_metric") is None:
+            tuning["refit_metric"] = tuning_metrics[0]
+        values["tuning"] = build_tuning_config(tuning)
     return BenchmarkConfig(**values)
+
+
+def benchmark_kwargs(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the benchmark() keyword arguments nested in a benchmark payload."""
+    return {
+        "metrics": tuple(payload["metrics"]),
+        "evaluation_role": payload.get("evaluation_role", "auto"),
+        "require_complete": bool(payload.get("require_complete", True)),
+        "return_estimators": bool(payload.get("return_estimators", False)),
+    }
 
 
 def build_search_space(name: str, payload: Mapping[str, Any] | None) -> SearchSpace | None:

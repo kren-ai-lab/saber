@@ -125,16 +125,14 @@ def test_validation_engine_can_consume_biosieve_generated_memberships_end_to_end
 ):
     dataset = _dataset()
 
-    def fake_partition(ds, config, extra_columns=None):
-        return partition_with_biosieve(
-            ds, config, extra_columns=extra_columns, splitter=CompleteKFoldSplitter()
-        )
+    def fake_partition(ds, config):
+        return partition_with_biosieve(ds, config, splitter=CompleteKFoldSplitter())
 
     monkeypatch.setattr(partitioning_module, "partition_with_biosieve", fake_partition)
     result = validate(
         dataset=dataset,
         algorithm="logistic_regression",
-        partitioning=BioSievePartitionConfig(strategy="stratified_kfold", params={"n_splits": 3}),
+        partition_plan=BioSievePartitionConfig(strategy="stratified_kfold", params={"n_splits": 3}),
         metrics=("accuracy", "mcc"),
         random_state=42,
     )
@@ -184,8 +182,10 @@ def test_biosieve_extra_column_cannot_override_reserved_target(
     with pytest.raises(PartitionIntegrationError, match="overwrite"):
         partition_with_biosieve(
             dataset,
-            BioSievePartitionConfig(strategy="random"),
-            extra_columns={"__saber_target__": np.zeros(dataset.n_samples).tolist()},
+            BioSievePartitionConfig(
+                strategy="random",
+                extra_columns={"__saber_target__": np.zeros(dataset.n_samples).tolist()},
+            ),
             splitter=CompleteKFoldSplitter(),
         )
 

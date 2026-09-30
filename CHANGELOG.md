@@ -60,3 +60,30 @@ First public release, published on PyPI as `saberlib`.
 
 - Artifact functions are `save_model`, `load_model`, `save_benchmark` and `load_benchmark`
   (`saber.persistence` and top-level `saber`); the `*_artifact` names were removed.
+- API signatures:
+  - `save_model(path, result, *, dataset, partition_plan=None, metadata=None, overwrite=False)`
+    takes a `TrainResult` or `OptimizationResult`; model, algorithm, parameters, feature schema,
+    positive class, random state and preprocessing come from the result. `train()` no longer
+    saves (`artifact_path`, `artifact_overwrite`, `partition_plan` and `metadata` were removed).
+    A tuned artifact stores its cross-validated scores in `selection_scores.json` (they chose the
+    hyperparameters and are not a final performance estimate); `metrics.json` is gone. Artifact
+    schema version is `2.0`; `1.0` artifacts are rejected.
+  - `validate`/`tune` take one `partition_plan` (a `PartitionPlan` or `BioSievePartitionConfig`);
+    `benchmark` takes `partitions` (a plan, a mapping of label to plan, or a
+    `BioSievePartitionConfig`, generated from the first dataset). `partitioning`,
+    `partitioning_reference` and `biosieve_extra_columns` were removed; extra columns are
+    `BioSievePartitionConfig.extra_columns`.
+  - `benchmark(datasets=...)` accepts a `DatasetBundle` or a mapping of label to `DatasetBundle`;
+    `BenchmarkDataset` and `BenchmarkPartition` were removed.
+  - `metrics`, `evaluation_role`, `require_complete`, `positive_class`, `return_estimators` and
+    `random_state` are keyword arguments of `validate`/`tune`/`benchmark` (where they apply);
+    `TuningConfig` lost `metrics`/`random_state` and `BenchmarkConfig` lost `metrics`,
+    `evaluation_role`, `require_complete` and `return_estimators`. Tuned benchmark runs select on
+    the benchmark metrics (refit on `TuningConfig.refit_metric`, default the first metric) with
+    each benchmark seed as the tuning seed.
+  - `predict(model, X, *, sample_ids=None, positive_class=None)` with `X` a `DatasetBundle`,
+    array or DataFrame, and `evaluate(model, dataset, *, metrics=None, positive_class=None)`.
+    `predict` lost `dataset=`, `feature_names=` and `strict_environment=` (use `load_model`), and
+    raises `ValidationContractError` for bad inputs. `LoadedModelArtifact.predict_result` is private.
+  - `PartitionPlan.holdout`, `PartitionPlan.from_predefined_folds`, `partition_plan_from_frame`
+    and `load_partition_plan` take `dataset=` instead of `dataset_fingerprint=`.

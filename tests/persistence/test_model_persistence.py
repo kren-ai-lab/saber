@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -10,7 +11,9 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification
 
+from saber import predict
 from saber.core import get_algorithm
+from saber.core.results import TrainResult
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.exceptions import (
     ArtifactIntegrityError,
@@ -25,6 +28,7 @@ from saber.persistence import (
     save_model,
 )
 from saber.persistence import load as load_module
+from saber.preprocessing import PreprocessingConfig
 from saber.preprocessing.pipeline import build_model_pipeline
 from saber.utils.tabular import to_numpy
 
@@ -52,7 +56,7 @@ def _fitted_fixture():
         train_ids=dataset.sample_ids[:40],
         validation_ids=dataset.sample_ids[40:50],
         test_ids=dataset.sample_ids[50:],
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
     spec = get_algorithm("logistic_regression")
     estimator = spec.build_estimator(random_state=42)
@@ -65,6 +69,17 @@ def _fitted_fixture():
     return dataset, plan, pipeline
 
 
+def _train_result(pipeline, dataset, *, positive_class=None, metadata=None, parameters=None):
+    return TrainResult(
+        model=pipeline,
+        spec=get_algorithm("logistic_regression"),
+        parameters=parameters or {},
+        metadata=metadata or {},
+        feature_schema=dataset.feature_schema,
+        positive_class=positive_class,
+    )
+
+
 def test_model_artifact_round_trip_preserves_predictions_and_probabilities(tmp_path):
     dataset, plan, pipeline = _fitted_fixture()
     artifact_path = tmp_path / "model_artifact"
@@ -73,20 +88,24 @@ def test_model_artifact_round_trip_preserves_predictions_and_probabilities(tmp_p
 
     save_model(
         artifact_path,
-        model=pipeline,
-        algorithm="logistic_regression",
-        task="classification",
+        _train_result(
+            pipeline,
+            dataset,
+            positive_class=1,
+            parameters={"random_state": 42},
+            metadata={"random_state": 42, "preprocessing": "auto"},
+        ),
         dataset=dataset,
         partition_plan=plan,
-        provider="sklearn",
-        parameters={"random_state": 42},
-        metrics={"accuracy": 0.9},
-        training_config={"preprocessing": "auto"},
-        positive_class=1,
     )
 
     loaded = load_model(artifact_path)
-    result = loaded.predict_result(dataset.X, sample_ids=dataset.sample_ids)
+    result = predict(loaded, dataset.X, sample_ids=dataset.sample_ids)
+    # A TrainResult artifact carries no metrics file; the training config records the inputs.
+    assert not (artifact_path / "metrics.json").exists()
+    training_config = json.loads((artifact_path / "training_config.json").read_text())
+    assert training_config["random_state"] == 42
+    assert training_config["preprocessing"] == "auto"
 
     np.testing.assert_array_equal(result.predictions, expected_prediction)
     assert result.probabilities is not None
@@ -106,13 +125,7 @@ def test_model_artifact_round_trip_preserves_predictions_and_probabilities(tmp_p
 def test_feature_schema_mismatch_is_detected_before_prediction(tmp_path):
     dataset, _, pipeline = _fitted_fixture()
     artifact_path = tmp_path / "model_artifact"
-    save_model(
-        artifact_path,
-        model=pipeline,
-        algorithm="logistic_regression",
-        task="classification",
-        dataset=dataset,
-    )
+    save_model(artifact_path, _train_result(pipeline, dataset), dataset=dataset)
     loaded = load_model(artifact_path)
     wrong_order = dataset.X[list(reversed(dataset.X.columns))]
 
@@ -123,13 +136,7 @@ def test_feature_schema_mismatch_is_detected_before_prediction(tmp_path):
 def test_corrupted_model_is_rejected_before_deserialization(tmp_path, monkeypatch):
     dataset, _, pipeline = _fitted_fixture()
     artifact_path = tmp_path / "model_artifact"
-    save_model(
-        artifact_path,
-        model=pipeline,
-        algorithm="logistic_regression",
-        task="classification",
-        dataset=dataset,
-    )
+    save_model(artifact_path, _train_result(pipeline, dataset), dataset=dataset)
     with (artifact_path / "model.joblib").open("ab") as handle:
         handle.write(b"corruption")
     monkeypatch.setattr(load_module.joblib, "load", _forbidden_joblib_load)
@@ -139,32 +146,15 @@ def test_corrupted_model_is_rejected_before_deserialization(tmp_path, monkeypatc
 
 
 def test_model_artifact_requires_schema_and_protects_existing_path(tmp_path):
-    _, _, pipeline = _fitted_fixture()
-    with pytest.raises(PersistenceError, match="dataset or feature_schema"):
-        save_model(
-            tmp_path / "missing_schema",
-            model=pipeline,
-            algorithm="logistic_regression",
-            task="classification",
-        )
-
     dataset, _, pipeline = _fitted_fixture()
+    other = DatasetBundle(X=np.asarray(dataset.X)[:, :3], y=dataset.y)
+    with pytest.raises(PersistenceError, match="feature schema does not match"):
+        save_model(tmp_path / "wrong_schema", _train_result(pipeline, other), dataset=dataset)
+
     artifact_path = tmp_path / "model_artifact"
-    save_model(
-        artifact_path,
-        model=pipeline,
-        algorithm="logistic_regression",
-        task="classification",
-        dataset=dataset,
-    )
+    save_model(artifact_path, _train_result(pipeline, dataset), dataset=dataset)
     with pytest.raises(PersistenceError, match="already exists"):
-        save_model(
-            artifact_path,
-            model=pipeline,
-            algorithm="logistic_regression",
-            task="classification",
-            dataset=dataset,
-        )
+        save_model(artifact_path, _train_result(pipeline, dataset), dataset=dataset)
 
 
 def test_model_artifact_rejects_partition_from_another_dataset(tmp_path):
@@ -179,14 +169,12 @@ def test_model_artifact_rejects_partition_from_another_dataset(tmp_path):
     foreign_plan = PartitionPlan.holdout(
         train_ids=foreign.sample_ids[:40],
         test_ids=foreign.sample_ids[40:],
-        dataset_fingerprint=foreign.fingerprint,
+        dataset=foreign,
     )
     with pytest.raises(DatasetFingerprintMismatchError, match="fingerprint"):
         save_model(
             tmp_path / "bad_partition",
-            model=pipeline,
-            algorithm="logistic_regression",
-            task="classification",
+            _train_result(pipeline, dataset),
             dataset=dataset,
             partition_plan=foreign_plan,
         )
@@ -200,25 +188,19 @@ def test_round_trip_works_in_fresh_python_process(tmp_path):
     np.save(expected_path, pipeline.predict(to_numpy(dataset.X)))
     dataset.X.write_csv(data_path)
 
-    save_model(
-        artifact_path,
-        model=pipeline,
-        algorithm="logistic_regression",
-        task="classification",
-        dataset=dataset,
-        positive_class=1,
-    )
+    save_model(artifact_path, _train_result(pipeline, dataset, positive_class=1), dataset=dataset)
 
     code = f"""
 import numpy as np
 import pandas as pd
+import saber
 from saber.persistence import load_model
 artifact = load_model(r'{artifact_path}')
 X = pd.read_csv(r'{data_path}')
 expected = np.load(r'{expected_path}')
 observed = artifact.predict(X)
 assert np.array_equal(observed, expected)
-result = artifact.predict_result(X)
+result = saber.predict(artifact, X)
 assert result.probabilities.shape == (60, 2)
 print('PHASE7_SUBPROCESS_OK')
 """
@@ -237,13 +219,32 @@ print('PHASE7_SUBPROCESS_OK')
 def test_inspect_does_not_need_to_load_joblib(tmp_path, monkeypatch):
     dataset, _, pipeline = _fitted_fixture()
     artifact_path = tmp_path / "model_artifact"
-    save_model(
-        artifact_path,
-        model=pipeline,
-        algorithm="logistic_regression",
-        task="classification",
-        dataset=dataset,
-    )
+    save_model(artifact_path, _train_result(pipeline, dataset), dataset=dataset)
     monkeypatch.setattr(load_module.joblib, "load", _forbidden_joblib_load)
     manifest = inspect_artifact(artifact_path)
     assert manifest.metadata["algorithm"] == "logistic_regression"
+
+
+def test_optimization_result_artifact_records_selection_scores_and_training_config(tmp_path):
+    from saber import SearchSpace, TuningConfig, tune
+
+    dataset, plan, _ = _fitted_fixture()
+    result = tune(
+        dataset=dataset,
+        algorithm="logistic_regression",
+        config=TuningConfig(optimizer="grid", n_jobs=1),
+        partition_plan=plan,
+        search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
+        preprocessing=PreprocessingConfig(scaler="standard"),
+        metrics=("accuracy",),
+        random_state=5,
+    )
+    path = save_model(tmp_path / "tuned", result, dataset=dataset)
+
+    assert not (path / "metrics.json").exists()
+    scores = json.loads((path / "selection_scores.json").read_text())
+    assert set(scores["selection_scores"]) == {"accuracy"}
+    assert "selection_scores" in load_model(path).manifest.files
+    training_config = json.loads((path / "training_config.json").read_text())
+    assert training_config["random_state"] == 5
+    assert training_config["preprocessing"]["scaler"] == "standard"

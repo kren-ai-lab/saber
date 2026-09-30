@@ -27,18 +27,18 @@ def _benchmark_result():
     plan = PartitionPlan.holdout(
         train_ids=dataset.sample_ids[:35],
         test_ids=dataset.sample_ids[35:],
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
     return benchmark(
         datasets={"representation_a": dataset},
         algorithms=("logistic_regression",),
         partitions={"holdout": plan},
         config=BenchmarkConfig(
-            metrics=("accuracy", "mcc"),
             seeds=(42,),
             include_baselines=False,
-            return_estimators=False,
         ),
+        metrics=("accuracy", "mcc"),
+        return_estimators=False,
     )
 
 

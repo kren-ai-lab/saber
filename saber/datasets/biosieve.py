@@ -85,6 +85,11 @@ class BioSievePartitionConfig:
     Parameters are forwarded to the corresponding BioSieve splitter. saber
     only adds canonical column names when a strategy needs labels/groups and
     those parameters were not supplied explicitly.
+
+    ``extra_columns`` can provide prepared information aligned with the
+    dataset's samples that a BioSieve strategy requires (for example sequence,
+    cluster, time, or descriptor columns) without expanding ``DatasetBundle``
+    into a domain-specific data container.
     """
 
     strategy: str
@@ -92,6 +97,7 @@ class BioSievePartitionConfig:
     seq_col: str = "sequence"
     cluster_col: str | None = None
     date_col: str | None = None
+    extra_columns: Mapping[str, Sequence[Any]] | None = None
 
     def __post_init__(self) -> None:
         """Normalize the strategy name and validate that it is supported."""
@@ -111,17 +117,12 @@ def partition_with_biosieve(
     dataset: DatasetBundle,
     config: BioSievePartitionConfig,
     *,
-    extra_columns: Mapping[str, Sequence[Any]] | None = None,
     splitter: Any | None = None,
 ) -> PartitionPlan:
     """Generate a :class:`PartitionPlan` through BioSieve.
 
     BioSieve remains the sole split-generation engine. saber converts the
     resulting sample memberships into its internal identity-based contract.
-    ``extra_columns`` can provide prepared aligned information required by
-    BioSieve strategies (for example sequence, cluster, time, or descriptor
-    columns) without expanding ``DatasetBundle`` into a domain-specific data
-    container.
     """
     dataset.validate()
     pl, Columns = _import_biosieve_runtime()
@@ -136,7 +137,7 @@ def partition_with_biosieve(
 
     frame = _dataset_to_polars(
         dataset,
-        extra_columns=extra_columns,
+        extra_columns=config.extra_columns,
         polars_module=pl,
         include_features=include_features,
     )

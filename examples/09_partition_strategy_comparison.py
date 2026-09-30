@@ -85,11 +85,11 @@ def _(
     ids=np.asarray([f"part_{i:04d}" for i in range(n)],dtype=object)
     dataset=DatasetBundle(X=X,y=y,sample_ids=ids,groups=groups,feature_names=[f"f{i}" for i in range(X.shape[1])])
     # Scenario A: balanced memberships across labels.
-    balanced=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=balanced_fold_labels(y,4),dataset_fingerprint=dataset.fingerprint,
+    balanced=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=balanced_fold_labels(y,4),dataset=dataset,
                                                   metadata={"source":"external","strategy":"balanced_random_like"})
     # Scenario B: whole groups are held out together; no group spans train/evaluation.
     group_folds=groups%4
-    group_blocked=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=group_folds,dataset_fingerprint=dataset.fingerprint,
+    group_blocked=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=group_folds,dataset=dataset,
                                                        metadata={"source":"external","strategy":"group_blocked_like"})
     return balanced, dataset, group_blocked
 
@@ -98,7 +98,7 @@ def _(
 def _(BenchmarkConfig, DEMO_TEST, balanced, benchmark, dataset, group_blocked, pl):
     bench=benchmark(datasets={"prepared":dataset},algorithms=("logistic_regression","random_forest_classifier"),
                     partitions={"balanced":balanced,"group_blocked":group_blocked},
-                    config=BenchmarkConfig(metrics=("mcc","balanced_accuracy","f1","roc_auc"),seeds=(42,),modes=("untuned",),include_baselines=True),
+                    metrics=("mcc","balanced_accuracy","f1","roc_auc"),config=BenchmarkConfig(seeds=(42,),modes=("untuned",),include_baselines=True),
                     model_params={"random_forest_classifier":{"n_estimators":50 if DEMO_TEST else 120,"max_depth":7}})
     assert not bench.failures
     metrics=bench.aggregate_metrics_frame(); folds=bench.fold_metrics_frame()

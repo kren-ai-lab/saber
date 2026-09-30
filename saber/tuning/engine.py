@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from time import perf_counter
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -17,7 +17,12 @@ from saber.exceptions import (
     OptimizationError,
     ValidationContractError,
 )
-from saber.preprocessing.pipeline import PreprocessingConfig, build_model_pipeline, pipeline_input
+from saber.preprocessing.pipeline import (
+    PreprocessingConfig,
+    build_model_pipeline,
+    pipeline_input,
+    preprocessing_summary,
+)
 from saber.tuning.results import OptimizationResult
 from saber.validation.partitioning import (
     EvaluationRole,
@@ -42,14 +47,18 @@ OptimizerName = Literal[
 
 @dataclass(frozen=True, slots=True)
 class TuningConfig:
-    """Backend-neutral tuning controls."""
+    """Optimizer-specific tuning controls.
+
+    Workflow knobs shared with ``validate``/``benchmark`` (``metrics``,
+    ``random_state``, ``positive_class``, ...) are keyword arguments of
+    :func:`tune`.  ``refit_metric`` selects among those metrics and defaults
+    to the first one.
+    """
 
     optimizer: OptimizerName = "grid"
-    metrics: tuple[str, ...] = ()
     refit_metric: str | None = None
     refit: bool = True
     n_jobs: int = -1
-    random_state: int | None = None
     n_iter: int = 20
     n_trials: int = 50
     timeout: float | None = None
@@ -63,32 +72,21 @@ class TuningConfig:
     optuna_study_name: str | None = None
     optuna_load_if_exists: bool = True
 
-    def resolved_refit_metric(self) -> str:
-        """Return the metric to refit on, defaulting to the first configured metric."""
-        if not self.metrics:
-            raise ValidationContractError("At least one tuning metric is required.")
-        metric = self.refit_metric or self.metrics[0]
-        if metric not in self.metrics:
-            raise ValidationContractError(
-                f"refit_metric '{metric}' must be included in metrics {self.metrics!r}."
-            )
-        return metric
-
 
 def tune(
     *,
     dataset: DatasetBundle,
     algorithm: str,
-    config: TuningConfig,
-    partition_plan: PartitionPlan | None = None,
-    partitioning: BioSievePartitionConfig | None = None,
-    biosieve_extra_columns: Mapping[str, Sequence[Any]] | None = None,
+    model_params: Mapping[str, Any] | None = None,
     preprocessing: PreprocessingConfig | None = None,
+    partition_plan: PartitionPlan | BioSievePartitionConfig | None = None,
+    config: TuningConfig,
     search_space: SearchSpace | None = None,
+    metrics: Sequence[str],
     evaluation_role: EvaluationRole = "auto",
     require_complete: bool = True,
-    model_params: Mapping[str, Any] | None = None,
     positive_class: Any | None = None,
+    random_state: int | None = None,
 ) -> OptimizationResult:
     """Tune an algorithm over explicit/BioSieve partitions and return the best result.
 
@@ -102,12 +100,7 @@ def tune(
     spec = get_algorithm(algorithm)
     dataset.validate(task=spec.task)
 
-    plan = resolve_partition_plan(
-        dataset=dataset,
-        partition_plan=partition_plan,
-        partitioning=partitioning,
-        biosieve_extra_columns=biosieve_extra_columns,
-    )
+    plan = resolve_partition_plan(dataset=dataset, partition_plan=partition_plan)
     plan.validate_against(dataset, require_complete=require_complete)
 
     search_dataset, cv, evaluation_roles = build_explicit_cv(
@@ -133,10 +126,14 @@ def tune(
     if len(space) == 0:
         raise ValidationContractError(f"Search space for algorithm '{spec.name}' is empty.")
 
-    metrics = tuple(dict.fromkeys(config.metrics))
+    metrics = tuple(dict.fromkeys(metrics))
     if not metrics:
         raise ValidationContractError("At least one tuning metric is required.")
-    refit_metric = config.resolved_refit_metric()
+    refit_metric = config.refit_metric or metrics[0]
+    if refit_metric not in metrics:
+        raise ValidationContractError(
+            f"refit_metric '{refit_metric}' must be included in metrics {metrics!r}."
+        )
     scoring_positive_class = resolve_positive_class(
         task=spec.task, y=search_dataset.y, positive_class=positive_class
     )
@@ -150,7 +147,7 @@ def tune(
     first_train_index = cv[0][0]
     first_train = search_dataset.subset(tuple(search_dataset_ids[index] for index in first_train_index))
     estimator = spec.build_estimator(
-        random_state=config.random_state,
+        random_state=random_state,
         **dict(model_params or {}),
     )
     pipeline = build_model_pipeline(
@@ -173,6 +170,7 @@ def tune(
             scorers=scorers,
             refit_metric=refit_metric,
             config=config,
+            random_state=random_state,
             fit_params=fit_params,
         )
     else:
@@ -185,14 +183,20 @@ def tune(
             scorers=scorers,
             refit_metric=refit_metric,
             config=config,
+            random_state=random_state,
             fit_params=fit_params,
         )
 
     result.partition_plan = plan
     result.metrics = metrics
     result.refit_metric = refit_metric
+    result.feature_schema = dataset.feature_schema
+    result.positive_class = positive_class
     result.metadata.update(
         {
+            "random_state": random_state,
+            "preprocessing": preprocessing_summary(preprocessing),
+            "tuning_config": asdict(config),
             "dataset_fingerprint": dataset.fingerprint,
             "search_dataset_fingerprint": search_dataset.fingerprint,
             "partition_fingerprint": plan.fingerprint,
@@ -219,6 +223,7 @@ def _run_sklearn(
     scorers: dict[str, Any],
     refit_metric: str,
     config: TuningConfig,
+    random_state: int | None,
     fit_params: dict[str, Any],
 ) -> OptimizationResult:
     optimizer = config.optimizer
@@ -259,7 +264,7 @@ def _run_sklearn(
         search = RandomizedSearchCV(
             param_distributions=random_parameters,
             n_iter=config.n_iter,
-            random_state=config.random_state,
+            random_state=random_state,
             **common,
         )
     elif optimizer in {"halving_grid", "halving_random"}:
@@ -302,7 +307,7 @@ def _run_sklearn(
             halving_common["min_resources"] = min_resources
             search = HalvingRandomSearchCV(
                 param_distributions=random_parameters,
-                random_state=config.random_state,
+                random_state=random_state,
                 **halving_common,
             )
     else:
@@ -387,6 +392,7 @@ def _run_optuna(
     scorers: dict[str, Any],
     refit_metric: str,
     config: TuningConfig,
+    random_state: int | None,
     fit_params: dict[str, Any],
 ) -> OptimizationResult:
     try:
@@ -403,7 +409,7 @@ def _run_optuna(
         ) from exc
 
     sampler = None
-    sampler_seed = config.random_state
+    sampler_seed = random_state
     if (
         sampler_seed is not None
         and config.optuna_storage is not None

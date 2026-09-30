@@ -13,6 +13,7 @@ import polars as pl
 from saber._api import evaluate, predict, train
 from saber.benchmark import BenchmarkResult, benchmark
 from saber.config.builders import (
+    benchmark_kwargs,
     build_benchmark_config,
     build_partition_inputs,
     build_preprocessing,
@@ -20,6 +21,7 @@ from saber.config.builders import (
     build_tuning_config,
     load_dataset,
     load_prediction_frame,
+    tuning_kwargs,
 )
 from saber.config.io import load_config
 from saber.config.schema import as_mapping
@@ -34,6 +36,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from saber.config.schema import WorkflowConfig
+    from saber.datasets import BioSievePartitionConfig, PartitionPlan
     from saber.validation.partitioning import EvaluationRole
 
 
@@ -65,28 +68,31 @@ def _run_train(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
     dataset = load_dataset(config, as_mapping(payload["dataset"], "dataset"))
     preprocessing = build_preprocessing(_optional_mapping(payload.get("preprocessing"), "preprocessing"))
-    partition_plan = None
-    if payload.get("partition") is not None:
-        partition_plan, _ = build_partition_inputs(
-            config,
-            partition=as_mapping(payload["partition"], "partition"),
-            partitioning=None,
-        )
     artifact = _optional_mapping(payload.get("artifact"), "artifact")
     artifact_path = None if artifact is None else config.resolve_path(_required(artifact, "path", "artifact"))
 
     result = train(
         dataset=dataset,
         algorithm=str(payload["algorithm"]),
+        model_params=_optional_mapping(payload.get("model_params"), "model_params"),
         preprocessing=preprocessing,
         random_state=payload.get("random_state"),
-        model_params=_optional_mapping(payload.get("model_params"), "model_params"),
-        artifact_path=artifact_path,
-        partition_plan=partition_plan,
-        artifact_overwrite=bool(artifact.get("overwrite", False)) if artifact else False,
-        metadata=config.metadata,
         positive_class=payload.get("positive_class"),
     )
+    if artifact is not None and artifact_path is not None:
+        partition_plan = build_partition_inputs(
+            config,
+            partition=_optional_mapping(payload.get("partition"), "partition"),
+            partitioning=None,
+        )
+        save_model(
+            artifact_path,
+            result,
+            dataset=dataset,
+            partition_plan=cast("PartitionPlan | None", partition_plan),
+            metadata=config.metadata,
+            overwrite=bool(artifact.get("overwrite", False)),
+        )
     summary = {
         "workflow": "train",
         "algorithm": result.spec.name,
@@ -116,8 +122,8 @@ def _run_evaluate(config: WorkflowConfig) -> WorkflowExecution:
         strict_environment=bool(payload.get("strict_environment", False)),
     )
     result = evaluate(
-        dataset=dataset,
-        model=model,
+        model,
+        dataset,
         metrics=payload.get("metrics"),
         positive_class=payload.get("positive_class"),
     )
@@ -135,30 +141,21 @@ def _run_evaluate(config: WorkflowConfig) -> WorkflowExecution:
 def _run_validate(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
     dataset = load_dataset(config, as_mapping(payload["dataset"], "dataset"))
-    plan, partitioning = build_partition_inputs(
-        config,
-        partition=_optional_mapping(payload.get("partition"), "partition"),
-        partitioning=_optional_mapping(payload.get("partitioning"), "partitioning"),
-    )
     result = validate(
         dataset=dataset,
         algorithm=str(payload["algorithm"]),
-        partition_plan=plan,
-        partitioning=partitioning,
-        biosieve_extra_columns=_optional_mapping(
-            payload.get("biosieve_extra_columns"), "biosieve_extra_columns"
-        ),
+        model_params=_optional_mapping(payload.get("model_params"), "model_params"),
         preprocessing=build_preprocessing(_optional_mapping(payload.get("preprocessing"), "preprocessing")),
+        partition_plan=_partition_input(config),
         metrics=payload.get("metrics"),
         # Config-supplied strings are validated downstream by
         # resolve_evaluation_dataset, which raises ValidationContractError for
         # anything other than "auto"/"validation"/"test".
         evaluation_role=cast("EvaluationRole", str(payload.get("evaluation_role", "auto"))),
-        positive_class=payload.get("positive_class"),
-        random_state=payload.get("random_state"),
-        return_estimators=bool(payload.get("return_estimators", False)),
         require_complete=bool(payload.get("require_complete", True)),
-        model_params=_optional_mapping(payload.get("model_params"), "model_params"),
+        positive_class=payload.get("positive_class"),
+        return_estimators=bool(payload.get("return_estimators", False)),
+        random_state=payload.get("random_state"),
     )
     summary = _validation_summary(result)
     outputs: dict[str, str] = {}
@@ -170,31 +167,23 @@ def _run_validate(config: WorkflowConfig) -> WorkflowExecution:
 def _run_tune(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
     dataset = load_dataset(config, as_mapping(payload["dataset"], "dataset"))
-    plan, partitioning = build_partition_inputs(
-        config,
-        partition=_optional_mapping(payload.get("partition"), "partition"),
-        partitioning=_optional_mapping(payload.get("partitioning"), "partitioning"),
-    )
-    tuning_config = build_tuning_config(as_mapping(payload["tuning"], "tuning"))
+    tuning_payload = as_mapping(payload["tuning"], "tuning")
     result = tune(
         dataset=dataset,
         algorithm=str(payload["algorithm"]),
-        config=tuning_config,
-        partition_plan=plan,
-        partitioning=partitioning,
-        biosieve_extra_columns=_optional_mapping(
-            payload.get("biosieve_extra_columns"), "biosieve_extra_columns"
-        ),
+        model_params=_optional_mapping(payload.get("model_params"), "model_params"),
         preprocessing=build_preprocessing(_optional_mapping(payload.get("preprocessing"), "preprocessing")),
+        partition_plan=_partition_input(config),
+        config=build_tuning_config(tuning_payload),
         search_space=build_search_space(
             str(payload["algorithm"]), _optional_mapping(payload.get("search_space"), "search_space")
         ),
+        **tuning_kwargs(tuning_payload),
         # Config-supplied strings are validated downstream by
         # resolve_evaluation_dataset, which raises ValidationContractError for
         # anything other than "auto"/"validation"/"test".
         evaluation_role=cast("EvaluationRole", str(payload.get("evaluation_role", "auto"))),
         require_complete=bool(payload.get("require_complete", True)),
-        model_params=_optional_mapping(payload.get("model_params"), "model_params"),
         positive_class=payload.get("positive_class"),
     )
     summary = {
@@ -222,16 +211,8 @@ def _run_tune(config: WorkflowConfig) -> WorkflowExecution:
         artifact_path = config.resolve_path(_required(artifact, "path", "artifact"))
         save_model(
             artifact_path,
-            model=result.best_model,
-            algorithm=result.algorithm,
-            task=result.spec.task if result.spec is not None else "classification",
+            result,
             dataset=dataset,
-            partition_plan=result.partition_plan,
-            provider=result.spec.provider if result.spec is not None else None,
-            parameters=dict(result.best_params),
-            metrics=result.display_scores,
-            training_config={"tuning": as_mapping(payload["tuning"], "tuning")},
-            positive_class=payload.get("positive_class"),
             metadata=config.metadata,
             overwrite=bool(artifact.get("overwrite", False)),
         )
@@ -252,27 +233,31 @@ def _run_benchmark(config: WorkflowConfig) -> WorkflowExecution:
     else:
         datasets = load_dataset(config, as_mapping(payload["dataset"], "dataset"))
 
-    partitions = None
+    reference = payload.get("partitioning_reference")
+    if reference is not None:
+        # benchmark() generates BioSieve partitions from the first dataset.
+        if not isinstance(datasets, dict) or str(reference) not in datasets:
+            raise ConfigurationError(
+                f"partitioning_reference '{reference}' is not a benchmark dataset label."
+            )
+        datasets = {str(reference): datasets[str(reference)]} | datasets
+
+    partitions: Any = None
     if payload.get("partitions") is not None:
-        partitions = {}
-        for label, spec in as_mapping(payload["partitions"], "partitions").items():
-            plan, _ = build_partition_inputs(
+        partitions = {
+            str(label): build_partition_inputs(
                 config,
                 partition=as_mapping(spec, f"partitions.{label}"),
                 partitioning=None,
             )
-            if plan is None:
-                # partition= is always provided above, so build_partition_inputs
-                # always returns a plan for this loop.
-                raise AssertionError(f"Partition '{label}' resolved to no plan.")
-            partitions[str(label)] = plan
-
-    partitioning = None
-    if payload.get("partitioning") is not None:
-        _, partitioning = build_partition_inputs(
+            for label, spec in as_mapping(payload["partitions"], "partitions").items()
+        }
+    elif payload.get("partitioning") is not None:
+        partitions = build_partition_inputs(
             config,
             partition=None,
             partitioning=as_mapping(payload["partitioning"], "partitioning"),
+            extra_columns=_optional_mapping(payload.get("biosieve_extra_columns"), "biosieve_extra_columns"),
         )
 
     search_spaces = None
@@ -284,20 +269,17 @@ def _run_benchmark(config: WorkflowConfig) -> WorkflowExecution:
             for algorithm, space in as_mapping(payload["search_spaces"], "search_spaces").items()
         }
 
+    benchmark_payload = as_mapping(payload["benchmark"], "benchmark")
     result = benchmark(
         datasets=datasets,
         algorithms=tuple(str(value) for value in payload["algorithms"]),
-        config=build_benchmark_config(as_mapping(payload["benchmark"], "benchmark")),
-        partitions=partitions,
-        partitioning=partitioning,
-        partitioning_reference=payload.get("partitioning_reference"),
-        biosieve_extra_columns=_optional_mapping(
-            payload.get("biosieve_extra_columns"), "biosieve_extra_columns"
-        ),
-        preprocessing=build_preprocessing(_optional_mapping(payload.get("preprocessing"), "preprocessing")),
         model_params=_optional_mapping(payload.get("model_params"), "model_params"),
+        preprocessing=build_preprocessing(_optional_mapping(payload.get("preprocessing"), "preprocessing")),
+        partitions=partitions,
+        config=build_benchmark_config(benchmark_payload),
         search_spaces=search_spaces,
         positive_class=payload.get("positive_class"),
+        **benchmark_kwargs(benchmark_payload),
     )
     summary = {
         "workflow": "benchmark",
@@ -330,13 +312,15 @@ def _run_predict(config: WorkflowConfig) -> WorkflowExecution:
         artifact_path = config.resolve_path(_required(artifact, "path", "artifact"))
     else:
         artifact_path = config.resolve_path(str(artifact))
-    result = predict(
+    model = load_model(
         artifact_path,
-        X=X,
-        feature_names=list(X.columns),
+        strict_environment=bool(payload.get("strict_environment", False)),
+    )
+    result = predict(
+        model,
+        X,
         sample_ids=sample_ids,
         positive_class=payload.get("positive_class"),
-        strict_environment=bool(payload.get("strict_environment", False)),
     )
     summary = {
         "workflow": "predict",
@@ -433,6 +417,16 @@ def _prediction_frame(result: Any) -> pl.DataFrame:
         if scores.ndim == 1:
             frame["decision_score"] = scores
     return pl.DataFrame(frame)
+
+
+def _partition_input(config: WorkflowConfig) -> PartitionPlan | BioSievePartitionConfig | None:
+    payload = config.payload
+    return build_partition_inputs(
+        config,
+        partition=_optional_mapping(payload.get("partition"), "partition"),
+        partitioning=_optional_mapping(payload.get("partitioning"), "partitioning"),
+        extra_columns=_optional_mapping(payload.get("biosieve_extra_columns"), "biosieve_extra_columns"),
+    )
 
 
 def _optional_mapping(value: Any, label: str) -> dict[str, Any] | None:

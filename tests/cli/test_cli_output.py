@@ -43,7 +43,7 @@ def _validate_config(tmp_path: Path) -> Path:
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=dataset.sample_ids,
         fold_assignments=[i % 3 for i in range(dataset.n_samples)],
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
     folds = tmp_path / "folds.json"
     folds.write_text(json.dumps(plan.to_dict()), encoding="utf-8")
@@ -85,7 +85,7 @@ def _benchmark_config(tmp_path: Path) -> Path:
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=dataset.sample_ids,
         fold_assignments=[i % 3 for i in range(dataset.n_samples)],
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
     folds = tmp_path / "folds.json"
     folds.write_text(json.dumps(plan.to_dict()), encoding="utf-8")

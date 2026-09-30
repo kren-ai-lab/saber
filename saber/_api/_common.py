@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -10,7 +11,13 @@ from saber.core.prediction import PredictionResult, collect_model_outputs
 from saber.core.registry import get_algorithm
 from saber.core.results import TrainResult
 from saber.exceptions import ValidationContractError
-from saber.preprocessing.pipeline import PreprocessingConfig, build_model_pipeline, pipeline_input
+from saber.persistence import LoadedModelArtifact, load_model
+from saber.preprocessing.pipeline import (
+    PreprocessingConfig,
+    build_model_pipeline,
+    pipeline_input,
+    preprocessing_summary,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -67,6 +74,7 @@ def fit_dataset(
             "n_samples": dataset.n_samples,
             "n_features": dataset.n_features,
             "random_state": random_state,
+            "preprocessing": preprocessing_summary(preprocessing),
         },
     )
 
@@ -82,45 +90,61 @@ def _validate_feature_schema(
         schema.validate_compatible(X, feature_names=feature_names)
 
 
-def prediction_from_model(
+def load_active_model(model: Any) -> TrainResult | LoadedModelArtifact:
+    """Resolve an artifact path, TrainResult, or LoadedModelArtifact to a fitted model."""
+    if isinstance(model, (str, Path)):
+        return load_model(model)
+    if isinstance(model, (TrainResult, LoadedModelArtifact)):
+        return model
+    raise ValidationContractError("model must be an artifact path, LoadedModelArtifact, or TrainResult.")
+
+
+def model_task(model: TrainResult | LoadedModelArtifact) -> str:
+    """Return the supervised task of a resolved model."""
+    return model.spec.task if isinstance(model, TrainResult) else model.task
+
+
+def predict_model(
+    model: TrainResult | LoadedModelArtifact,
+    X: Any,
     *,
-    result: TrainResult,
-    dataset: DatasetBundle | None = None,
-    X: Any | None = None,
     feature_names: Sequence[str] | None = None,
     sample_ids: Sequence[Any] | None = None,
     positive_class: Any | None = None,
 ) -> PredictionResult:
-    """Generate a structured prediction from a high-level TrainResult."""
-    if dataset is not None:
-        X = dataset.X
-        feature_names = dataset.feature_names
-        sample_ids = dataset.sample_ids
+    """Generate a structured prediction from a resolved fitted model."""
     if X is None:
-        raise ValidationContractError("Prediction requires dataset=... or X=....")
+        raise ValidationContractError("Prediction requires a feature matrix or DatasetBundle.")
+    if isinstance(model, LoadedModelArtifact):
+        return model._predict_result(  # noqa: SLF001  # the artifact's own inference path
+            X,
+            feature_names=feature_names,
+            sample_ids=sample_ids,
+            positive_class=positive_class,
+        )
 
-    model = result.model
-    if model is None:
+    fitted = model.model
+    if fitted is None:
         raise ValidationContractError("TrainResult does not contain a fitted model.")
 
-    _validate_feature_schema(result.feature_schema, X, feature_names=feature_names)
-    X = pipeline_input(model, X)
-    capabilities = result.spec.resolved_capabilities
+    _validate_feature_schema(model.feature_schema, X, feature_names=feature_names)
+    X = pipeline_input(fitted, X)
+    capabilities = model.spec.resolved_capabilities
     outputs = collect_model_outputs(
-        model,
+        fitted,
         X,
-        task=result.spec.task,
+        task=model.spec.task,
         use_proba=capabilities.predict_proba,
         use_decision=capabilities.decision_function,
     )
 
     return PredictionResult(
-        task=result.spec.task,
+        task=model.spec.task,
         **outputs,
-        positive_class=result.positive_class if positive_class is None else positive_class,
+        positive_class=model.positive_class if positive_class is None else positive_class,
         sample_ids=None if sample_ids is None else np.asarray(sample_ids),
         metadata={
-            "algorithm": result.spec.name,
-            "provider": result.spec.provider,
+            "algorithm": model.spec.name,
+            "provider": model.spec.provider,
         },
     )

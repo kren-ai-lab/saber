@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import dataclasses
+
 import numpy as np
 import pytest
 
@@ -35,8 +37,9 @@ def test_holdout_plan_validates_and_resolves_dataset_identity():
         train_ids=["a", "b", "c"],
         validation_ids=["d"],
         test_ids=["e", "f"],
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
+    assert plan.dataset_fingerprint == dataset.fingerprint
     plan.validate_against(dataset)
     resolved = plan.resolve(dataset, "holdout")
 
@@ -71,9 +74,8 @@ def test_partition_missing_coverage_fails_by_default():
 
 def test_dataset_fingerprint_mismatch_is_detected():
     dataset = _dataset()
-    plan = PartitionPlan.holdout(
-        train_ids=["a", "b", "c"],
-        test_ids=["d", "e", "f"],
+    plan = dataclasses.replace(
+        PartitionPlan.holdout(train_ids=["a", "b", "c"], test_ids=["d", "e", "f"]),
         dataset_fingerprint="wrong-fingerprint",
     )
     with pytest.raises(DatasetFingerprintMismatchError):
@@ -85,7 +87,7 @@ def test_predefined_fold_assignments_become_explicit_memberships():
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=dataset.sample_ids,
         fold_assignments=[0, 0, 1, 1, 2, 2],
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
 
     assert plan.kind == "predefined"
@@ -127,9 +129,9 @@ def test_partition_plan_dict_roundtrip_preserves_fingerprint():
         train_ids=["a", "b", "c"],
         validation_ids=["d"],
         test_ids=["e", "f"],
-        dataset_fingerprint="dataset-abc",
         metadata={"source": "unit-test"},
     )
+    plan = dataclasses.replace(plan, dataset_fingerprint="dataset-abc")
     restored = PartitionPlan.from_dict(plan.to_dict())
     assert restored.fingerprint == plan.fingerprint
     assert restored.get_split("holdout").test_ids == ("e", "f")

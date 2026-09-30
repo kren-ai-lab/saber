@@ -87,7 +87,7 @@ def _(
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=dataset.sample_ids,
         fold_assignments=balanced_fold_labels(y, 5),
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
         metadata={"source":"demo_external_memberships"},
     )
     return dataset, plan, y

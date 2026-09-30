@@ -30,6 +30,19 @@ class PreprocessingConfig:
     transformer: Any | None = None
 
 
+def preprocessing_summary(preprocessing: PreprocessingConfig | None) -> dict[str, Any]:
+    """Return a JSON-friendly description of a preprocessing policy for provenance."""
+    if preprocessing is None:
+        return {"imputation": "auto", "scaler": "auto"}
+    if preprocessing.transformer is not None:
+        return {"custom_transformer": type(preprocessing.transformer).__name__}
+    return {
+        "imputation": preprocessing.imputation,
+        "scaler": preprocessing.scaler,
+        "fill_value": preprocessing.fill_value,
+    }
+
+
 def build_model_pipeline(
     *,
     spec: AlgorithmSpec,
