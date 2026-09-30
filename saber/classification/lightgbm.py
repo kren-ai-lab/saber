@@ -43,7 +43,6 @@ def _build_specs() -> tuple[AlgorithmSpec, ...]:
                 native_missing_values=True,
             ),
             requirements=EstimatorRequirements(scaling="not_required"),
-            supports_cv=True,
             search_space=search_space,
             tags=tags,
         )

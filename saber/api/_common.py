@@ -67,7 +67,6 @@ def fit_dataset(
             "n_samples": dataset.n_samples,
             "n_features": dataset.n_features,
             "random_state": random_state,
-            "public_api": True,
         },
     )
 
@@ -138,6 +137,5 @@ def prediction_from_model(
         metadata={
             "algorithm": result.spec.name,
             "provider": result.spec.provider,
-            "public_api": True,
         },
     )

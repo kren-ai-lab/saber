@@ -65,11 +65,6 @@ class OptimizationResult:
         return get_metric_spec(self.metric).to_natural_score(self.best_score)
 
     @property
-    def score_is_finite(self) -> bool:
-        """Whether the stored best score is finite."""
-        return bool(np.isfinite(self.best_score))
-
-    @property
     def display_scores(self) -> dict[str, float]:
         """Best candidate scores converted to each metric's natural direction."""
         return {
@@ -80,26 +75,6 @@ class OptimizationResult:
     def failures(self) -> list[dict[str, Any]]:
         """Return candidate/trial history entries explicitly marked as failed."""
         return [entry for entry in self.history if entry.get("status") == "failed"]
-
-    def has_model(self) -> bool:
-        """Check whether a best fitted model is available."""
-        return self.best_model is not None
-
-    def has_history(self) -> bool:
-        """Check whether optimization history exists."""
-        return len(self.history) > 0
-
-    def has_study(self) -> bool:
-        """Check whether a backend-specific study object exists."""
-        return self.study is not None
-
-    def get_best_param(self, name: str) -> Any:
-        """Retrieve a best parameter value."""
-        return self.best_params[name]
-
-    def get_history(self) -> list[dict[str, Any]]:
-        """Return a shallow copy of optimization history."""
-        return list(self.history)
 
     def history_frame(self) -> pl.DataFrame:
         """Return optimization history as a flat Polars DataFrame."""
@@ -136,7 +111,3 @@ class OptimizationResult:
             "n_failures": len(self.failures),
             "metadata": dict(self.metadata),
         }
-
-    def summary(self) -> dict[str, Any]:
-        """Return concise optimization summary."""
-        return self.to_dict()

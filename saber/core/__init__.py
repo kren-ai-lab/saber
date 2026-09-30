@@ -5,7 +5,6 @@ from saber.core.capabilities import (
     EstimatorRequirements,
     infer_estimator_capabilities,
 )
-from saber.core.estimator import EstimatorFactory
 from saber.core.metrics import (
     METRIC_SPECS,
     MetricSpec,
@@ -26,7 +25,6 @@ __all__ = [
     "AlgorithmSpec",
     "Categorical",
     "EstimatorCapabilities",
-    "EstimatorFactory",
     "EstimatorRequirements",
     "Float",
     "Integer",

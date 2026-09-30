@@ -104,11 +104,6 @@ class BioSievePartitionConfig:
         object.__setattr__(self, "params", dict(self.params))
 
 
-def available_biosieve_strategies() -> tuple[str, ...]:
-    """Return BioSieve strategies supported by this adapter."""
-    return tuple(sorted(_STRATEGIES))
-
-
 def partition_with_biosieve(
     dataset: DatasetBundle,
     config: BioSievePartitionConfig,

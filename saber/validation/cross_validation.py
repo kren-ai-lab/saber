@@ -168,11 +168,6 @@ class ValidationEngine:
         )
 
 
-def validate_model(**kwargs: Any) -> ValidationResult:
-    """Functional convenience wrapper around :class:`ValidationEngine`."""
-    return ValidationEngine().run(**kwargs)
-
-
 def _prediction_from_pipeline(
     pipeline: Any,
     *,

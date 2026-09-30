@@ -8,10 +8,10 @@ from saber.core.registry import ALGORITHMS
 def test_search_space_parameters_are_valid_estimator_parameters() -> None:
     unknown = {}
     for spec in ALGORITHMS.values():
-        if not spec.has_search_space():
+        if spec.search_space is None:
             continue
         accepted = set(spec.build_estimator().get_params())
-        invalid = set(spec.get_search_space_parameters()) - accepted
+        invalid = set(spec.search_space.parameters) - accepted
         if invalid:
             unknown[spec.name] = sorted(invalid)
     assert not unknown, f"Search spaces name unknown estimator parameters: {unknown}"

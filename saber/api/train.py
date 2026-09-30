@@ -57,7 +57,7 @@ def train(
                 "preprocessing": _preprocessing_metadata(preprocessing),
             },
             positive_class=positive_class,
-            metadata={**dict(metadata or {}), "public_api": True},
+            metadata=dict(metadata or {}),
             overwrite=artifact_overwrite,
         )
 

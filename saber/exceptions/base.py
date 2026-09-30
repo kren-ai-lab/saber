@@ -172,7 +172,3 @@ class ArtifactCompatibilityError(PersistenceError):
 
 class ConfigurationError(SaberError, ValueError):
     """Raised when a declarative workflow configuration is invalid."""
-
-
-class PublicAPIError(SaberError, RuntimeError):
-    """Raised at the stable public API boundary for orchestration failures."""

@@ -27,8 +27,6 @@ if TYPE_CHECKING:
 def load_dataset(
     config: WorkflowConfig,
     payload: Mapping[str, Any],
-    *,
-    require_target: bool = True,
 ) -> DatasetBundle:
     """Load one prepared numeric tabular dataset from CSV/TSV."""
     allowed = {
@@ -43,7 +41,7 @@ def load_dataset(
     _reject_unknown(payload, allowed, "dataset")
     if "path" not in payload:
         raise ConfigurationError("Dataset config requires 'path'.")
-    if require_target and "target" not in payload:
+    if "target" not in payload:
         raise ConfigurationError("Labeled workflows require dataset.target.")
 
     path = config.resolve_path(payload["path"])

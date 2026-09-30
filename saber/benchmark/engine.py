@@ -381,11 +381,6 @@ class BenchmarkEngine:
         return validation, optimization
 
 
-def benchmark_models(**kwargs: Any) -> BenchmarkResult:
-    """Functional convenience wrapper around :class:`BenchmarkEngine`."""
-    return BenchmarkEngine().run(**kwargs)
-
-
 def _normalize_datasets(
     datasets: DatasetBundle | BenchmarkDataset | Mapping[str, DatasetBundle] | Sequence[BenchmarkDataset],
 ) -> tuple[BenchmarkDataset, ...]:

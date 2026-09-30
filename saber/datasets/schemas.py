@@ -284,16 +284,3 @@ class DatasetBundle:
             sample_weight=weights_subset,
             metadata=metadata,
         )
-
-    def to_metadata(self) -> dict[str, Any]:
-        """Return serialization-friendly structural metadata."""
-        return {
-            "n_samples": self.n_samples,
-            "n_features": self.n_features,
-            "sample_ids_generated": self.generated_sample_ids,
-            "has_groups": self.groups is not None,
-            "has_sample_weight": self.sample_weight is not None,
-            "feature_schema": self.feature_schema.to_dict(),
-            "fingerprint": self.fingerprint,
-            "metadata": dict(self.metadata),
-        }

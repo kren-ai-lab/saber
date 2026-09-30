@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections import Counter
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -74,16 +73,6 @@ class PartitionSplit:
     def all_ids(self) -> tuple[Any, ...]:
         """Return the union of train, validation, and test identifiers."""
         return self.train_ids + self.validation_ids + self.test_ids
-
-    def ids_for(self, role: str) -> tuple[Any, ...]:
-        """Return the identifiers for the given role."""
-        if role == "train":
-            return self.train_ids
-        if role in {"validation", "val"}:
-            return self.validation_ids
-        if role == "test":
-            return self.test_ids
-        raise PartitionValidationError("role must be 'train', 'validation', or 'test'.")
 
     def to_dict(self) -> dict[str, Any]:
         """Return the split as a plain JSON-serializable dictionary."""
@@ -334,13 +323,6 @@ class PartitionPlan:
             splits=tuple(splits),
             metadata=plan_metadata,
         )
-
-    def validation_counts(self) -> Counter[Any]:
-        """Return how often each sample appears in validation roles."""
-        counts: Counter[Any] = Counter()
-        for split in self.splits:
-            counts.update(split.validation_ids)
-        return counts
 
 
 def _validate_unique_ids(values: tuple[Any, ...], *, split: str, role: str) -> None:

@@ -110,15 +110,6 @@ class MetricSpec:
         """Whether lower natural values are better."""
         return not self.greater_is_better
 
-    @property
-    def optimization_direction(self) -> Literal["maximize"]:
-        """Optimization direction for scorer outputs.
-
-        Scikit-learn scorer objects negate loss metrics, therefore every
-        scorer exposed by saber is optimized by maximization.
-        """
-        return "maximize"
-
     def to_natural_score(self, score: float) -> float:
         """Convert an optimization score into its natural user-facing value."""
         value = float(score)

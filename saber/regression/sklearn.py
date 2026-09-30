@@ -256,7 +256,6 @@ def _build_specs() -> tuple[AlgorithmSpec, ...]:
             tags=tags,
             capabilities=capabilities,
             requirements=_requirements_for(name),
-            supports_cv=True,
             search_space=search_space,
         )
 

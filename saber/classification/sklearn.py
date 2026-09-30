@@ -222,7 +222,6 @@ def _build_specs() -> tuple[AlgorithmSpec, ...]:
             estimator_cls=model_cls,
             capabilities=capabilities,
             requirements=_requirements_for(name),
-            supports_cv=True,
             search_space=search_space,
         )
 

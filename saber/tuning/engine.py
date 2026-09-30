@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, cross_validate
 
-from saber.core.metrics import resolve_positive_class
+from saber.core.metrics import resolve_positive_class, validate_metric
 from saber.core.registry import get_algorithm
 from saber.exceptions import (
     DatasetValidationError,
@@ -19,7 +19,6 @@ from saber.exceptions import (
 )
 from saber.preprocessing import PreprocessingConfig, build_model_pipeline, pipeline_input
 from saber.tuning.results import OptimizationResult
-from saber.tuning.scorers import get_scorer
 from saber.validation.partitioning import (
     EvaluationRole,
     build_explicit_cv,
@@ -134,7 +133,7 @@ class TuningEngine:
                     f"for task '{spec.task}': {exc}"
                 ) from exc
 
-        space = search_space if search_space is not None else spec.get_search_space()
+        space = search_space if search_space is not None else spec.search_space
         if space is None:
             raise ValidationContractError(f"No search space defined for algorithm '{spec.name}'.")
         if len(space) == 0:
@@ -148,8 +147,8 @@ class TuningEngine:
             task=spec.task, y=search_dataset.y, positive_class=positive_class
         )
         scorers = {
-            metric: get_scorer(
-                metric, task=spec.task, y=search_dataset.y, positive_class=scoring_positive_class
+            metric: validate_metric(metric, task=spec.task, y=search_dataset.y).make_scorer(
+                positive_class=scoring_positive_class
             )
             for metric in metrics
         }
@@ -549,11 +548,6 @@ class TuningEngine:
             refit=config.refit,
             best_scores=best_scores,
         )
-
-
-def tune_model(**kwargs: Any) -> OptimizationResult:
-    """Functional convenience wrapper around :class:`TuningEngine`."""
-    return TuningEngine().run(**kwargs)
 
 
 def _fit_params(dataset: DatasetBundle, spec: Any) -> dict[str, Any]:

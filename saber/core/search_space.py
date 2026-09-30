@@ -2,34 +2,11 @@
 
 from __future__ import annotations
 
-import json
-from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
 import numpy as np
 from scipy.stats import loguniform, uniform
-
-
-class SearchParameter(Protocol):
-    """Protocol implemented by typed search-space primitives."""
-
-    def grid_values(self) -> list[Any]:
-        """Return the finite values to enumerate for grid search."""
-        ...
-
-    def random_distribution(self) -> Any:
-        """Return the domain sampled by randomized-search backends."""
-        ...
-
-    def suggest(self, trial: Any, name: str) -> Any:
-        """Sample one value from this domain using an Optuna trial."""
-        ...
-
-    def to_dict(self) -> dict[str, Any]:
-        """Return a serialization-friendly representation of this domain."""
-        ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -216,34 +193,6 @@ def _coerce_domain(value: ParameterDomain) -> Categorical | Integer | Float | Lo
     )
 
 
-def _domain_from_dict(payload: Any) -> ParameterDomain:
-    # Legacy JSON files stored parameters directly as lists.
-    if isinstance(payload, list):
-        return payload
-    if not isinstance(payload, Mapping):
-        raise TypeError("Serialized search-space parameter must be a list or mapping.")
-
-    kind = payload.get("type")
-    if kind == "categorical":
-        return Categorical(payload["values"])
-    if kind == "integer":
-        return Integer(
-            int(payload["low"]),
-            int(payload["high"]),
-            step=int(payload.get("step", 1)),
-        )
-    if kind == "float":
-        step = payload.get("step")
-        return Float(
-            float(payload["low"]),
-            float(payload["high"]),
-            step=None if step is None else float(step),
-        )
-    if kind == "log_float":
-        return LogFloat(float(payload["low"]), float(payload["high"]))
-    raise ValueError(f"Unknown search-space parameter type '{kind}'.")
-
-
 @dataclass(slots=True)
 class SearchSpace:
     """Backend-agnostic hyperparameter search-space definition.
@@ -265,23 +214,6 @@ class SearchSpace:
                 raise ValueError("Search-space parameter names cannot be empty.")
             _coerce_domain(domain)
 
-    @classmethod
-    def from_dict(
-        cls,
-        name: str,
-        parameters: dict[str, ParameterDomain],
-    ) -> SearchSpace:
-        """Build a search space from a name and a parameter-domain mapping."""
-        return cls(name=name, parameters=parameters)
-
-    @classmethod
-    def from_json(cls, path: str | Path) -> SearchSpace:
-        """Load a search space from a JSON file."""
-        with Path(path).open(encoding="utf-8") as handle:
-            data = json.load(handle)
-        parameters = {name: _domain_from_dict(domain) for name, domain in data["parameters"].items()}
-        return cls(name=data["name"], parameters=parameters)
-
     def to_dict(self) -> dict[str, Any]:
         """Return a serialization-friendly representation of this search space."""
         serialized: dict[str, Any] = {}
@@ -295,19 +227,6 @@ class SearchSpace:
             else:
                 serialized[name] = _coerce_domain(domain).to_dict()
         return {"name": self.name, "parameters": serialized}
-
-    def to_json(self, path: str | Path) -> None:
-        """Write this search space to a JSON file."""
-        with Path(path).open("w", encoding="utf-8") as handle:
-            json.dump(self.to_dict(), handle, indent=4)
-
-    def get(self, parameter: str) -> ParameterDomain:
-        """Return the domain of a named parameter."""
-        return self.parameters[parameter]
-
-    def exists(self, parameter: str) -> bool:
-        """Return whether a named parameter is defined in this space."""
-        return parameter in self.parameters
 
     def to_grid(self, *, prefix: str = "") -> dict[str, list[Any]]:
         """Translate the logical search space to sklearn grid domains."""
@@ -329,13 +248,6 @@ class SearchSpace:
             name: _coerce_domain(domain).suggest(trial, f"{prefix}{name}")
             for name, domain in self.parameters.items()
         }
-
-    def prefixed(self, prefix: str) -> SearchSpace:
-        """Return an equivalent space with parameter names prefixed."""
-        return SearchSpace(
-            name=self.name,
-            parameters={f"{prefix}{name}": domain for name, domain in self.parameters.items()},
-        )
 
     def __len__(self) -> int:
         """Return the number of parameters in this search space."""

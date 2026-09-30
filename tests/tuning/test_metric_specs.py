@@ -8,7 +8,6 @@ from sklearn.model_selection import cross_val_score
 
 from saber.core.metrics import get_metric_spec, validate_metric
 from saber.exceptions import MetricNotFoundError, MetricProblemTypeError, MetricTaskMismatchError
-from saber.tuning.scorers import get_scorer, normalize_score
 
 
 def test_roc_auc_uses_modern_response_method() -> None:
@@ -21,7 +20,7 @@ def test_roc_auc_uses_modern_response_method() -> None:
         LogisticRegression(max_iter=1000),
         X,
         y,
-        scoring=get_scorer("roc_auc", task="classification", y=y),
+        scoring=validate_metric("roc_auc", task="classification", y=y).make_scorer(),
         cv=3,
     )
     assert np.all(np.isfinite(scores))
@@ -44,10 +43,8 @@ def test_binary_only_roc_auc_rejects_multiclass() -> None:
 def test_loss_metric_has_natural_score_conversion() -> None:
     spec = get_metric_spec("rmse")
     assert spec.is_loss
-    assert spec.optimization_direction == "maximize"
-    assert normalize_score("rmse", -2.5) == 2.5
 
 
 def test_unknown_scorer_raises() -> None:
     with pytest.raises(MetricNotFoundError):
-        get_scorer("unknown_score")
+        validate_metric("unknown_score", task="classification")

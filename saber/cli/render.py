@@ -154,8 +154,7 @@ def render_model(console: Console, metadata: Mapping[str, Any]) -> None:
 
     defaults = metadata.get("default_params") or {}
     search = "available" if metadata.get("has_search_space") else "not defined"
-    cv_supported = _yes_no(metadata.get("supports_cv", False))
-    footer = f"Default params: {len(defaults)}  •  Search space: {search}  •  CV: {cv_supported}"
+    footer = f"Default params: {len(defaults)}  •  Search space: {search}"
     console.print(footer)
 
 
