@@ -1,6 +1,6 @@
 # YAML/JSON configuration
 
-The declarative surface is versioned with `schema_version: "1.0"` and maps directly to the public Python API.
+A config file describes one workflow with the same options as the Python API. Run it with `saber <workflow> config.yaml` or `saber.run_config(saber.load_config(path))`.
 
 ## Common structure
 
@@ -42,7 +42,7 @@ benchmark
 predict
 ```
 
-`optimize` is a CLI/Python alias for tuning rather than a separate config workflow.
+`optimize` is an alias for `tune` in the CLI and Python, not a separate workflow.
 
 ## Existing versus generated partitions
 
@@ -123,4 +123,4 @@ saber config normalize experiment.yaml -o normalized.yaml
 
 `--dry-run` on workflow commands validates and renders the plan without executing the experiment.
 
-See the repository's [`examples/configs/`](../examples/configs/) examples for complete minimal files.
+Complete minimal files live in [`examples/configs/`](../examples/configs/).

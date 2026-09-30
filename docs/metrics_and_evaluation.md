@@ -1,71 +1,45 @@
 # Metrics and evaluation
 
-Evaluation is built around `PredictionResult`, not around guessing what an estimator's second probability column means.
+Predictions come back as a `PredictionResult` with `predictions`,
+`probabilities`, `decision_scores`, `classes`, `positive_class`, `sample_ids`
+and `metadata`. Metrics are computed from it, and only the ones you request.
 
-```text
-PredictionResult
-├── predictions
-├── probabilities
-├── decision_scores
-├── classes
-├── positive_class
-├── sample_ids
-└── metadata
-```
-
-## Binary classification
-
-Available evaluation metrics include:
+## Classification
 
 | Metric | Requires |
 |---|---|
-| `accuracy` | predictions |
-| `balanced_accuracy` | predictions |
-| `precision`, `recall`, `sensitivity`, `specificity`, `f1` | predictions + explicit positive-class semantics |
-| `mcc` | predictions |
-| `roc_auc`, `pr_auc` | probability **or** decision score |
+| `accuracy`, `balanced_accuracy`, `mcc` | predictions |
+| `precision`, `recall`, `sensitivity`, `specificity`, `f1` | predictions and, for binary, the positive class |
+| `roc_auc`, `pr_auc` | probabilities or decision scores |
 | `log_loss`, `brier_score` | probabilities |
 
-`positive_class` is explicit. A two-column probability matrix is mapped through the fitted class order rather than assuming that column 1 is always scientifically positive.
+For binary problems the positive class is resolved through the model's class
+order, never by assuming column 1 of `predict_proba`. Pass `positive_class=`
+when the default (the last class in sorted order) isn't the one you mean.
 
-## Multiclass classification
-
-Available metrics include accuracy, balanced accuracy, MCC, log-loss, and precision/recall/F1 using canonical weighted semantics plus explicit `*_macro`, `*_micro`, and `*_weighted` variants.
-
-The problem type is determined from the fitted model's class semantics where possible, not merely from whichever classes happen to occur in one held-out fold.
+For multiclass problems, `precision`, `recall` and `f1` use weighted averaging;
+`_macro`, `_micro` and `_weighted` variants (for example `f1_macro`) are also
+available.
 
 ## Regression
 
-Available evaluation metrics are:
+`mae`, `median_ae`, `mse`, `rmse`, `mape`, `r2`, `explained_variance`,
+`pearson`, `spearman`.
 
-```text
-mae
-median_ae
-mse
-rmse
-mape
-r2
-explained_variance
-pearson
-spearman
-```
+## Metrics for tuning
 
-Only requested metrics are computed. This matters for statistics such as correlations that may be undefined for constant predictions.
+Tuning accepts a subset: `accuracy`, `balanced_accuracy`, `precision`,
+`recall`, `f1`, `mcc` and `roc_auc` for classification; `mae`, `mse`, `rmse`,
+`median_ae`, `r2` and `explained_variance` for regression. Losses are reported
+with their natural sign.
 
-## Metrics used for tuning
+## Undefined metrics
 
-The canonical tuning registry currently exposes task-aware scorer specifications for:
+A fold can end up with a single class. Accuracy is still defined, but ROC-AUC
+isn't, and Saber raises an error instead of returning a misleading number.
 
-**Classification:** `accuracy`, `balanced_accuracy`, `precision`, `recall`, `f1`, `mcc`, `roc_auc`.
+## Out-of-fold predictions
 
-**Regression:** `mae`, `mse`, `rmse`, `median_ae`, `r2`, `explained_variance`.
-
-Losses keep their natural positive values in user-facing results while sklearn scorers internally negate them for maximization.
-
-## Fold-local undefined metrics
-
-A valid global binary task may have a held-out fold containing only one observed class. Prediction metrics such as accuracy remain defined, while ranking metrics such as ROC-AUC do not. When such a metric is explicitly requested, `saber` fails clearly rather than returning a misleading number.
-
-## OOF predictions
-
-For complete non-repeated CV, validation reconstructs a sample-aligned `PredictionResult` in original dataset order. OOF outputs can be used for threshold diagnostics, calibration analysis, error auditing, and downstream statistical comparisons without refitting the model.
+For complete, non-repeated cross-validation, `result.oof_prediction` is a
+`PredictionResult` in the original sample order. Use it for thresholds,
+calibration or error analysis without refitting.

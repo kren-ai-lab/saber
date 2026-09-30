@@ -1,45 +1,33 @@
 # Hyperparameter optimization
 
-`TuningEngine` uses the same dataset, partition, preprocessing, estimator factory, and metric semantics as validation.
+`saber.tune(...)` searches over the whole preprocessing + estimator pipeline,
+using the same partitions and metrics as `saber.validate(...)`. Optimizers:
+`grid`, `random`, `halving_grid`, `halving_random` and `optuna`
+(`saberlib[optuna]`).
 
-## Optimizers
-
-Supported optimizer names are:
-
-```text
-grid
-random
-halving_grid
-halving_random
-optuna
-```
-
-## Typed search spaces
+## Search spaces
 
 ```python
-from saber.core.search_space import (
-    SearchSpace,
-    Categorical,
-    Integer,
-    Float,
-    LogFloat,
-)
+from saber.core.search_space import Categorical, Integer, LogFloat, SearchSpace
 
 space = SearchSpace(
-    name="example",
+    name="forest",
     parameters={
         "n_estimators": Integer(100, 500, step=100),
         "max_features": Categorical(["sqrt", "log2", None]),
-        "learning_rate": LogFloat(1e-3, 1e-1),
     },
 )
 ```
 
-Finite lists remain valid categorical domains. Grid search requires enumerable domains; a continuous `Float` without a step is therefore rejected instead of being discretized silently. A stepped `Float` must have a range divisible by its step (`Float(0.0, 0.9, step=0.3)`, not `Float(0.0, 1.0, step=0.3)`), so grid, random and Optuna search the same lattice.
+Domains are `Categorical`, `Integer`, `Float` and `LogFloat`, and a plain list
+works as a categorical. Grid search rejects a `Float` without a `step`. A
+stepped `Float` must span a whole number of steps (`Float(0.0, 0.9, step=0.3)`,
+not `Float(0.0, 1.0, step=0.3)`).
 
-## Multi-metric tuning
+## Running a search
 
 ```python
+import saber
 from saber.tuning import TuningConfig
 
 config = TuningConfig(
@@ -49,28 +37,31 @@ config = TuningConfig(
     n_trials=50,
     random_state=42,
 )
+result = saber.tune(
+    dataset=dataset,
+    algorithm="random_forest",
+    partition_plan=plan,
+    search_space=space,
+    config=config,
+)
+print(result.best_params)
+print(result.history_frame())
 ```
 
-One metric is the explicit optimization/refit objective. Additional requested metrics are retained for the same candidate/folds.
+`refit_metric` is the objective; the other metrics are recorded for every
+candidate. For binary targets, `precision`, `recall`, `f1` and `roc_auc` are
+scored for the positive class; pass `positive_class=` to change it.
 
-For binary targets, `precision`, `recall`, `f1` and `roc_auc` are scored for the positive class, exactly as evaluation reports them: pass `positive_class=` to `saber.tune()` (or `positive_class:` in a tune/benchmark YAML), otherwise the last class in sorted order is used. Multiclass targets keep weighted averaging.
+## Protected test
 
-## Leakage safety
+With a train/validation/test holdout, the search uses train/validation, the
+best configuration is refit on train+validation, and the test set is only used
+for the final report. Ordinary cross-validation can't be used both to pick
+hyperparameters and to report unbiased performance, so tuned benchmarks require
+a protected test (or a nested design done upstream).
 
-The searched object is the complete preprocessing + estimator pipeline. Imputation/scaling are therefore fitted independently inside every training fold for every candidate.
+## Examples
 
-## Protected test semantics
-
-For train/validation/test holdouts, search uses train/validation. The selected configuration can be refit on train+validation while the final test remains untouched by selection.
-
-Ordinary CV cannot simultaneously serve as both tuning data and unbiased final performance reporting. Tuned benchmarking therefore requires a protected test or a scientifically appropriate nested design upstream.
-
-## Result inspection
-
-`OptimizationResult` exposes best parameters/scores, failures, history, the fitted model when `refit=True`, partition provenance, and a long-form `history_frame()` suitable for convergence/candidate analysis.
-
-See the executable examples:
-
-- [`examples/05_hyperparameter_optimization.py`](../examples/05_hyperparameter_optimization.py)
-- [`examples/06_optuna_optimization.py`](../examples/06_optuna_optimization.py)
-- [`examples/07_optimizer_comparison.py`](../examples/07_optimizer_comparison.py)
+- [`05_hyperparameter_optimization.py`](../examples/05_hyperparameter_optimization.py)
+- [`06_optuna_optimization.py`](../examples/06_optuna_optimization.py)
+- [`07_optimizer_comparison.py`](../examples/07_optimizer_comparison.py)

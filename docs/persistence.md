@@ -1,53 +1,51 @@
-# Persistence and reproducibility
+# Persistence
 
-Saber persists model artifacts as auditable directories with structured metadata and checksums.
+A saved model is a directory with the fitted pipeline (`model.joblib`), its
+feature schema, parameters, metrics, provenance (dataset and partition
+fingerprints, class order, positive class), environment versions and a
+SHA-256 checksum file.
 
-## Model artifacts
-
-A typical artifact contains:
-
-```text
-artifact/
-├── manifest.json
-├── model.joblib
-├── environment.json
-├── feature_schema.json
-├── provenance.json
-├── parameters.json
-├── metrics.json
-├── training_config.json
-├── partition_plan.json      # optional
-└── checksums.sha256
-```
-
-The manifest format has its own schema version, independent of the `saber` package version.
-
-## Saving
-
-Use `saber.save_model()` / `save_model_artifact()` after final fitting. Provenance can include algorithm/provider, parameters, metrics, dataset fingerprint, partition fingerprint, class order, positive class, and training configuration.
-
-## Loading and inference
+## Save
 
 ```python
-artifact = saber.load_model("artifacts/model")
+import saber
 
-prediction = artifact.predict_result(
-    X_new,
-    feature_names=feature_names,
-    sample_ids=sample_ids,
+trained = saber.train(dataset=dataset, algorithm="random_forest", random_state=42)
+saber.save_model(
+    "artifacts/model",
+    model=trained.model,
+    algorithm=trained.spec.name,
+    task=trained.spec.task,
+    dataset=dataset,
+    provider=trained.spec.provider,
+    parameters=trained.parameters,
 )
 ```
 
-The persisted `FeatureSchema` checks names and order before prediction. A DataFrame with the same columns in a different order is intentionally rejected unless it matches the original schema.
+## Load and predict
 
-## Integrity and compatibility
+```python
+artifact = saber.load_model("artifacts/model")
+prediction = artifact.predict_result(X_new, feature_names=feature_names, sample_ids=sample_ids)
+```
 
-`verify_artifact()` validates schema and SHA-256 checksums. `inspect_artifact()` can inspect the manifest without loading the model. Environment metadata records core and installed optional-provider versions; strict compatibility checking can be requested at load time.
+Loading verifies the checksums before deserializing. Prediction checks that
+the features match the saved schema, including their order. Differences in
+library versions are reported as warnings; pass `strict_environment=True` to
+make them errors.
 
-Checksums establish **integrity**, not **trust**. `joblib` uses pickle semantics, so deserialize only artifacts from trusted sources.
+`saber.inspect_artifact()` reads the manifest without loading the model, and
+`saber.verify_artifact()` checks the files and checksums. Both are also
+available as `saber artifact inspect|verify`.
 
-## Benchmark artifacts
+Checksums prove the files weren't altered, not that they're safe: joblib uses
+pickle, so load artifacts only from sources you trust.
 
-Benchmark persistence is table-first by default: runs, metrics, predictions, failures, and optimization history are written as analysis-ready files. The entire Python `BenchmarkResult` can optionally be stored, but doing so may create much larger artifacts.
+## Benchmarks
 
-See [`examples/12_model_persistence.py`](../examples/12_model_persistence.py).
+`saber.save_benchmark()` writes the benchmark tables (runs, metrics,
+predictions, failures, tuning history) as CSV files plus metadata. Saving the
+full Python `BenchmarkResult` is optional and can produce much larger
+artifacts.
+
+See [`12_model_persistence.py`](../examples/12_model_persistence.py).

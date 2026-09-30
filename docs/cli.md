@@ -1,6 +1,6 @@
 # Command-line interface
 
-The CLI uses the same configuration and execution engine as the Python API. It contains no independent estimator, splitting, preprocessing, tuning, or benchmarking logic.
+Each workflow command takes a [YAML or JSON config](configuration.md) and runs it through the same code as the Python API.
 
 ## Discover commands
 
@@ -77,4 +77,4 @@ This reports Python, saber, scikit-learn, BioSieve, XGBoost, LightGBM, and Optun
 | `3` | saber workflow/domain failure |
 | `4` | unexpected internal CLI failure |
 
-Human-readable Rich output is intended for interactive use; `--json` is the stable choice for shell automation and surrounding workflow systems.
+Use `--json` for scripts; the default human-readable output may change.
