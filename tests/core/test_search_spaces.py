@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from saber.core.registry import MODEL_REGISTRY
+from saber.core.registry import ALGORITHMS
 
 
 def test_search_space_parameters_are_valid_estimator_parameters() -> None:
     unknown = {}
-    for spec in MODEL_REGISTRY:
+    for spec in ALGORITHMS.values():
         if not spec.has_search_space():
             continue
         accepted = set(spec.build_estimator().get_params())

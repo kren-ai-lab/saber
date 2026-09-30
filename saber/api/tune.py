@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from saber.core.registry import MODEL_REGISTRY, AlgorithmRegistry
 from saber.tuning import OptimizationResult, TuningConfig, TuningEngine
 
 if TYPE_CHECKING:
@@ -30,10 +29,9 @@ def tune(
     require_complete: bool = True,
     model_params: Mapping[str, Any] | None = None,
     positive_class: Any | None = None,
-    registry: AlgorithmRegistry = MODEL_REGISTRY,
 ) -> OptimizationResult:
     """Optimize a model on explicit/BioSieve partitions."""
-    return TuningEngine(registry).run(
+    return TuningEngine().run(
         dataset=dataset,
         algorithm=algorithm,
         config=config,

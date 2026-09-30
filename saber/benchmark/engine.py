@@ -12,6 +12,7 @@ import numpy as np
 
 from saber.benchmark.results import BenchmarkResult, BenchmarkRun
 from saber.benchmark.specs import BenchmarkDataset, BenchmarkPartition
+from saber.core.registry import get_algorithm
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.exceptions import BenchmarkContractError
 from saber.tuning import TuningEngine
@@ -22,7 +23,6 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from saber.benchmark.config import BenchmarkConfig
-    from saber.core.registry import AlgorithmRegistry
     from saber.core.specs import AlgorithmSpec
     from saber.datasets.biosieve import BioSievePartitionConfig
     from saber.preprocessing import PreprocessingConfig
@@ -40,11 +40,10 @@ class BenchmarkEngine:
     preprocessing, or scoring path.
     """
 
-    def __init__(self, registry: AlgorithmRegistry) -> None:
-        """Bind the algorithm registry and construct the delegate engines."""
-        self.registry = registry
-        self.validation_engine = ValidationEngine(registry)
-        self.tuning_engine = TuningEngine(registry)
+    def __init__(self) -> None:
+        """Construct the delegate engines."""
+        self.validation_engine = ValidationEngine()
+        self.tuning_engine = TuningEngine()
 
     def run(
         self,
@@ -72,7 +71,7 @@ class BenchmarkEngine:
         if not algorithm_names and not config.include_baselines:
             raise BenchmarkContractError("At least one benchmark algorithm is required.")
 
-        task = _infer_benchmark_task(self.registry, algorithm_names)
+        task = _infer_benchmark_task(algorithm_names)
         if task is None:
             raise BenchmarkContractError("Cannot infer benchmark task from the requested algorithms.")
 
@@ -101,7 +100,7 @@ class BenchmarkEngine:
                     require_complete=config.require_complete,
                 )
                 for algorithm in algorithm_names:
-                    spec = _safe_get_spec(self.registry, algorithm)
+                    spec = _safe_get_spec(algorithm)
                     run_modes = ("baseline",) if _is_baseline(spec, algorithm) else config.modes
                     for seed in config.seeds:
                         for mode in run_modes:
@@ -222,7 +221,7 @@ class BenchmarkEngine:
 
         try:
             if algorithm_spec is None:
-                self.registry.get(algorithm)  # raises canonical registry error
+                get_algorithm(algorithm)  # raises AlgorithmNotFoundError
                 # The lookup above always raises for an unregistered algorithm, so this
                 # is unreachable; caught below like any other run failure.
                 raise AssertionError(  # noqa: TRY301
@@ -382,9 +381,9 @@ class BenchmarkEngine:
         return validation, optimization
 
 
-def benchmark_models(registry: AlgorithmRegistry, **kwargs: Any) -> BenchmarkResult:
+def benchmark_models(**kwargs: Any) -> BenchmarkResult:
     """Functional convenience wrapper around :class:`BenchmarkEngine`."""
-    return BenchmarkEngine(registry).run(**kwargs)
+    return BenchmarkEngine().run(**kwargs)
 
 
 def _normalize_datasets(
@@ -464,11 +463,11 @@ def _target_equal(left: Any, right: Any) -> bool:
     return bool(left == right)
 
 
-def _infer_benchmark_task(registry: AlgorithmRegistry, algorithms: tuple[str, ...]) -> str | None:
+def _infer_benchmark_task(algorithms: tuple[str, ...]) -> str | None:
     tasks = []
     for name in algorithms:
         try:
-            task = registry.get(name).task
+            task = get_algorithm(name).task
         except Exception:  # noqa: BLE001, S112  # unresolvable algorithms are simply excluded from task inference
             continue
         if task not in tasks:
@@ -478,9 +477,9 @@ def _infer_benchmark_task(registry: AlgorithmRegistry, algorithms: tuple[str, ..
     return tasks[0] if tasks else None
 
 
-def _safe_get_spec(registry: AlgorithmRegistry, algorithm: str) -> AlgorithmSpec | None:
+def _safe_get_spec(algorithm: str) -> AlgorithmSpec | None:
     try:
-        return registry.get(algorithm)
+        return get_algorithm(algorithm)
     except Exception:  # noqa: BLE001  # unknown/invalid algorithm names resolve to None, not a crash
         return None
 

@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from saber.api._common import prediction_from_model
-from saber.core.registry import MODEL_REGISTRY, AlgorithmRegistry
 from saber.core.results import TrainResult
 from saber.evaluation import EvaluationResult, evaluate_prediction
 from saber.persistence import LoadedModelArtifact, load_model_artifact
@@ -35,10 +34,9 @@ def validate(
     return_estimators: bool = False,
     require_complete: bool = True,
     model_params: Mapping[str, Any] | None = None,
-    registry: AlgorithmRegistry = MODEL_REGISTRY,
 ) -> ValidationResult:
     """Validate a registered model using explicit/BioSieve partitions."""
-    return ValidationEngine(registry).run(
+    return ValidationEngine().run(
         dataset=dataset,
         algorithm=algorithm,
         partition_plan=partition_plan,

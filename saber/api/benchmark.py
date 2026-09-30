@@ -11,7 +11,6 @@ from saber.benchmark import (
     BenchmarkPartition,
     BenchmarkResult,
 )
-from saber.core.registry import MODEL_REGISTRY, AlgorithmRegistry
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -37,10 +36,9 @@ def benchmark(
     model_params: Mapping[str, Mapping[str, Any]] | None = None,
     search_spaces: Mapping[str, Any] | None = None,
     positive_class: Any | None = None,
-    registry: AlgorithmRegistry = MODEL_REGISTRY,
 ) -> BenchmarkResult:
     """Execute a systematic supervised benchmark matrix."""
-    return BenchmarkEngine(registry).run(
+    return BenchmarkEngine().run(
         datasets=datasets,
         algorithms=algorithms,
         config=config,

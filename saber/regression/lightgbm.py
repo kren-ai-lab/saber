@@ -1,6 +1,6 @@
 """saber.regression.lightgbm.
 
-LightGBM regression models and registry wiring.
+LightGBM regression model specs.
 """
 
 from __future__ import annotations
@@ -11,15 +11,12 @@ from saber.core.capabilities import (
     EstimatorRequirements,
     infer_estimator_capabilities,
 )
-from saber.core.registry import MODEL_REGISTRY
 from saber.core.specs import AlgorithmSpec
 from saber.regression import search_spaces
 
-_ALIASES: dict[str, tuple[str, ...]] = {"lgbm_regressor": ("lightgbm_regressor",)}
 
-
-def register_lightgbm_regression_models() -> None:
-    """Register all LightGBM regression models."""
+def _build_specs() -> tuple[AlgorithmSpec, ...]:
+    """Build all LightGBM regression models."""
     models = [
         (
             "lgbm_regressor",
@@ -42,7 +39,6 @@ def register_lightgbm_regression_models() -> None:
             task="regression",
             name=name,
             estimator_cls=model_rgx,
-            aliases=_ALIASES.get(name, ()),
             tags=tags,
             capabilities=infer_estimator_capabilities(
                 model_rgx,
@@ -55,9 +51,7 @@ def register_lightgbm_regression_models() -> None:
 
         specs.append(spec)
 
-    MODEL_REGISTRY.register_many(
-        specs,
-    )
+    return tuple(specs)
 
 
-register_lightgbm_regression_models()
+SPECS: tuple[AlgorithmSpec, ...] = _build_specs()

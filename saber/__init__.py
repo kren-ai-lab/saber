@@ -1,8 +1,5 @@
 """saber — classical supervised machine learning infrastructure."""
 
-# Force core algorithm registration. Optional providers register lazily when available.
-import saber.classification
-import saber.regression  # noqa: F401  # side-effect import registers regression models
 from saber._version import __version__
 from saber.api import (
     benchmark,
@@ -20,14 +17,15 @@ from saber.api import (
     verify_artifact,
 )
 from saber.config import dump_config, load_config, run_config
-from saber.core.registry import MODEL_REGISTRY
+from saber.core.registry import ALGORITHMS, get_algorithm
 
 __all__ = [
-    "MODEL_REGISTRY",
+    "ALGORITHMS",
     "__version__",
     "benchmark",
     "dump_config",
     "evaluate",
+    "get_algorithm",
     "inspect_artifact",
     "load_benchmark",
     "load_config",

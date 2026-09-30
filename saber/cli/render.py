@@ -138,10 +138,7 @@ def render_model(console: Console, metadata: Mapping[str, Any]) -> None:
     for key in ("task", "estimator", "description"):
         if metadata.get(key) is not None:
             basics.add_row(key.replace("_", " ").title(), str(metadata[key]))
-    aliases = metadata.get("aliases") or ()
     tags = metadata.get("tags") or ()
-    if aliases:
-        basics.add_row("Aliases", ", ".join(str(value) for value in aliases))
     if tags:
         basics.add_row("Tags", ", ".join(str(value) for value in tags))
     console.print(Panel(basics, title=title, border_style="cyan"))

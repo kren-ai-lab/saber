@@ -45,19 +45,8 @@ from saber.core.capabilities import (
     EstimatorRequirements,
     infer_estimator_capabilities,
 )
-from saber.core.registry import MODEL_REGISTRY
 from saber.core.specs import AlgorithmSpec
 from saber.regression import search_spaces
-
-_ALIASES: dict[str, tuple[str, ...]] = {
-    "dummy_regressor": ("regression_baseline",),
-    "linear_regression": ("ols",),
-    "ridge_regressor": ("ridge",),
-    "random_forest_regressor": ("rf_regressor",),
-    "knn_regressor": ("knn_regression",),
-    "svr": ("svm_regressor",),
-    "decision_tree_regressor": ("decision_tree_regression",),
-}
 
 _DEFAULT_PARAMS: dict[str, dict[str, object]] = {
     "dummy_regressor": {"strategy": "mean"},
@@ -89,8 +78,8 @@ def _requirements_for(name: str) -> EstimatorRequirements:
     )
 
 
-def register_sklearn_regression_models() -> None:
-    """Register all scikit-learn regression models."""
+def _build_specs() -> tuple[AlgorithmSpec, ...]:
+    """Build all scikit-learn regression models."""
     models = [
         (
             "dummy_regressor",
@@ -263,7 +252,6 @@ def register_sklearn_regression_models() -> None:
             task="regression",
             name=name,
             estimator_cls=model_rgx,
-            aliases=_ALIASES.get(name, ()),
             default_params=_DEFAULT_PARAMS.get(name, {}),
             tags=tags,
             capabilities=capabilities,
@@ -274,9 +262,7 @@ def register_sklearn_regression_models() -> None:
 
         specs.append(spec)
 
-    MODEL_REGISTRY.register_many(
-        specs,
-    )
+    return tuple(specs)
 
 
-register_sklearn_regression_models()
+SPECS: tuple[AlgorithmSpec, ...] = _build_specs()

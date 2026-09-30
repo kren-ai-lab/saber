@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from saber import MODEL_REGISTRY
+from saber import get_algorithm
 from saber.datasets import DatasetBundle
 from saber.exceptions import PreprocessingContractError
 from saber.preprocessing import PreprocessingConfig, build_model_pipeline
@@ -19,7 +19,7 @@ def _dataset(X):
 
 def test_auto_preprocessing_uses_standard_scaling_when_recommended():
     dataset = _dataset([[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6]])
-    spec = MODEL_REGISTRY.get("logistic_regression")
+    spec = get_algorithm("logistic_regression")
     pipeline = build_model_pipeline(
         spec=spec,
         estimator=spec.build_estimator(random_state=7),
@@ -32,7 +32,7 @@ def test_auto_preprocessing_uses_standard_scaling_when_recommended():
 
 def test_auto_preprocessing_uses_minmax_for_non_negative_estimators():
     dataset = _dataset([[-5, 1], [-4, 2], [-3, 3], [-2, 4], [-1, 5], [0, 6]])
-    spec = MODEL_REGISTRY.get("multinomial_nb")
+    spec = get_algorithm("multinomial_nb")
     pipeline = build_model_pipeline(
         spec=spec,
         estimator=spec.build_estimator(),
@@ -44,7 +44,7 @@ def test_auto_preprocessing_uses_minmax_for_non_negative_estimators():
 
 def test_missing_values_require_imputation_for_non_native_estimators():
     dataset = _dataset([[np.nan, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6]])
-    spec = MODEL_REGISTRY.get("logistic_regression")
+    spec = get_algorithm("logistic_regression")
     with pytest.raises(PreprocessingContractError, match="missing"):
         build_model_pipeline(
             spec=spec,
@@ -56,7 +56,7 @@ def test_missing_values_require_imputation_for_non_native_estimators():
 
 def test_minmax_scaling_clips_held_out_values_for_non_negative_estimators():
     train = _dataset([[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6]])
-    spec = MODEL_REGISTRY.get("multinomial_nb")
+    spec = get_algorithm("multinomial_nb")
     pipeline = build_model_pipeline(
         spec=spec,
         estimator=spec.build_estimator(),

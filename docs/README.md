@@ -30,13 +30,13 @@ help(saber.validate)
 help(DatasetBundle)
 ```
 
-To find an algorithm, query the model registry, or run `saber models list`:
+To find an algorithm, browse the algorithm catalog, or run `saber models list`:
 
 ```python
-from saber import MODEL_REGISTRY
+from saber import ALGORITHMS, get_algorithm
 
-MODEL_REGISTRY.filter(task="classification", provider="sklearn")
-MODEL_REGISTRY.describe("random_forest")
+[s.name for s in ALGORITHMS.values() if s.task == "classification" and s.provider == "sklearn"]
+get_algorithm("random_forest").metadata()
 ```
 
 Modules and names that start with `_` are internal.

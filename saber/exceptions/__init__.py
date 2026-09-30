@@ -1,7 +1,6 @@
 """Saber exception hierarchy."""
 
 from saber.exceptions.base import (
-    AlgorithmAlreadyRegisteredError,
     AlgorithmNotFoundError,
     ArtifactCompatibilityError,
     ArtifactIntegrityError,
@@ -31,7 +30,6 @@ from saber.exceptions.base import (
 )
 
 __all__ = [
-    "AlgorithmAlreadyRegisteredError",
     "AlgorithmNotFoundError",
     "ArtifactCompatibilityError",
     "ArtifactIntegrityError",

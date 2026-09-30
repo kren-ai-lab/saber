@@ -28,7 +28,6 @@ class AlgorithmSpec:
     estimator_cls: type | None = None
     estimator_factory: EstimatorFactory | None = None
 
-    aliases: tuple[str, ...] = field(default_factory=tuple)
     default_params: dict[str, Any] = field(default_factory=dict)
     search_space: SearchSpace | None = None
     tags: tuple[str, ...] = field(default_factory=tuple)
@@ -75,10 +74,6 @@ class AlgorithmSpec:
 
         if self.description is None and estimator_cls is not None:
             object.__setattr__(self, "description", _description_from_estimator(estimator_cls))
-
-    def matches_name(self, query: str) -> bool:
-        """Return whether a query matches this algorithm's name or an alias."""
-        return query == self.name or query in self.aliases
 
     def has_tag(self, tag: str) -> bool:
         """Return whether this algorithm is tagged with the given tag."""
@@ -135,7 +130,6 @@ class AlgorithmSpec:
             "task": self.task,
             "provider": self.provider,
             "estimator": estimator_name,
-            "aliases": self.aliases,
             "tags": self.tags,
             "description": self.description,
             "supports_cv": self.supports_cv,

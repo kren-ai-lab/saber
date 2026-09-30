@@ -1,6 +1,6 @@
 """saber.classification.sklearn.
 
-Scikit-learn classification models and registry wiring.
+Scikit-learn classification model specs.
 """
 
 from __future__ import annotations
@@ -51,18 +51,7 @@ from saber.core.capabilities import (
     EstimatorRequirements,
     infer_estimator_capabilities,
 )
-from saber.core.registry import MODEL_REGISTRY
 from saber.core.specs import AlgorithmSpec
-
-_ALIASES: dict[str, tuple[str, ...]] = {
-    "dummy_classifier": ("classification_baseline",),
-    "logistic_regression": ("logreg", "lr_classifier"),
-    "random_forest": ("rf_classifier", "rf_clf"),
-    "extra_trees": ("extra_trees_classifier",),
-    "svc": ("svm_classifier",),
-    "knn": ("knn_classifier",),
-    "decision_tree": ("decision_tree_classifier",),
-}
 
 _DEFAULT_PARAMS: dict[str, dict[str, object]] = {
     "dummy_classifier": {"strategy": "prior"},
@@ -96,12 +85,12 @@ def _requirements_for(name: str) -> EstimatorRequirements:
 
 
 # ============================================================
-# Registration
+# Specs
 # ============================================================
 
 
-def register_sklearn_classification_models() -> None:
-    """Register all scikit-learn classification models."""
+def _build_specs() -> tuple[AlgorithmSpec, ...]:
+    """Build all scikit-learn classification models."""
     models = [
         ("dummy_classifier", DummyClassifier, ("classification", "baseline", "dummy"), None),
         (
@@ -229,7 +218,6 @@ def register_sklearn_classification_models() -> None:
             task="classification",
             name=name,
             tags=tags,
-            aliases=_ALIASES.get(name, ()),
             default_params=_DEFAULT_PARAMS.get(name, {}),
             estimator_cls=model_cls,
             capabilities=capabilities,
@@ -240,11 +228,11 @@ def register_sklearn_classification_models() -> None:
 
         specs.append(spec)
 
-    MODEL_REGISTRY.register_many(specs)
+    return tuple(specs)
 
 
 # ============================================================
-# Auto-registration
+# Catalog
 # ============================================================
 
-register_sklearn_classification_models()
+SPECS: tuple[AlgorithmSpec, ...] = _build_specs()

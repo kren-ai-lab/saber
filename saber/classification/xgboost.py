@@ -1,6 +1,6 @@
 """saber.classification.xgboost_models.
 
-XGBoost classification models and registry wiring.
+XGBoost classification model specs.
 """
 
 from __future__ import annotations
@@ -15,22 +15,15 @@ from saber.core.capabilities import (
     EstimatorRequirements,
     infer_estimator_capabilities,
 )
-from saber.core.registry import MODEL_REGISTRY
 from saber.core.specs import AlgorithmSpec
 
-_ALIASES: dict[str, tuple[str, ...]] = {
-    "xgb_classifier": ("xgboost_classifier",),
-    "xgb_rf_classifier": ("xgboost_rf_classifier",),
-}
-
-
 # ============================================================
-# Registration
+# Specs
 # ============================================================
 
 
-def register_xgboost_classification_models() -> None:
-    """Register all XGBoost classification models."""
+def _build_specs() -> tuple[AlgorithmSpec, ...]:
+    """Build all XGBoost classification models."""
     models = [
         (
             "xgb_classifier",
@@ -54,7 +47,6 @@ def register_xgboost_classification_models() -> None:
             task="classification",
             name=name,
             estimator_cls=model_cls,
-            aliases=_ALIASES.get(name, ()),
             tags=tags,
             capabilities=infer_estimator_capabilities(
                 model_cls,
@@ -67,11 +59,11 @@ def register_xgboost_classification_models() -> None:
 
         specs.append(spec)
 
-    MODEL_REGISTRY.register_many(specs)
+    return tuple(specs)
 
 
 # ============================================================
-# Auto-registration
+# Catalog
 # ============================================================
 
-register_xgboost_classification_models()
+SPECS: tuple[AlgorithmSpec, ...] = _build_specs()

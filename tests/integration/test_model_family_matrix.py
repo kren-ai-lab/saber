@@ -12,7 +12,7 @@ from saber.preprocessing import PreprocessingConfig
 
 # These need purpose-built data and have their own tests below.
 SPECIAL_DATA = {"categorical_nb", "gamma_regression"}
-SPECS = [spec for spec in saber.MODEL_REGISTRY if spec.name not in SPECIAL_DATA]
+SPECS = [spec for spec in saber.ALGORITHMS.values() if spec.name not in SPECIAL_DATA]
 # Keep the matrix fast; everything else runs with registry defaults.
 FAST_PARAMS = {
     "gaussian_process": {"max_iter_predict": 30},

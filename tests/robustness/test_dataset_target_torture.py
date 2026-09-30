@@ -5,7 +5,6 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification, make_regression
 
-from saber import MODEL_REGISTRY
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.exceptions import DatasetValidationError, PreprocessingContractError
 from saber.preprocessing import PreprocessingConfig
@@ -53,7 +52,7 @@ def test_negative_features_without_nonnegative_transform_fail_for_multinomial_nb
     dataset = DatasetBundle(X=X, y=[0, 1, 0, 1, 0, 1], sample_ids=list("abcdef"))
     plan = PartitionPlan.holdout(train_ids=list("abcd"), test_ids=list("ef"))
     with pytest.raises(PreprocessingContractError, match="non-negative"):
-        ValidationEngine(MODEL_REGISTRY).run(
+        ValidationEngine().run(
             dataset=dataset,
             algorithm="multinomial_nb",
             partition_plan=plan,
@@ -69,7 +68,7 @@ def test_gamma_regression_rejects_nonpositive_training_targets_early():
     assert dataset.sample_ids is not None
     plan = PartitionPlan.holdout(train_ids=dataset.sample_ids[:20], test_ids=dataset.sample_ids[20:])
     with pytest.raises(PreprocessingContractError, match="positive target"):
-        ValidationEngine(MODEL_REGISTRY).run(
+        ValidationEngine().run(
             dataset=dataset,
             algorithm="gamma_regression",
             partition_plan=plan,

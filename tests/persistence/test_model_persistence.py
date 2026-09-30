@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification
 
-from saber import MODEL_REGISTRY
+from saber import get_algorithm
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.exceptions import (
     ArtifactIntegrityError,
@@ -55,7 +55,7 @@ def _fitted_fixture():
         test_ids=dataset.sample_ids[50:],
         dataset_fingerprint=dataset.fingerprint,
     )
-    spec = MODEL_REGISTRY.get("logistic_regression")
+    spec = get_algorithm("logistic_regression")
     estimator = spec.build_estimator(random_state=42)
     pipeline = build_model_pipeline(
         spec=spec,

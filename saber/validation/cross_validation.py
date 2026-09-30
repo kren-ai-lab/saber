@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from saber.core.prediction import PredictionResult
+from saber.core.registry import get_algorithm
 from saber.evaluation import evaluate_prediction
 from saber.exceptions import DatasetValidationError, ValidationContractError
 from saber.preprocessing import PreprocessingConfig, build_model_pipeline, pipeline_input
@@ -25,7 +26,6 @@ from saber.validation.results import (
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
-    from saber.core.registry import AlgorithmRegistry
     from saber.core.task import TaskType
     from saber.datasets import DatasetBundle, PartitionPlan
     from saber.datasets.biosieve import BioSievePartitionConfig
@@ -33,10 +33,6 @@ if TYPE_CHECKING:
 
 class ValidationEngine:
     """Execute explicit partition plans with fold-local preprocessing."""
-
-    def __init__(self, registry: AlgorithmRegistry) -> None:
-        """Store the algorithm registry used to resolve validation specs."""
-        self.registry = registry
 
     def run(
         self,
@@ -56,7 +52,7 @@ class ValidationEngine:
         **model_params: Any,
     ) -> ValidationResult:
         """Validate one registered algorithm over an explicit/generated plan."""
-        spec = self.registry.get(algorithm)
+        spec = get_algorithm(algorithm)
         dataset.validate(task=spec.task)
 
         plan = resolve_partition_plan(
@@ -172,12 +168,9 @@ class ValidationEngine:
         )
 
 
-def validate_model(
-    registry: AlgorithmRegistry,
-    **kwargs: Any,
-) -> ValidationResult:
+def validate_model(**kwargs: Any) -> ValidationResult:
     """Functional convenience wrapper around :class:`ValidationEngine`."""
-    return ValidationEngine(registry).run(**kwargs)
+    return ValidationEngine().run(**kwargs)
 
 
 def _prediction_from_pipeline(

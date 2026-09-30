@@ -10,6 +10,7 @@ import numpy as np
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, cross_validate
 
 from saber.core.metrics import resolve_positive_class
+from saber.core.registry import get_algorithm
 from saber.exceptions import (
     DatasetValidationError,
     NonFiniteScoreError,
@@ -28,7 +29,6 @@ from saber.validation.partitioning import (
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
-    from saber.core.registry import AlgorithmRegistry
     from saber.core.search_space import SearchSpace
     from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
 
@@ -84,10 +84,6 @@ class TuningEngine:
     fallback splitters here: unpartitioned data are delegated to BioSieve.
     """
 
-    def __init__(self, registry: AlgorithmRegistry) -> None:
-        """Bind the algorithm registry used to resolve tuning targets."""
-        self.registry = registry
-
     def run(
         self,
         *,
@@ -109,7 +105,7 @@ class TuningEngine:
         Binary positive-class metrics (precision, recall, F1, ROC AUC) are scored
         for ``positive_class``, defaulting to the last sorted class as evaluation does.
         """
-        spec = self.registry.get(algorithm)
+        spec = get_algorithm(algorithm)
         dataset.validate(task=spec.task)
 
         plan = resolve_partition_plan(
@@ -555,9 +551,9 @@ class TuningEngine:
         )
 
 
-def tune_model(registry: AlgorithmRegistry, **kwargs: Any) -> OptimizationResult:
+def tune_model(**kwargs: Any) -> OptimizationResult:
     """Functional convenience wrapper around :class:`TuningEngine`."""
-    return TuningEngine(registry).run(**kwargs)
+    return TuningEngine().run(**kwargs)
 
 
 def _fit_params(dataset: DatasetBundle, spec: Any) -> dict[str, Any]:

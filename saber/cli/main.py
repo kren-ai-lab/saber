@@ -24,7 +24,7 @@ from saber.cli.render import (
     render_preflight,
 )
 from saber.config import dump_config, load_config, run_config
-from saber.core.registry import MODEL_REGISTRY
+from saber.core.registry import ALGORITHMS, get_algorithm
 from saber.exceptions import ConfigurationError, SaberError
 from saber.persistence import inspect_artifact, verify_artifact
 from saber.utils.serialization import to_jsonable
@@ -148,18 +148,18 @@ def models_list(
     _print_model_rows(Console(), _filtered_specs(task, provider, tag), json_output=json_output)
 
 
-@models_app.command("show", help="Show detailed metadata for one algorithm or alias.")
+@models_app.command("show", help="Show detailed metadata for one algorithm.")
 def models_show(name: str, json_output: JsonOpt = False) -> None:
-    """Show metadata for one registered model, by name or alias."""
+    """Show metadata for one registered model."""
     console = Console()
-    metadata = MODEL_REGISTRY.describe(name)
+    metadata = get_algorithm(name).metadata()
     if json_output:
         _print_json(console, metadata)
     else:
         render_model(console, metadata)
 
 
-@models_app.command("search", help="Search names, aliases, tags, and descriptions.")
+@models_app.command("search", help="Search names, tags, and descriptions.")
 def models_search(
     query: str,
     task: TaskOpt = None,
@@ -167,12 +167,12 @@ def models_search(
     tag: TagOpt = None,
     json_output: JsonOpt = False,
 ) -> None:
-    """Search registered models by name, alias, tag, or description."""
+    """Search registered models by name, tag, or description."""
     needle = query.strip().lower()
     specs = [
         spec
         for spec in _filtered_specs(task, provider, tag)
-        if needle in " ".join([spec.name, *spec.aliases, *spec.tags, spec.description or ""]).lower()
+        if needle in " ".join([spec.name, *spec.tags, spec.description or ""]).lower()
     ]
     _print_model_rows(Console(), specs, json_output=json_output)
 
@@ -311,9 +311,13 @@ def _workflow_command(
 
 
 def _filtered_specs(task: TaskChoice | None, provider: str | None, tag: str | None) -> list[AlgorithmSpec]:
-    return MODEL_REGISTRY.filter(
-        task=task.value if task else None, provider=provider, tags=[tag] if tag else None
-    )
+    return [
+        spec
+        for spec in ALGORITHMS.values()
+        if (task is None or spec.task == task.value)
+        and (provider is None or spec.provider == provider)
+        and (tag is None or tag in spec.tags)
+    ]
 
 
 def _print_model_rows(console: Console, specs: list[AlgorithmSpec], *, json_output: bool) -> None:
@@ -354,7 +358,6 @@ def _model_row(spec: Any) -> dict[str, Any]:
         "name": spec.name,
         "task": spec.task,
         "provider": spec.provider,
-        "aliases": list(spec.aliases),
         "tags": list(spec.tags),
         "capabilities": spec.capabilities.to_dict(),
         "requirements": spec.requirements.to_dict(),

@@ -7,7 +7,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler
 
-from saber import MODEL_REGISTRY
+from saber import get_algorithm
 from saber.datasets import DatasetBundle
 from saber.preprocessing import PreprocessingConfig, build_model_pipeline, pipeline_input
 
@@ -32,7 +32,7 @@ def _named_frame():
 @pytest.fixture
 def default_pipeline():
     dataset = _dataset([[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6]])
-    spec = MODEL_REGISTRY.get("logistic_regression")
+    spec = get_algorithm("logistic_regression")
     return build_model_pipeline(
         spec=spec,
         estimator=spec.build_estimator(random_state=7),
@@ -47,7 +47,7 @@ def custom_transformer_pipeline():
     dataset = DatasetBundle(
         X=frame, y=np.array([0, 1, 0, 1, 0, 1], dtype=int), sample_ids=[f"s{i}" for i in range(6)]
     )
-    spec = MODEL_REGISTRY.get("logistic_regression")
+    spec = get_algorithm("logistic_regression")
     transformer = ColumnTransformer([("scale", StandardScaler(), ["a"])], remainder="passthrough")
     return build_model_pipeline(
         spec=spec,
@@ -89,7 +89,7 @@ class _InputTypeSpy(BaseEstimator, ClassifierMixin):
 def test_estimator_receives_numpy_when_custom_transformer_outputs_a_frame():
     frame = _named_frame()
     dataset = DatasetBundle(X=frame, y=np.array([0, 1, 0, 1, 0, 1]), sample_ids=[f"s{i}" for i in range(6)])
-    spec = MODEL_REGISTRY.get("logistic_regression")
+    spec = get_algorithm("logistic_regression")
     pipeline = build_model_pipeline(
         spec=spec,
         estimator=_InputTypeSpy(),

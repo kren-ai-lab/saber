@@ -9,7 +9,6 @@ from sklearn.datasets import make_classification
 from sklearn.experimental import enable_halving_search_cv  # noqa: F401  # exposes the halving classes
 
 import saber.tuning.engine as tuning_engine_module
-from saber import MODEL_REGISTRY
 from saber.core.search_space import Categorical, Float, SearchSpace
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.exceptions import (
@@ -68,7 +67,7 @@ def test_all_sklearn_tuning_backends_respect_explicit_cv(optimizer, monkeypatch)
     )
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        result = TuningEngine(MODEL_REGISTRY).run(
+        result = TuningEngine().run(
             dataset=dataset,
             algorithm="logistic_regression",
             config=config,
@@ -87,7 +86,7 @@ def test_all_sklearn_tuning_backends_respect_explicit_cv(optimizer, monkeypatch)
 def test_tuning_rejects_regression_metric_for_classifier():
     dataset = _classification()
     with pytest.raises(MetricTaskMismatchError):
-        TuningEngine(MODEL_REGISTRY).run(
+        TuningEngine().run(
             dataset=dataset,
             algorithm="logistic_regression",
             config=TuningConfig(optimizer="grid", metrics=("rmse",), refit_metric="rmse"),
@@ -102,7 +101,7 @@ def test_tuning_rejects_binary_roc_auc_for_multiclass_problem():
     )
     dataset = DatasetBundle(X=X, y=y, sample_ids=[f"s{i}" for i in range(75)])
     with pytest.raises(MetricProblemTypeError):
-        TuningEngine(MODEL_REGISTRY).run(
+        TuningEngine().run(
             dataset=dataset,
             algorithm="logistic_regression",
             config=TuningConfig(optimizer="grid", metrics=("roc_auc",), refit_metric="roc_auc"),
@@ -114,7 +113,7 @@ def test_tuning_rejects_binary_roc_auc_for_multiclass_problem():
 def test_grid_rejects_unbounded_continuous_domain_that_cannot_be_enumerated():
     dataset = _classification()
     with pytest.raises(ValidationContractError):
-        TuningEngine(MODEL_REGISTRY).run(
+        TuningEngine().run(
             dataset=dataset,
             algorithm="logistic_regression",
             config=TuningConfig(optimizer="grid", metrics=("accuracy",), refit_metric="accuracy"),
@@ -126,7 +125,7 @@ def test_grid_rejects_unbounded_continuous_domain_that_cannot_be_enumerated():
 def test_all_invalid_grid_candidates_raise_nonfinite_score_error():
     dataset = _classification()
     with pytest.raises(OptimizationError, match="All candidate fits failed"):
-        TuningEngine(MODEL_REGISTRY).run(
+        TuningEngine().run(
             dataset=dataset,
             algorithm="logistic_regression",
             config=TuningConfig(
@@ -149,7 +148,7 @@ def test_tuning_rejects_any_explicit_training_fold_with_single_class_before_sear
         dataset_fingerprint=dataset.fingerprint,
     )
     with pytest.raises(ValidationContractError, match="at least two target classes"):
-        TuningEngine(MODEL_REGISTRY).run(
+        TuningEngine().run(
             dataset=dataset,
             algorithm="logistic_regression",
             config=TuningConfig(optimizer="grid", metrics=("accuracy",), refit_metric="accuracy"),

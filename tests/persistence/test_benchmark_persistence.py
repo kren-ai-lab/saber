@@ -6,7 +6,6 @@ import polars as pl
 from polars.testing import assert_frame_equal
 from sklearn.datasets import make_classification
 
-from saber import MODEL_REGISTRY
 from saber.benchmark import BenchmarkConfig, BenchmarkEngine
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.persistence import load_benchmark_artifact, save_benchmark_artifact, verify_artifact
@@ -30,7 +29,7 @@ def _benchmark_result():
         test_ids=dataset.sample_ids[35:],
         dataset_fingerprint=dataset.fingerprint,
     )
-    return BenchmarkEngine(MODEL_REGISTRY).run(
+    return BenchmarkEngine().run(
         datasets={"representation_a": dataset},
         algorithms=("logistic_regression",),
         partitions={"holdout": plan},

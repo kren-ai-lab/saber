@@ -16,7 +16,6 @@ def test_algorithm_spec_builds_factory_and_metadata() -> None:
         task="classification",
         name="logistic_regression",
         estimator_cls=LogisticRegression,
-        aliases=("logreg",),
         tags=("classification", "linear"),
         default_params={"max_iter": 250},
         search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
@@ -30,7 +29,6 @@ def test_algorithm_spec_builds_factory_and_metadata() -> None:
     assert estimator.C == 2.0
     assert estimator.max_iter == 250
     assert estimator.random_state == 17
-    assert spec.matches_name("logreg")
     assert spec.has_tag("linear")
     assert spec.has_estimator_factory()
     assert spec.get_search_space() is spec.search_space

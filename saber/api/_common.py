@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from saber.core.prediction import PredictionResult
-from saber.core.registry import MODEL_REGISTRY, AlgorithmRegistry
+from saber.core.registry import get_algorithm
 from saber.core.results import TrainResult
 from saber.exceptions import ValidationContractError
 from saber.preprocessing import PreprocessingConfig, build_model_pipeline, pipeline_input
@@ -22,13 +22,12 @@ def fit_dataset(
     *,
     dataset: DatasetBundle,
     algorithm: str,
-    registry: AlgorithmRegistry = MODEL_REGISTRY,
     preprocessing: PreprocessingConfig | Any | None = None,
     random_state: int | None = None,
     model_params: Mapping[str, Any] | None = None,
 ) -> TrainResult:
     """Fit one final model on all supplied prepared samples."""
-    spec = registry.get(algorithm)
+    spec = get_algorithm(algorithm)
     dataset.validate(task=spec.task)
 
     estimator = spec.build_estimator(
