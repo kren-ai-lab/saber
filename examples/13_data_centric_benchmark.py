@@ -49,11 +49,7 @@ def _():
         return folds
 
     from sklearn.datasets import make_classification
-    from saber import benchmark
-    from saber.benchmark import BenchmarkConfig
-    from saber.core import SearchSpace, Categorical
-    from saber.datasets import DatasetBundle, PartitionPlan
-    from saber.tuning import TuningConfig
+    from saber import benchmark, BenchmarkConfig, SearchSpace, Categorical, DatasetBundle, PartitionPlan, TuningConfig
 
     return (
         BenchmarkConfig,

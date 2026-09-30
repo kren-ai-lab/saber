@@ -51,8 +51,7 @@ def _():
     from pathlib import Path
     import tempfile
     from sklearn.datasets import make_classification
-    from saber import train, load_model, inspect_artifact, verify_artifact, evaluate
-    from saber.datasets import DatasetBundle
+    from saber import train, load_model, inspect_artifact, evaluate, DatasetBundle
 
     return (
         DEMO_TEST,
@@ -67,7 +66,6 @@ def _():
         plt,
         tempfile,
         train,
-        verify_artifact,
     )
 
 
@@ -84,7 +82,6 @@ def _(
     pl,
     tempfile,
     train,
-    verify_artifact,
 ):
     X,y=make_classification(n_samples=140 if DEMO_TEST else 280,n_features=12,n_informative=8,class_sep=1.1,random_state=101)
     ids=[f"persist_{i:04d}" for i in range(len(y))]
@@ -93,7 +90,7 @@ def _(
     artifact_path=Path(tmp)/"model_artifact"
     trained=train(dataset=dataset,algorithm="logistic_regression",random_state=42,artifact_path=artifact_path)
     before=trained.model.predict(dataset.X)
-    verified=verify_artifact(artifact_path)
+    verified=inspect_artifact(artifact_path)
     manifest=inspect_artifact(artifact_path)
     loaded=load_model(artifact_path)
     pred=loaded.predict_result(dataset.X,feature_names=dataset.feature_names,sample_ids=dataset.sample_ids)

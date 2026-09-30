@@ -49,10 +49,7 @@ def _():
         return folds
 
     from sklearn.datasets import make_classification
-    from saber import tune
-    from saber.core import SearchSpace, LogFloat, Categorical
-    from saber.datasets import DatasetBundle, PartitionPlan
-    from saber.tuning import TuningConfig
+    from saber import tune, SearchSpace, LogFloat, Categorical, DatasetBundle, PartitionPlan, TuningConfig
 
     return (
         Categorical,

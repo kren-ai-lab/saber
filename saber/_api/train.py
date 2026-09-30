@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from saber.api._common import fit_dataset
+from saber._api._common import fit_dataset
 from saber.persistence import save_model
-from saber.preprocessing import PreprocessingConfig
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -14,13 +13,14 @@ if TYPE_CHECKING:
 
     from saber.core.results import TrainResult
     from saber.datasets import DatasetBundle, PartitionPlan
+    from saber.preprocessing import PreprocessingConfig
 
 
 def train(
     *,
     dataset: DatasetBundle,
     algorithm: str,
-    preprocessing: PreprocessingConfig | Any | None = None,
+    preprocessing: PreprocessingConfig | None = None,
     random_state: int | None = None,
     model_params: Mapping[str, Any] | None = None,
     artifact_path: str | Path | None = None,
@@ -66,18 +66,16 @@ def train(
     return result
 
 
-def _preprocessing_metadata(preprocessing: PreprocessingConfig | Any | None) -> dict[str, Any]:
+def _preprocessing_metadata(preprocessing: PreprocessingConfig | None) -> dict[str, Any]:
     if preprocessing is None:
         return {"imputation": "auto", "scaler": "auto"}
-    if isinstance(preprocessing, PreprocessingConfig):
-        if preprocessing.transformer is not None:
-            return {"custom_transformer": type(preprocessing.transformer).__name__}
-        return {
-            "imputation": preprocessing.imputation,
-            "scaler": preprocessing.scaler,
-            "fill_value": preprocessing.fill_value,
-        }
-    return {"custom_transformer": type(preprocessing).__name__}
+    if preprocessing.transformer is not None:
+        return {"custom_transformer": type(preprocessing.transformer).__name__}
+    return {
+        "imputation": preprocessing.imputation,
+        "scaler": preprocessing.scaler,
+        "fill_value": preprocessing.fill_value,
+    }
 
 
 __all__ = ["train"]

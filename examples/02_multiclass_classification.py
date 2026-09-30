@@ -50,8 +50,7 @@ def _():
 
     from sklearn.datasets import make_classification
     from sklearn.metrics import ConfusionMatrixDisplay, classification_report
-    from saber import validate
-    from saber.datasets import DatasetBundle, PartitionPlan
+    from saber import validate, DatasetBundle, PartitionPlan
 
     return (
         ConfusionMatrixDisplay,

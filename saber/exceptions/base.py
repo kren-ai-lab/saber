@@ -12,11 +12,7 @@ class SaberError(Exception):
     """Base exception for saber."""
 
 
-class RegistryError(SaberError):
-    """Base registry exception."""
-
-
-class AlgorithmNotFoundError(RegistryError):
+class AlgorithmNotFoundError(SaberError):
     """Raised when an algorithm cannot be found."""
 
     def __init__(
@@ -43,35 +39,8 @@ class MetricNotFoundError(MetricError):
         super().__init__(f"Metric '{name}' was not found in the metric registry.")
 
 
-class MetricTaskMismatchError(MetricError):
-    """Raised when a metric is used with the wrong supervised task."""
-
-    def __init__(
-        self,
-        *,
-        metric: str,
-        metric_task: str,
-        requested_task: str,
-    ) -> None:
-        """Initialize the error with the mismatched metric and task names."""
-        super().__init__(f"Metric '{metric}' supports task '{metric_task}', not '{requested_task}'.")
-
-
-class MetricProblemTypeError(MetricError):
-    """Raised when a metric does not support the requested class regime."""
-
-    def __init__(
-        self,
-        *,
-        metric: str,
-        problem_type: str,
-        supported: tuple[str, ...],
-    ) -> None:
-        """Initialize the error with the unsupported metric and problem type."""
-        supported_text = ", ".join(supported)
-        super().__init__(
-            f"Metric '{metric}' does not support problem type '{problem_type}'. Supported: {supported_text}."
-        )
+class MetricIncompatibleError(MetricError):
+    """Raised when a metric does not support the requested task or problem type."""
 
 
 class PredictionContractError(SaberError, ValueError):

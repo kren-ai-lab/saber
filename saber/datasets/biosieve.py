@@ -73,6 +73,11 @@ _KFOLD_STRATEGIES = {
 }
 
 
+_ID_COL = "__saber_sample_id__"
+_LABEL_COL = "__saber_target__"
+_GROUP_COL = "__saber_group__"
+
+
 @dataclass(frozen=True, slots=True)
 class BioSievePartitionConfig:
     """Configuration for BioSieve-backed partition generation.
@@ -84,9 +89,6 @@ class BioSievePartitionConfig:
 
     strategy: str
     params: Mapping[str, Any] = field(default_factory=dict)
-    id_col: str = "__saber_sample_id__"
-    label_col: str = "__saber_target__"
-    group_col: str = "__saber_group__"
     seq_col: str = "sequence"
     cluster_col: str | None = None
     date_col: str | None = None
@@ -134,7 +136,6 @@ def partition_with_biosieve(
 
     frame = _dataset_to_polars(
         dataset,
-        config=config,
         extra_columns=extra_columns,
         polars_module=pl,
         include_features=include_features,
@@ -142,10 +143,10 @@ def partition_with_biosieve(
     active_splitter = splitter or _build_splitter(config.strategy, params)
 
     columns = Columns(
-        id_col=config.id_col,
+        id_col=_ID_COL,
         seq_col=config.seq_col,
-        label_col=config.label_col,
-        group_col=config.group_col if dataset.groups is not None else None,
+        label_col=_LABEL_COL,
+        group_col=_GROUP_COL if dataset.groups is not None else None,
         cluster_col=config.cluster_col,
         date_col=config.date_col,
     )
@@ -170,7 +171,7 @@ def partition_with_biosieve(
     splits = tuple(
         _split_result_to_partition(
             result,
-            id_col=config.id_col,
+            id_col=_ID_COL,
             fallback_index=index,
         )
         for index, result in enumerate(raw_results)
@@ -234,17 +235,17 @@ def _resolved_strategy_params(
     params = dict(config.params)
 
     if config.strategy in {"stratified", "stratified_kfold"}:
-        params.setdefault("label_col", config.label_col)
+        params.setdefault("label_col", _LABEL_COL)
 
     if config.strategy in {"stratified_numeric", "stratified_numeric_kfold"}:
-        params.setdefault("label_col", config.label_col)
+        params.setdefault("label_col", _LABEL_COL)
 
     if config.strategy in {"group", "group_kfold"}:
         if dataset.groups is None:
             raise PartitionIntegrationError(
                 f"BioSieve strategy '{config.strategy}' requires DatasetBundle.groups."
             )
-        params.setdefault("group_col", config.group_col)
+        params.setdefault("group_col", _GROUP_COL)
 
     if config.strategy == "cluster_aware" and config.cluster_col is not None:
         params.setdefault("cluster_col", config.cluster_col)
@@ -258,12 +259,11 @@ def _resolved_strategy_params(
 def _dataset_to_polars(
     dataset: DatasetBundle,
     *,
-    config: BioSievePartitionConfig,
     extra_columns: Mapping[str, Sequence[Any]] | None,
     polars_module: Any,
     include_features: bool,
 ) -> pl.DataFrame:
-    reserved = {config.id_col, config.label_col, config.group_col}
+    reserved = {_ID_COL, _LABEL_COL, _GROUP_COL}
     feature_names = tuple(dataset.resolved_feature_names)
     collisions = reserved & set(feature_names)
     if collisions:
@@ -283,12 +283,12 @@ def _dataset_to_polars(
             features = {name: values[:, index].copy() for index, name in enumerate(feature_names)}
 
     payload: dict[str, Any] = {
-        config.id_col: list(dataset.resolved_sample_ids),
-        config.label_col: np.asarray(dataset.y).tolist(),
+        _ID_COL: list(dataset.resolved_sample_ids),
+        _LABEL_COL: np.asarray(dataset.y).tolist(),
         **features,
     }
     if dataset.groups is not None:
-        payload[config.group_col] = list(dataset.groups)
+        payload[_GROUP_COL] = list(dataset.groups)
 
     for name, values in dict(extra_columns or {}).items():
         if name in payload:

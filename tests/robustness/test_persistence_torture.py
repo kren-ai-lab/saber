@@ -17,7 +17,7 @@ from saber.exceptions import (
     PersistenceError,
     PredictionContractError,
 )
-from saber.persistence import inspect_artifact, load_model, save_model, verify_artifact
+from saber.persistence import inspect_artifact, load_model, save_model
 from saber.persistence.checksums import write_checksums
 
 
@@ -37,7 +37,7 @@ def test_missing_checksum_file_is_rejected(tmp_path):
     _, _, path = _trained(tmp_path)
     (path / "checksums.sha256").unlink()
     with pytest.raises(ArtifactIntegrityError, match="checksum"):
-        verify_artifact(path)
+        inspect_artifact(path)
 
 
 def test_file_not_covered_by_checksums_is_rejected(tmp_path):
@@ -53,7 +53,7 @@ def test_empty_checksum_file_is_rejected(tmp_path):
     _, _, path = _trained(tmp_path)
     (path / "checksums.sha256").write_text("")
     with pytest.raises(ArtifactIntegrityError, match="not covered"):
-        verify_artifact(path)
+        inspect_artifact(path)
 
 
 def test_missing_manifest_is_rejected_even_when_checksum_verification_disabled(tmp_path):

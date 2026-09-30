@@ -50,10 +50,7 @@ def _():
 
     from time import perf_counter
     from sklearn.datasets import make_classification
-    from saber import tune
-    from saber.core import SearchSpace, Categorical
-    from saber.datasets import DatasetBundle, PartitionPlan
-    from saber.tuning import TuningConfig
+    from saber import tune, SearchSpace, Categorical, DatasetBundle, PartitionPlan, TuningConfig
 
     return (
         Categorical,

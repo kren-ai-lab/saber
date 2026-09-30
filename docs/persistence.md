@@ -34,8 +34,8 @@ the features match the saved schema, including their order. Differences in
 library versions are reported as warnings; pass `strict_environment=True` to
 make them errors.
 
-`saber.inspect_artifact()` reads the manifest without loading the model, and
-`saber.verify_artifact()` checks the files and checksums. Both are also
+`saber.inspect_artifact()` reads the manifest without loading the model and
+checks the files and checksums (`verify=False` skips the check). It is also
 available as `saber artifact inspect|verify`.
 
 Checksums prove the files weren't altered, not that they're safe: joblib uses

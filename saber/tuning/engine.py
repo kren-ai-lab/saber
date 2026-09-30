@@ -17,7 +17,7 @@ from saber.exceptions import (
     OptimizationError,
     ValidationContractError,
 )
-from saber.preprocessing import PreprocessingConfig, build_model_pipeline, pipeline_input
+from saber.preprocessing.pipeline import PreprocessingConfig, build_model_pipeline, pipeline_input
 from saber.tuning.results import OptimizationResult
 from saber.validation.partitioning import (
     EvaluationRole,
@@ -83,7 +83,7 @@ def tune(
     partition_plan: PartitionPlan | None = None,
     partitioning: BioSievePartitionConfig | None = None,
     biosieve_extra_columns: Mapping[str, Sequence[Any]] | None = None,
-    preprocessing: PreprocessingConfig | Any | None = None,
+    preprocessing: PreprocessingConfig | None = None,
     search_space: SearchSpace | None = None,
     evaluation_role: EvaluationRole = "auto",
     require_complete: bool = True,

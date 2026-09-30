@@ -8,7 +8,7 @@ from sklearn.datasets import make_classification
 
 from saber.benchmark import BenchmarkConfig, benchmark
 from saber.datasets import DatasetBundle, PartitionPlan
-from saber.persistence import load_benchmark, save_benchmark, verify_artifact
+from saber.persistence import inspect_artifact, load_benchmark, save_benchmark
 
 
 def _benchmark_result():
@@ -90,7 +90,7 @@ def test_loaded_benchmark_table_is_polars_and_matches_result_frame(tmp_path):
         assert isinstance(table, pl.DataFrame)
         # CSV does not keep exact dtypes, but every value must survive the round trip.
         assert_frame_equal(table, expected, check_dtypes=False)
-    assert verify_artifact(artifact_path).artifact_type == "benchmark"
+    assert inspect_artifact(artifact_path).artifact_type == "benchmark"
 
 
 def test_benchmark_artifact_file_set_is_human_inspectable(tmp_path):

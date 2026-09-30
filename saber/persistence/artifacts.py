@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 
 from saber.core.prediction import PredictionResult, collect_model_outputs
-from saber.preprocessing import pipeline_input
+from saber.preprocessing.pipeline import pipeline_input
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

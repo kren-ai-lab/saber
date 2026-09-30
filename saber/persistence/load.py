@@ -120,11 +120,6 @@ def load_benchmark(
     )
 
 
-def verify_artifact(path: str | Path) -> ArtifactManifest:
-    """Verify checksums/schema and return the artifact manifest."""
-    return inspect_artifact(path, verify=True)
-
-
 def _artifact_root(path: str | Path) -> Path:
     root = Path(path).expanduser().resolve()
     if not root.is_dir():

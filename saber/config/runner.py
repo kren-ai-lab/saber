@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 import polars as pl
 
-from saber.api import benchmark, evaluate, predict, train, tune, validate
-from saber.benchmark import BenchmarkResult
+from saber._api import evaluate, predict, train
+from saber.benchmark import BenchmarkResult, benchmark
 from saber.config.builders import (
     build_benchmark_config,
     build_partition_inputs,
@@ -25,9 +25,10 @@ from saber.config.io import load_config
 from saber.config.schema import as_mapping
 from saber.exceptions import ConfigurationError
 from saber.persistence import load_model, save_benchmark, save_model
+from saber.tuning import tune
 from saber.utils.serialization import to_jsonable
 from saber.utils.tabular import records_frame
-from saber.validation import ValidationResult
+from saber.validation import ValidationResult, validate
 
 if TYPE_CHECKING:
     from pathlib import Path

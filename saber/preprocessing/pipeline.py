@@ -35,14 +35,14 @@ def build_model_pipeline(
     spec: AlgorithmSpec,
     estimator: Any,
     training_data: DatasetBundle,
-    preprocessing: PreprocessingConfig | Any | None = None,
+    preprocessing: PreprocessingConfig | None = None,
 ) -> Pipeline:
     """Build a fresh sklearn Pipeline for one training split.
 
     All data-dependent preprocessing is part of the returned pipeline, so fit
     statistics are learned only from the split supplied to ``Pipeline.fit``.
     """
-    config = _normalize_config(preprocessing)
+    config = PreprocessingConfig() if preprocessing is None else preprocessing
 
     if config.transformer is not None:
         transformer = clone(config.transformer)
@@ -115,11 +115,3 @@ def _frame_to_numpy(X: Any) -> Any:
     """Convert a DataFrame to the estimator-facing matrix; pass arrays and sparse output through."""
     X = as_frame(X)
     return to_numpy(X) if isinstance(X, pl.DataFrame) else X
-
-
-def _normalize_config(preprocessing: PreprocessingConfig | Any | None) -> PreprocessingConfig:
-    if preprocessing is None:
-        return PreprocessingConfig()
-    if isinstance(preprocessing, PreprocessingConfig):
-        return preprocessing
-    return PreprocessingConfig(transformer=preprocessing)

@@ -7,7 +7,7 @@
 `metadata`.
 
 ```python
-from saber.datasets import DatasetBundle
+from saber import DatasetBundle
 
 dataset = DatasetBundle(X=X, y=y, sample_ids=sample_ids)
 print(dataset.n_samples, dataset.n_features, dataset.fingerprint)
@@ -33,7 +33,7 @@ mismatched fingerprint, are rejected.
 A holdout:
 
 ```python
-from saber.datasets import PartitionPlan
+from saber import PartitionPlan
 
 plan = PartitionPlan.holdout(
     train_ids=train_ids,
@@ -68,7 +68,7 @@ When the data isn't split yet, Saber delegates to BioSieve
 (`saberlib[biosieve]`):
 
 ```python
-from saber.datasets import BioSievePartitionConfig
+from saber import BioSievePartitionConfig
 
 partitioning = BioSievePartitionConfig(
     strategy="stratified_kfold",

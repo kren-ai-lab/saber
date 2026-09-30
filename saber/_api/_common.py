@@ -10,7 +10,7 @@ from saber.core.prediction import PredictionResult, collect_model_outputs
 from saber.core.registry import get_algorithm
 from saber.core.results import TrainResult
 from saber.exceptions import ValidationContractError
-from saber.preprocessing import PreprocessingConfig, build_model_pipeline, pipeline_input
+from saber.preprocessing.pipeline import PreprocessingConfig, build_model_pipeline, pipeline_input
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -22,7 +22,7 @@ def fit_dataset(
     *,
     dataset: DatasetBundle,
     algorithm: str,
-    preprocessing: PreprocessingConfig | Any | None = None,
+    preprocessing: PreprocessingConfig | None = None,
     random_state: int | None = None,
     model_params: Mapping[str, Any] | None = None,
 ) -> TrainResult:

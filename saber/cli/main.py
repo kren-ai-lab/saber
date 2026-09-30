@@ -22,7 +22,7 @@ from saber.cli.render import (
 from saber.config import load_config, run_config
 from saber.core.registry import ALGORITHMS, get_algorithm
 from saber.exceptions import ConfigurationError, SaberError
-from saber.persistence import inspect_artifact, verify_artifact
+from saber.persistence import inspect_artifact
 from saber.utils.serialization import to_jsonable
 
 if TYPE_CHECKING:
@@ -152,7 +152,7 @@ def artifact_inspect(
 @artifact_app.command("verify", help="Verify artifact schema and checksums.")
 def artifact_verify(path: Path) -> None:
     """Verify an artifact's schema and checksums."""
-    verify_artifact(path)
+    inspect_artifact(path)
     Console().print(f"[green]✓[/green] Artifact verified: {Path(path).resolve()}")
 
 

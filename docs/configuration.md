@@ -1,6 +1,6 @@
 # YAML/JSON configuration
 
-A config file describes one workflow with the same options as the Python API. Run it with `saber <workflow> config.yaml` or `saber.run_config(saber.load_config(path))`.
+A config file describes one workflow with the same options as the Python API. Run it with `saber <workflow> config.yaml` or `saber.run_config(saber.config.load_config(path))`.
 
 ## Common structure
 

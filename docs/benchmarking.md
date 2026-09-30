@@ -5,7 +5,7 @@ representations × partitions × algorithms × seeds × tuned/untuned modes.
 
 ```python
 import saber
-from saber.benchmark import BenchmarkConfig
+from saber import BenchmarkConfig
 
 result = saber.benchmark(
     datasets={"repr_a": dataset_a, "repr_b": dataset_b},

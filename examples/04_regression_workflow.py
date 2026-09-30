@@ -49,8 +49,7 @@ def _():
         return folds
 
     from sklearn.datasets import make_regression
-    from saber import validate
-    from saber.datasets import DatasetBundle, PartitionPlan
+    from saber import validate, DatasetBundle, PartitionPlan
 
     return (
         DEMO_TEST,

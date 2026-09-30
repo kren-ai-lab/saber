@@ -43,7 +43,7 @@ import numpy as np
 from sklearn.datasets import make_classification
 
 import saber
-from saber.datasets import DatasetBundle, PartitionPlan
+from saber import DatasetBundle, PartitionPlan
 
 X, y = make_classification(n_samples=120, n_features=12, random_state=42)
 dataset = DatasetBundle(X=X, y=y, sample_ids=[f"s{i}" for i in range(len(y))])
@@ -70,7 +70,7 @@ refer to samples by ID, never by row position. If your data isn't split yet,
 let BioSieve generate the partitions:
 
 ```python
-from saber.datasets import BioSievePartitionConfig
+from saber import BioSievePartitionConfig
 
 result = saber.validate(
     dataset=dataset,
@@ -89,8 +89,7 @@ external partition files and BioSieve.
 ## Tune, benchmark and save
 
 ```python
-from saber.core.search_space import Categorical, LogFloat, SearchSpace
-from saber.tuning import TuningConfig
+from saber import Categorical, LogFloat, SearchSpace, TuningConfig
 
 tuned = saber.tune(
     dataset=dataset,

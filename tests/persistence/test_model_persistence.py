@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification
 
-from saber import get_algorithm
+from saber.core import get_algorithm
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.exceptions import (
     ArtifactIntegrityError,
@@ -23,10 +23,9 @@ from saber.persistence import (
     inspect_artifact,
     load_model,
     save_model,
-    verify_artifact,
 )
 from saber.persistence import load as load_module
-from saber.preprocessing import build_model_pipeline
+from saber.preprocessing.pipeline import build_model_pipeline
 from saber.utils.tabular import to_numpy
 
 
@@ -101,7 +100,7 @@ def test_model_artifact_round_trip_preserves_predictions_and_probabilities(tmp_p
     assert loaded.provenance["dataset_fingerprint"] == dataset.fingerprint
     assert loaded.provenance["partition_fingerprint"] == plan.fingerprint
     assert loaded.manifest.schema_version == ARTIFACT_SCHEMA_VERSION
-    assert verify_artifact(artifact_path).artifact_type == "model"
+    assert inspect_artifact(artifact_path).artifact_type == "model"
 
 
 def test_feature_schema_mismatch_is_detected_before_prediction(tmp_path):

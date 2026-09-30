@@ -49,8 +49,7 @@ def _():
         return folds
 
     from sklearn.datasets import make_classification
-    from saber import validate
-    from saber.datasets import DatasetBundle, PartitionPlan, BioSievePartitionConfig
+    from saber import validate, DatasetBundle, PartitionPlan, BioSievePartitionConfig
     from saber.exceptions import OptionalDependencyError
 
     return (

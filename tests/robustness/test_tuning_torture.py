@@ -12,8 +12,7 @@ import saber.tuning.engine as tuning_engine_module
 from saber.core.search_space import Categorical, Float, SearchSpace
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.exceptions import (
-    MetricProblemTypeError,
-    MetricTaskMismatchError,
+    MetricIncompatibleError,
     OptimizationError,
     ValidationContractError,
 )
@@ -85,7 +84,7 @@ def test_all_sklearn_tuning_backends_respect_explicit_cv(optimizer, monkeypatch)
 
 def test_tuning_rejects_regression_metric_for_classifier():
     dataset = _classification()
-    with pytest.raises(MetricTaskMismatchError):
+    with pytest.raises(MetricIncompatibleError):
         tune(
             dataset=dataset,
             algorithm="logistic_regression",
@@ -100,7 +99,7 @@ def test_tuning_rejects_binary_roc_auc_for_multiclass_problem():
         n_samples=75, n_features=8, n_informative=6, n_classes=3, n_clusters_per_class=1, random_state=3
     )
     dataset = DatasetBundle(X=X, y=y, sample_ids=[f"s{i}" for i in range(75)])
-    with pytest.raises(MetricProblemTypeError):
+    with pytest.raises(MetricIncompatibleError):
         tune(
             dataset=dataset,
             algorithm="logistic_regression",

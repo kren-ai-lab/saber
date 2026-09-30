@@ -3,10 +3,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from saber import get_algorithm
+from saber.core import get_algorithm
 from saber.datasets import DatasetBundle
 from saber.exceptions import PreprocessingContractError
-from saber.preprocessing import PreprocessingConfig, build_model_pipeline
+from saber.preprocessing.pipeline import PreprocessingConfig, build_model_pipeline
 
 
 def _dataset(X):

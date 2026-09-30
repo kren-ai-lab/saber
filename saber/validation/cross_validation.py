@@ -11,7 +11,7 @@ from saber.core.prediction import PredictionResult, collect_model_outputs
 from saber.core.registry import get_algorithm
 from saber.evaluation import evaluate_prediction
 from saber.exceptions import DatasetValidationError, ValidationContractError
-from saber.preprocessing import PreprocessingConfig, build_model_pipeline, pipeline_input
+from saber.preprocessing.pipeline import PreprocessingConfig, build_model_pipeline, pipeline_input
 from saber.validation.partitioning import (
     EvaluationRole,
     resolve_evaluation_dataset,
@@ -38,7 +38,7 @@ def validate(
     partition_plan: PartitionPlan | None = None,
     partitioning: BioSievePartitionConfig | None = None,
     biosieve_extra_columns: Mapping[str, Sequence[Any]] | None = None,
-    preprocessing: PreprocessingConfig | Any | None = None,
+    preprocessing: PreprocessingConfig | None = None,
     metrics: Sequence[str] | None = None,
     evaluation_role: EvaluationRole = "auto",
     positive_class: Any | None = None,

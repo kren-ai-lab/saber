@@ -8,7 +8,7 @@ using the same partitions and metrics as `saber.validate(...)`. Optimizers:
 ## Search spaces
 
 ```python
-from saber.core.search_space import Categorical, Integer, LogFloat, SearchSpace
+from saber import Categorical, Integer, LogFloat, SearchSpace
 
 space = SearchSpace(
     name="forest",
@@ -28,7 +28,7 @@ not `Float(0.0, 1.0, step=0.3)`).
 
 ```python
 import saber
-from saber.tuning import TuningConfig
+from saber import TuningConfig
 
 config = TuningConfig(
     optimizer="optuna",

@@ -30,9 +30,8 @@ from sklearn.metrics import (
 )
 
 from saber.exceptions import (
+    MetricIncompatibleError,
     MetricNotFoundError,
-    MetricProblemTypeError,
-    MetricTaskMismatchError,
     ValidationContractError,
 )
 
@@ -120,19 +119,14 @@ class MetricSpec:
     def validate_task(self, task: str) -> None:
         """Validate task compatibility."""
         if task != self.task:
-            raise MetricTaskMismatchError(
-                metric=self.name,
-                metric_task=self.task,
-                requested_task=task,
-            )
+            raise MetricIncompatibleError(f"Metric '{self.name}' supports task '{self.task}', not '{task}'.")
 
     def validate_problem_type(self, problem_type: ProblemType) -> None:
         """Validate binary/multiclass/regression compatibility."""
         if self.problem_types and problem_type not in self.problem_types:
-            raise MetricProblemTypeError(
-                metric=self.name,
-                problem_type=problem_type,
-                supported=self.problem_types,
+            raise MetricIncompatibleError(
+                f"Metric '{self.name}' does not support problem type '{problem_type}'. "
+                f"Supported: {', '.join(self.problem_types)}."
             )
 
 
