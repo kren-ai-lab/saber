@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
 
+from saber.benchmark import BenchmarkConfig
+from saber.datasets import BioSievePartitionConfig
 from saber.exceptions import ConfigurationError
+from saber.preprocessing import PreprocessingConfig
+from saber.tuning import TuningConfig
 
 CONFIG_SCHEMA_VERSION = "1.0"
 WORKFLOWS = {"train", "evaluate", "validate", "tune", "benchmark", "predict"}
@@ -102,6 +106,10 @@ _REQUIRED_KEYS = {
     "benchmark": {"algorithms", "benchmark"},
     "predict": {"dataset", "artifact"},
 }
+
+
+def _field_names(config_cls: type) -> set[str]:
+    return {item.name for item in fields(config_cls)}
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,99 +225,60 @@ def workflow_config_from_mapping(
     )
 
 
-_DATASET_KEYS = {"path", "target", "sample_id", "features", "groups", "sample_weight", "sep"}
-_PARTITION_KEYS = {"path", "sample_id_col", "role_col", "split_col", "fold_col", "always_train_value"}
-_PARTITIONING_KEYS = {
-    "strategy",
-    "params",
-    "id_col",
-    "label_col",
-    "group_col",
-    "seq_col",
-    "cluster_col",
-    "date_col",
-}
-_PREPROCESSING_KEYS = {"imputation", "scaler", "fill_value"}
-_TUNING_KEYS = {
-    "optimizer",
-    "metrics",
-    "refit_metric",
-    "refit",
-    "n_jobs",
-    "random_state",
-    "n_iter",
-    "n_trials",
-    "timeout",
-    "factor",
-    "resource",
-    "max_resources",
-    "min_resources",
-    "aggressive_elimination",
-    "error_score",
-    "optuna_storage",
-    "optuna_study_name",
-    "optuna_load_if_exists",
-}
-_BENCHMARK_KEYS = {
-    "metrics",
-    "seeds",
-    "modes",
-    "include_baselines",
-    "fail_fast",
-    "evaluation_role",
-    "require_complete",
-    "return_estimators",
-    "tuning",
-    "metadata",
-}
+DATASET_KEYS = {"path", "target", "sample_id", "features", "groups", "sample_weight", "sep"}
+PARTITION_KEYS = {"path", "sample_id_col", "role_col", "split_col", "fold_col", "always_train_value"}
+PARTITIONING_KEYS = _field_names(BioSievePartitionConfig)
+PREPROCESSING_KEYS = _field_names(PreprocessingConfig) - {"transformer"}
+TUNING_KEYS = _field_names(TuningConfig)
+BENCHMARK_KEYS = _field_names(BenchmarkConfig)
 _ARTIFACT_KEYS = {"path", "overwrite", "include_object"}
 _OUTPUT_KEYS = {"path", "directory", "summary"}
 
 
 def _validate_nested(workflow: str, payload: Mapping[str, Any]) -> None:
     if "dataset" in payload:
-        _validate_mapping_keys(payload["dataset"], _DATASET_KEYS, "dataset")
+        validate_mapping_keys(payload["dataset"], DATASET_KEYS, "dataset")
     if "datasets" in payload:
-        datasets = _as_mapping(payload["datasets"], "datasets")
+        datasets = as_mapping(payload["datasets"], "datasets")
         if not datasets:
             raise ConfigurationError("'datasets' cannot be empty.")
         for label, item in datasets.items():
-            _validate_mapping_keys(item, _DATASET_KEYS, f"datasets.{label}")
+            validate_mapping_keys(item, DATASET_KEYS, f"datasets.{label}")
 
     if "partition" in payload:
-        _validate_mapping_keys(payload["partition"], _PARTITION_KEYS, "partition")
+        validate_mapping_keys(payload["partition"], PARTITION_KEYS, "partition")
     if "partitions" in payload:
-        partitions = _as_mapping(payload["partitions"], "partitions")
+        partitions = as_mapping(payload["partitions"], "partitions")
         for label, item in partitions.items():
-            _validate_mapping_keys(item, _PARTITION_KEYS, f"partitions.{label}")
+            validate_mapping_keys(item, PARTITION_KEYS, f"partitions.{label}")
     if "partitioning" in payload:
-        _validate_mapping_keys(payload["partitioning"], _PARTITIONING_KEYS, "partitioning")
+        validate_mapping_keys(payload["partitioning"], PARTITIONING_KEYS, "partitioning")
 
     if "preprocessing" in payload:
-        _validate_mapping_keys(payload["preprocessing"], _PREPROCESSING_KEYS, "preprocessing")
+        validate_mapping_keys(payload["preprocessing"], PREPROCESSING_KEYS, "preprocessing")
     if "tuning" in payload:
-        tuning = _validate_mapping_keys(payload["tuning"], _TUNING_KEYS, "tuning")
+        tuning = validate_mapping_keys(payload["tuning"], TUNING_KEYS, "tuning")
         if "metrics" not in tuning or not tuning["metrics"]:
             raise ConfigurationError("'tuning.metrics' must contain at least one metric.")
     if "benchmark" in payload:
-        benchmark = _validate_mapping_keys(payload["benchmark"], _BENCHMARK_KEYS, "benchmark")
+        benchmark = validate_mapping_keys(payload["benchmark"], BENCHMARK_KEYS, "benchmark")
         if "metrics" not in benchmark or not benchmark["metrics"]:
             raise ConfigurationError("'benchmark.metrics' must contain at least one metric.")
         if benchmark.get("tuning") is not None:
-            _validate_mapping_keys(benchmark["tuning"], _TUNING_KEYS, "benchmark.tuning")
+            validate_mapping_keys(benchmark["tuning"], TUNING_KEYS, "benchmark.tuning")
 
     if "artifact" in payload:
         artifact_value = payload["artifact"]
         if workflow in {"train", "tune", "benchmark"} and not isinstance(artifact_value, Mapping):
             raise ConfigurationError(f"Workflow '{workflow}' requires 'artifact' to be a mapping.")
         if isinstance(artifact_value, Mapping):
-            artifact = _validate_mapping_keys(artifact_value, _ARTIFACT_KEYS, "artifact")
+            artifact = validate_mapping_keys(artifact_value, _ARTIFACT_KEYS, "artifact")
             if "path" not in artifact:
                 raise ConfigurationError("'artifact.path' is required.")
         elif workflow in {"evaluate", "predict"} and not isinstance(artifact_value, (str, Path)):
             raise ConfigurationError("'artifact' must be a path string or mapping with path.")
     if "output" in payload:
-        _validate_mapping_keys(payload["output"], _OUTPUT_KEYS, "output")
+        validate_mapping_keys(payload["output"], _OUTPUT_KEYS, "output")
 
     if workflow == "benchmark":
         algorithms = payload.get("algorithms")
@@ -317,45 +286,47 @@ def _validate_nested(workflow: str, payload: Mapping[str, Any]) -> None:
             raise ConfigurationError("'algorithms' must be a non-empty list.")
 
     if "search_space" in payload:
-        search_space = _as_mapping(payload["search_space"], "search_space")
+        search_space = as_mapping(payload["search_space"], "search_space")
         if not search_space:
             raise ConfigurationError("'search_space' cannot be empty.")
     if "search_spaces" in payload:
-        search_spaces = _as_mapping(payload["search_spaces"], "search_spaces")
+        search_spaces = as_mapping(payload["search_spaces"], "search_spaces")
         for label, item in search_spaces.items():
-            if not _as_mapping(item, f"search_spaces.{label}"):
+            if not as_mapping(item, f"search_spaces.{label}"):
                 raise ConfigurationError(f"'search_spaces.{label}' cannot be empty.")
 
     if workflow in {"train", "evaluate", "validate", "tune"}:
-        dataset = _as_mapping(payload["dataset"], "dataset")
+        dataset = as_mapping(payload["dataset"], "dataset")
         if "path" not in dataset:
             raise ConfigurationError("'dataset.path' is required.")
         if "target" not in dataset:
             raise ConfigurationError(f"Workflow '{workflow}' requires 'dataset.target'.")
     if workflow == "predict":
-        dataset = _as_mapping(payload["dataset"], "dataset")
+        dataset = as_mapping(payload["dataset"], "dataset")
         if "path" not in dataset:
             raise ConfigurationError("'dataset.path' is required.")
 
     if "partitioning" in payload:
-        partitioning = _as_mapping(payload["partitioning"], "partitioning")
+        partitioning = as_mapping(payload["partitioning"], "partitioning")
         if "strategy" not in partitioning:
             raise ConfigurationError("'partitioning.strategy' is required.")
     if "partition" in payload:
-        partition = _as_mapping(payload["partition"], "partition")
+        partition = as_mapping(payload["partition"], "partition")
         if "path" not in partition:
             raise ConfigurationError("'partition.path' is required.")
 
 
-def _validate_mapping_keys(value: Any, allowed: set[str], label: str) -> dict[str, Any]:
-    mapping = _as_mapping(value, label)
+def validate_mapping_keys(value: Any, allowed: set[str], label: str) -> dict[str, Any]:
+    """Return ``value`` as a dict after rejecting keys outside ``allowed``."""
+    mapping = as_mapping(value, label)
     unknown = set(mapping) - allowed
     if unknown:
         raise ConfigurationError(f"Unknown {label} keys: {sorted(unknown)!r}.")
     return mapping
 
 
-def _as_mapping(value: Any, label: str) -> dict[str, Any]:
+def as_mapping(value: Any, label: str) -> dict[str, Any]:
+    """Return ``value`` as a dict, or raise ConfigurationError if it is not a mapping."""
     if not isinstance(value, Mapping):
         raise ConfigurationError(f"'{label}' must be a mapping.")
     return dict(value)

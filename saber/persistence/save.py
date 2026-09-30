@@ -6,7 +6,6 @@ import os
 import shutil
 import tempfile
 from contextlib import contextmanager
-from importlib import metadata as importlib_metadata
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -14,7 +13,7 @@ import joblib
 
 from saber.exceptions import PersistenceError
 from saber.persistence.checksums import write_checksums
-from saber.persistence.environment import environment_snapshot
+from saber.persistence.environment import environment_snapshot, package_version
 from saber.persistence.metadata import ArtifactManifest
 from saber.utils.serialization import write_json
 
@@ -114,7 +113,7 @@ def save_model_artifact(
 
         manifest = ArtifactManifest(
             artifact_type="model",
-            saber_version=_saber_version(),
+            saber_version=package_version("saberlib"),
             files=files,
             metadata={
                 "algorithm": algorithm,
@@ -184,7 +183,7 @@ def save_benchmark_artifact(
 
         manifest = ArtifactManifest(
             artifact_type="benchmark",
-            saber_version=_saber_version(),
+            saber_version=package_version("saberlib"),
             files=files,
             metadata={
                 "n_runs": result.n_runs,
@@ -231,15 +230,3 @@ def _atomic_artifact_directory(target: Path, *, overwrite: bool) -> Iterator[Pat
         if temp.exists():
             shutil.rmtree(temp, ignore_errors=True)
         raise
-
-
-def _saber_version() -> str | None:
-    try:
-        return importlib_metadata.version("saberlib")
-    except importlib_metadata.PackageNotFoundError:
-        try:
-            from saber import __version__  # noqa: PLC0415  # avoids a circular import with saber.__init__
-        except Exception:  # noqa: BLE001  # any import failure means the version is unavailable
-            return None
-        else:
-            return __version__

@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import polars as pl
 
-from saber.utils.tabular import canonical_dtype
+from saber.utils.tabular import canonical_dtype, python_scalar
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
@@ -18,15 +18,9 @@ if TYPE_CHECKING:
 _FINGERPRINT_VERSION = "saber-fingerprint-v1"
 
 
-def _python_scalar(value: Any) -> Any:
-    if isinstance(value, np.generic):
-        return value.item()
-    return value
-
-
 def _scalar_token(value: Any) -> list[Any]:
     """Return a JSON-safe, type-aware token for a scalar value."""
-    value = _python_scalar(value)
+    value = python_scalar(value)
 
     if value is None:
         return ["none", None]

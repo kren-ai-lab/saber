@@ -22,6 +22,7 @@ from saber.config.builders import (
     load_prediction_frame,
 )
 from saber.config.io import load_config
+from saber.config.schema import as_mapping
 from saber.exceptions import ConfigurationError
 from saber.persistence import load_model_artifact, save_benchmark_artifact, save_model_artifact
 from saber.utils.serialization import to_jsonable
@@ -61,13 +62,13 @@ def run_config(source: str | Path | Mapping[str, Any] | WorkflowConfig) -> Workf
 
 def _run_train(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
-    dataset = load_dataset(config, _mapping(payload["dataset"], "dataset"))
+    dataset = load_dataset(config, as_mapping(payload["dataset"], "dataset"))
     preprocessing = build_preprocessing(_optional_mapping(payload.get("preprocessing"), "preprocessing"))
     partition_plan = None
     if payload.get("partition") is not None:
         partition_plan, _ = build_partition_inputs(
             config,
-            partition=_mapping(payload["partition"], "partition"),
+            partition=as_mapping(payload["partition"], "partition"),
             partitioning=None,
         )
     artifact = _optional_mapping(payload.get("artifact"), "artifact")
@@ -103,7 +104,7 @@ def _run_train(config: WorkflowConfig) -> WorkflowExecution:
 
 def _run_evaluate(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
-    dataset = load_dataset(config, _mapping(payload["dataset"], "dataset"))
+    dataset = load_dataset(config, as_mapping(payload["dataset"], "dataset"))
     artifact = payload["artifact"]
     if isinstance(artifact, Mapping):
         artifact_path = config.resolve_path(_required(artifact, "path", "artifact"))
@@ -132,7 +133,7 @@ def _run_evaluate(config: WorkflowConfig) -> WorkflowExecution:
 
 def _run_validate(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
-    dataset = load_dataset(config, _mapping(payload["dataset"], "dataset"))
+    dataset = load_dataset(config, as_mapping(payload["dataset"], "dataset"))
     plan, partitioning = build_partition_inputs(
         config,
         partition=_optional_mapping(payload.get("partition"), "partition"),
@@ -167,13 +168,13 @@ def _run_validate(config: WorkflowConfig) -> WorkflowExecution:
 
 def _run_tune(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
-    dataset = load_dataset(config, _mapping(payload["dataset"], "dataset"))
+    dataset = load_dataset(config, as_mapping(payload["dataset"], "dataset"))
     plan, partitioning = build_partition_inputs(
         config,
         partition=_optional_mapping(payload.get("partition"), "partition"),
         partitioning=_optional_mapping(payload.get("partitioning"), "partitioning"),
     )
-    tuning_config = build_tuning_config(_mapping(payload["tuning"], "tuning"))
+    tuning_config = build_tuning_config(as_mapping(payload["tuning"], "tuning"))
     result = tune(
         dataset=dataset,
         algorithm=str(payload["algorithm"]),
@@ -228,7 +229,7 @@ def _run_tune(config: WorkflowConfig) -> WorkflowExecution:
             provider=result.spec.provider if result.spec is not None else None,
             parameters=dict(result.best_params),
             metrics=result.display_scores,
-            training_config={"tuning": _mapping(payload["tuning"], "tuning")},
+            training_config={"tuning": as_mapping(payload["tuning"], "tuning")},
             positive_class=payload.get("positive_class"),
             metadata=config.metadata,
             overwrite=bool(artifact.get("overwrite", False)),
@@ -242,21 +243,21 @@ def _run_tune(config: WorkflowConfig) -> WorkflowExecution:
 def _run_benchmark(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
     if "datasets" in payload:
-        datasets_payload = _mapping(payload["datasets"], "datasets")
+        datasets_payload = as_mapping(payload["datasets"], "datasets")
         datasets = {
-            str(label): load_dataset(config, _mapping(spec, f"datasets.{label}"))
+            str(label): load_dataset(config, as_mapping(spec, f"datasets.{label}"))
             for label, spec in datasets_payload.items()
         }
     else:
-        datasets = load_dataset(config, _mapping(payload["dataset"], "dataset"))
+        datasets = load_dataset(config, as_mapping(payload["dataset"], "dataset"))
 
     partitions = None
     if payload.get("partitions") is not None:
         partitions = {}
-        for label, spec in _mapping(payload["partitions"], "partitions").items():
+        for label, spec in as_mapping(payload["partitions"], "partitions").items():
             plan, _ = build_partition_inputs(
                 config,
-                partition=_mapping(spec, f"partitions.{label}"),
+                partition=as_mapping(spec, f"partitions.{label}"),
                 partitioning=None,
             )
             if plan is None:
@@ -270,20 +271,22 @@ def _run_benchmark(config: WorkflowConfig) -> WorkflowExecution:
         _, partitioning = build_partition_inputs(
             config,
             partition=None,
-            partitioning=_mapping(payload["partitioning"], "partitioning"),
+            partitioning=as_mapping(payload["partitioning"], "partitioning"),
         )
 
     search_spaces = None
     if payload.get("search_spaces") is not None:
         search_spaces = {
-            str(algorithm): build_search_space(str(algorithm), _mapping(space, f"search_spaces.{algorithm}"))
-            for algorithm, space in _mapping(payload["search_spaces"], "search_spaces").items()
+            str(algorithm): build_search_space(
+                str(algorithm), as_mapping(space, f"search_spaces.{algorithm}")
+            )
+            for algorithm, space in as_mapping(payload["search_spaces"], "search_spaces").items()
         }
 
     result = benchmark(
         datasets=datasets,
         algorithms=tuple(str(value) for value in payload["algorithms"]),
-        config=build_benchmark_config(_mapping(payload["benchmark"], "benchmark")),
+        config=build_benchmark_config(as_mapping(payload["benchmark"], "benchmark")),
         partitions=partitions,
         partitioning=partitioning,
         partitioning_reference=payload.get("partitioning_reference"),
@@ -320,7 +323,7 @@ def _run_benchmark(config: WorkflowConfig) -> WorkflowExecution:
 
 def _run_predict(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
-    X, sample_ids = load_prediction_frame(config, _mapping(payload["dataset"], "dataset"))
+    X, sample_ids = load_prediction_frame(config, as_mapping(payload["dataset"], "dataset"))
     artifact = payload["artifact"]
     if isinstance(artifact, Mapping):
         artifact_path = config.resolve_path(_required(artifact, "path", "artifact"))
@@ -427,16 +430,10 @@ def _prediction_frame(result: Any) -> pl.DataFrame:
     return pl.DataFrame(frame)
 
 
-def _mapping(value: Any, label: str) -> dict[str, Any]:
-    if not isinstance(value, Mapping):
-        raise ConfigurationError(f"'{label}' must be a mapping.")
-    return dict(value)
-
-
 def _optional_mapping(value: Any, label: str) -> dict[str, Any] | None:
     if value is None:
         return None
-    return _mapping(value, label)
+    return as_mapping(value, label)
 
 
 def _required(payload: Mapping[str, Any], key: str, label: str) -> Any:

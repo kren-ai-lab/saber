@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, get_args
 
 import numpy as np
 
@@ -12,6 +12,7 @@ from saber.exceptions import (
     DatasetFingerprintMismatchError,
     PartitionValidationError,
 )
+from saber.utils.tabular import python_scalar
 
 if TYPE_CHECKING:
     from saber.datasets.schemas import DatasetBundle
@@ -34,9 +35,9 @@ class PartitionSplit:
         if not self.name.strip():
             raise PartitionValidationError("Partition split names cannot be empty.")
 
-        train_ids = tuple(_to_python_scalar(value) for value in self.train_ids)
-        validation_ids = tuple(_to_python_scalar(value) for value in self.validation_ids)
-        test_ids = tuple(_to_python_scalar(value) for value in self.test_ids)
+        train_ids = tuple(python_scalar(value) for value in self.train_ids)
+        validation_ids = tuple(python_scalar(value) for value in self.validation_ids)
+        test_ids = tuple(python_scalar(value) for value in self.test_ids)
 
         object.__setattr__(self, "train_ids", train_ids)
         object.__setattr__(self, "validation_ids", validation_ids)
@@ -124,8 +125,7 @@ class PartitionPlan:
         if not splits:
             raise PartitionValidationError("PartitionPlan must contain at least one split.")
 
-        valid_kinds = {"holdout", "cross_validation", "predefined", "external"}
-        if self.kind not in valid_kinds:
+        if self.kind not in get_args(PartitionKind):
             raise PartitionValidationError(f"Unsupported partition kind '{self.kind}'.")
 
         names = [split.name for split in splits]
@@ -343,9 +343,3 @@ def _validate_unique_ids(values: tuple[Any, ...], *, split: str, role: str) -> N
 
     if len(unique) != len(values):
         raise PartitionValidationError(f"Split '{split}' role '{role}' contains duplicate sample IDs.")
-
-
-def _to_python_scalar(value: Any) -> Any:
-    if isinstance(value, np.generic):
-        return value.item()
-    return value
