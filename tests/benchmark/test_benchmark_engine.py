@@ -167,17 +167,7 @@ EXPECTED_OPTIMIZATION_HISTORY_COLUMNS = [
 EXPECTED_SAMPLE_ORDER = ["s50", "s51", "s52", "s53", "s54", "s55", "s56", "s57", "s58", "s59"]
 
 
-def test_result_frames_keep_their_columns() -> None:
-    result = _small_benchmark()
-    assert list(result.metrics_frame().columns) == EXPECTED_METRICS_COLUMNS
-    assert list(result.predictions_frame().columns) == EXPECTED_PREDICTIONS_COLUMNS
-    assert list(result.runs_frame().columns) == EXPECTED_RUNS_COLUMNS
-    assert list(result.failures_frame().columns) == EXPECTED_FAILURES_COLUMNS
-    assert list(result.optimization_history_frame().columns) == EXPECTED_OPTIMIZATION_HISTORY_COLUMNS
-    assert result.predictions_frame()["sample_id"].to_list() == EXPECTED_SAMPLE_ORDER
-
-
-def test_result_frames_are_polars() -> None:
+def test_result_frames_are_polars_and_keep_their_columns() -> None:
     result = _small_benchmark()
     for name in (
         "aggregate_metrics_frame",
@@ -189,6 +179,12 @@ def test_result_frames_are_polars() -> None:
         "runs_frame",
     ):
         assert isinstance(getattr(result, name)(), pl.DataFrame), name
+    assert list(result.metrics_frame().columns) == EXPECTED_METRICS_COLUMNS
+    assert list(result.predictions_frame().columns) == EXPECTED_PREDICTIONS_COLUMNS
+    assert list(result.runs_frame().columns) == EXPECTED_RUNS_COLUMNS
+    assert list(result.failures_frame().columns) == EXPECTED_FAILURES_COLUMNS
+    assert list(result.optimization_history_frame().columns) == EXPECTED_OPTIMIZATION_HISTORY_COLUMNS
+    assert result.predictions_frame()["sample_id"].to_list() == EXPECTED_SAMPLE_ORDER
 
 
 def test_benchmark_runs_algorithm_matrix_with_baseline_and_repeated_seeds() -> None:
@@ -306,6 +302,7 @@ def test_failed_algorithm_does_not_invalidate_successful_runs() -> None:
         result.failures_frame()["error"][0]
         == "AlgorithmNotFoundError: Algorithm 'not_a_model' was not found in the registry."
     )
+    assert set(result.runs_frame()["status"]) == {"complete", "failed"}
 
 
 def test_fail_fast_raises_after_recordable_run_failure() -> None:
@@ -366,44 +363,6 @@ def test_predictions_frame_retains_truth_predictions_and_probabilities() -> None
     assert set(frame["sample_id"]) == set(dataset.sample_ids)
 
 
-def test_tuned_benchmark_reports_only_protected_final_test() -> None:
-    dataset = _classification_dataset()
-    plan = _safe_holdout(dataset)
-    result = BenchmarkEngine(MODEL_REGISTRY).run(
-        datasets=BenchmarkDataset("roxy", dataset, representation="roxy"),
-        algorithms=("logistic_regression",),
-        config=BenchmarkConfig(
-            metrics=("accuracy", "mcc"),
-            seeds=(42,),
-            modes=("tuned",),
-            include_baselines=False,
-            tuning=TuningConfig(
-                optimizer="grid",
-                metrics=("accuracy",),
-                refit_metric="accuracy",
-                n_jobs=1,
-            ),
-        ),
-        partitions=plan,
-        search_spaces={
-            "logistic_regression": SearchSpace("lr", {"C": [0.1, 1.0]}),
-        },
-    )
-
-    assert len(result.successes) == 1
-    run = result.successes[0]
-    assert run.mode == "tuned"
-    assert run.optimization is not None
-    assert run.optimization.metadata["protected_samples"] == 10
-    assert run.validation is not None
-    assert dataset.sample_ids is not None
-    assert run.validation.folds[0].evaluation_role == "test"
-    assert set(run.validation.folds[0].evaluation_ids) == set(dataset.sample_ids[50:])
-    assert len(run.validation.folds[0].train_ids) == 50
-    assert run.oof_prediction is not None
-    assert run.oof_prediction.n_samples == 10
-
-
 def test_tuned_cv_is_rejected_without_destroying_untuned_result() -> None:
     dataset = _classification_dataset()
     result = BenchmarkEngine(MODEL_REGISTRY).run(
@@ -448,23 +407,8 @@ def test_regression_benchmark_includes_dummy_regressor_baseline() -> None:
         "dummy_regressor",
         "ridge_regressor",
     }
+    assert not result.failures
     assert all("rmse" in run.aggregate_metrics for run in result.successes)
-
-
-def test_run_and_failure_tables_are_exportable() -> None:
-    dataset = _classification_dataset()
-    result = BenchmarkEngine(MODEL_REGISTRY).run(
-        datasets=dataset,
-        algorithms=("logistic_regression", "bad_model"),
-        config=BenchmarkConfig(metrics=("accuracy",), include_baselines=False),
-        partitions=_cv_plan(dataset),
-    )
-    runs = result.runs_frame()
-    failures = result.failures_frame()
-    assert len(runs) == 2
-    assert set(runs["status"]) == {"complete", "failed"}
-    assert len(failures) == 1
-    assert failures.row(0, named=True)["algorithm"] == "bad_model"
 
 
 def test_partition_from_unrelated_dataset_fingerprint_is_rejected() -> None:
@@ -551,3 +495,8 @@ def test_mixed_tuned_and_untuned_holdout_use_same_protected_test() -> None:
         assert fold.evaluation_role == "test"
         assert set(fold.evaluation_ids) == expected_test
         assert len(fold.train_ids) == 50
+    tuned = next(run for run in result.successes if run.mode == "tuned")
+    assert tuned.optimization is not None
+    assert tuned.optimization.metadata["protected_samples"] == 10
+    assert tuned.oof_prediction is not None
+    assert tuned.oof_prediction.n_samples == 10

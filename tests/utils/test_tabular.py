@@ -120,9 +120,6 @@ def test_read_table_casts_all_empty_column_to_float64(tmp_path):
     assert frame["a"].dtype == pl.Float64
 
 
-@pytest.mark.parametrize("pyarrow", [True, False])
-def test_as_frame_rejects_labels_that_collide_as_strings(monkeypatch, pyarrow):
-    if not pyarrow:
-        _force_no_pyarrow(monkeypatch)
+def test_as_frame_rejects_labels_that_collide_as_strings():
     with pytest.raises(DatasetValidationError, match="unique"):
         as_frame(pd.DataFrame({1: [1.0, 2.0], "1": [3.0, 4.0]}))

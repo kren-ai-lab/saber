@@ -62,6 +62,7 @@ def test_typed_search_space_json_roundtrip(tmp_path) -> None:
     original = SearchSpace(
         "typed",
         {
+            "legacy": [1, 2],
             "kind": Categorical(["a", "b"]),
             "depth": Integer(1, 5, step=2),
             "rate": Float(0.1, 0.5, step=0.2),

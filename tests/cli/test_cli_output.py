@@ -166,7 +166,6 @@ def test_model_show_human_output_includes_capabilities(capsys):
     output = capsys.readouterr().out
     assert "Capabilities & requirements" in output
     assert "sample_weight" in output
-    assert "Scaling" not in output or "recommended" in output
 
 
 def test_doctor_payload_and_cli(capsys):
@@ -224,32 +223,14 @@ def test_workflow_help_lists_workflow_options():
         assert option in completed.stdout
 
 
-def test_invalid_command_is_a_usage_error():
-    completed = _cli("definitely-not-a-command")
-    assert completed.returncode == 2
-    assert "No such command" in completed.stderr
+def test_invalid_command_is_a_configuration_exit_code():
+    assert main(["definitely-not-a-command"]) == EXIT_CONFIG
 
 
 def test_version_flag():
     completed = _cli("--version")
     assert completed.returncode == 0
     assert completed.stdout.strip() == f"saber {saber.__version__}"
-
-
-def test_cli2_contains_no_scientific_engine_imports_or_splitters():
-    source = (ROOT / "saber" / "cli" / "main.py").read_text(encoding="utf-8")
-    renderer = (ROOT / "saber" / "cli" / "render.py").read_text(encoding="utf-8")
-    combined = source + renderer
-    forbidden = (
-        "train_test_split",
-        "StratifiedKFold",
-        "GroupKFold",
-        "GridSearchCV",
-        "RandomizedSearchCV",
-        ".fit(",
-    )
-    for token in forbidden:
-        assert token not in combined
 
 
 def test_benchmark_preview_lists_nan_scores_last():

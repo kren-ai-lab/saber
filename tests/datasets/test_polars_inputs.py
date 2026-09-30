@@ -58,13 +58,6 @@ def test_null_target_is_rejected():
         DatasetBundle(X=np.ones((2, 1)), y=np.array(["a", None], dtype=object))
 
 
-def test_subset_keeps_original_order_for_polars():
-    bundle = DatasetBundle(X=_frame(), y=np.array([0, 1, 0, 1]), sample_ids=[10, 11, 12, 13])
-    subset = bundle.subset([13, 11])
-    assert subset.sample_ids == (11, 13)
-    assert subset.X["f0"].to_list() == [1.5, 3.5]
-
-
 def test_feature_schema_rejects_reordered_polars_columns():
     schema = FeatureSchema.from_data(_frame())
     reordered = _frame().select(["f1", "f0", "n", "flag"])

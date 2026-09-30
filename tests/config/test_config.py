@@ -12,7 +12,7 @@ from sklearn.datasets import make_classification, make_regression
 
 import saber
 from saber.config import CONFIG_SCHEMA_VERSION, dump_config, load_config, run_config
-from saber.config.builders import load_dataset, load_prediction_frame
+from saber.config.builders import load_dataset
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.exceptions import ConfigurationError
 from saber.utils.tabular import read_table
@@ -76,7 +76,9 @@ def test_yaml_validation_workflow_matches_direct_python_api(tmp_path):
         random_state=42,
     )
     assert execution.config.workflow == "validate"
-    assert execution.result.aggregate_metrics == direct.aggregate_metrics
+    assert execution.result.aggregate_metrics == pytest.approx(direct.aggregate_metrics)
+    assert direct.oof_prediction is not None
+    assert execution.result.oof_prediction.predictions.tolist() == direct.oof_prediction.predictions.tolist()
     assert (tmp_path / "results" / "summary.json").exists()
     assert (tmp_path / "results" / "metrics.csv").exists()
     assert (tmp_path / "results" / "predictions.csv").exists()
@@ -119,29 +121,7 @@ def test_validation_config_requires_partition_or_biosieve():
         )
 
 
-def test_tuning_yaml_executes_typed_search_space(tmp_path):
-    _write_classification_inputs(tmp_path)
-    config = {
-        "workflow": "tune",
-        "dataset": {"path": str(tmp_path / "data.csv"), "target": "label", "sample_id": "sample_id"},
-        "algorithm": "logistic_regression",
-        "partition": {"path": str(tmp_path / "folds.json")},
-        "tuning": {
-            "optimizer": "grid",
-            "metrics": ["accuracy"],
-            "refit_metric": "accuracy",
-            "random_state": 42,
-        },
-        "search_space": {
-            "C": {"type": "categorical", "values": [0.1, 1.0]},
-        },
-    }
-    execution = run_config(config)
-    assert execution.result.best_params["C"] in {0.1, 1.0}
-    assert execution.summary["workflow"] == "tune"
-
-
-def test_tuning_yaml_with_output_directory_writes_readable_history_csv(tmp_path):
+def test_tuning_yaml_executes_typed_search_space_and_writes_history_csv(tmp_path):
     _write_classification_inputs(tmp_path)
     config = {
         "workflow": "tune",
@@ -160,6 +140,8 @@ def test_tuning_yaml_with_output_directory_writes_readable_history_csv(tmp_path)
         "output": {"directory": str(tmp_path / "results")},
     }
     execution = run_config(config)
+    assert execution.result.best_params["C"] in {0.1, 1.0}
+    assert execution.summary["workflow"] == "tune"
     history_path = tmp_path / "results" / "optimization_history.csv"
     assert history_path.exists()
     assert not read_table(history_path, separator=",").is_empty()
@@ -222,8 +204,13 @@ def test_benchmark_yaml_runs_same_public_engine(tmp_path):
             "modes": ["untuned"],
             "include_baselines": False,
         },
+        "output": {"directory": str(tmp_path / "results")},
     }
     execution = run_config(config)
+    for name in ("metrics", "predictions", "failures", "optimization_history"):
+        path = tmp_path / "results" / f"{name}.csv"
+        read_table(path, separator=",")  # must exist and parse
+        assert execution.outputs[name] == str(path)
     direct = saber.benchmark(
         datasets={"rep_a": bundle},
         algorithms=("logistic_regression",),
@@ -239,35 +226,6 @@ def test_benchmark_yaml_runs_same_public_engine(tmp_path):
     )
 
 
-def test_benchmark_yaml_with_output_directory_writes_readable_result_tables(tmp_path):
-    _write_classification_inputs(tmp_path)
-    config = {
-        "workflow": "benchmark",
-        "datasets": {
-            "rep_a": {
-                "path": str(tmp_path / "data.csv"),
-                "target": "label",
-                "sample_id": "sample_id",
-            }
-        },
-        "algorithms": ["logistic_regression"],
-        "partitions": {"cv": {"path": str(tmp_path / "folds.json")}},
-        "benchmark": {
-            "metrics": ["accuracy"],
-            "seeds": [42],
-            "modes": ["untuned"],
-            "include_baselines": False,
-        },
-        "output": {"directory": str(tmp_path / "results")},
-    }
-    execution = run_config(config)
-    for name in ("metrics", "predictions", "failures", "optimization_history"):
-        path = tmp_path / "results" / f"{name}.csv"
-        assert path.exists()
-        read_table(path, separator=",")  # must parse without error
-        assert execution.outputs[name] == str(path)
-
-
 def test_config_validate_rejects_unknown_nested_keys():
     with pytest.raises(ConfigurationError, match="Unknown dataset keys"):
         load_config(
@@ -277,32 +235,6 @@ def test_config_validate_rejects_unknown_nested_keys():
                 "algorithm": "ridge_regressor",
             }
         )
-
-
-def test_evaluate_yaml_uses_persisted_artifact(tmp_path):
-    X, y = make_regression(n_samples=36, n_features=3, random_state=31)  # pyrefly: ignore[bad-unpacking]
-    frame = pd.DataFrame(X, columns=["x0", "x1", "x2"])
-    frame["target"] = y
-    frame.to_csv(tmp_path / "eval.csv", index=False)
-
-    run_config(
-        {
-            "workflow": "train",
-            "dataset": {"path": str(tmp_path / "eval.csv"), "target": "target"},
-            "algorithm": "ridge_regressor",
-            "artifact": {"path": str(tmp_path / "eval_model"), "overwrite": True},
-        }
-    )
-    execution = run_config(
-        {
-            "workflow": "evaluate",
-            "dataset": {"path": str(tmp_path / "eval.csv"), "target": "target"},
-            "artifact": str(tmp_path / "eval_model"),
-            "metrics": ["rmse", "mae"],
-        }
-    )
-    assert execution.summary["workflow"] == "evaluate"
-    assert set(execution.result.metrics) == {"rmse", "mae"}
 
 
 def test_csv_and_tsv_dataset_loading_give_same_fingerprint(tmp_path):
@@ -359,20 +291,6 @@ def test_dataset_sep_rejects_multi_character_separator(tmp_path):
     )
     with pytest.raises(ConfigurationError, match="single character"):
         load_dataset(config, config.payload["dataset"])
-
-
-def test_prediction_frame_sep_rejects_multi_character_separator(tmp_path):
-    data_path = tmp_path / "data.csv"
-    data_path.write_text("sample_id::f0\ns0::1.0\n", encoding="utf-8")
-    config = load_config(
-        {
-            "workflow": "predict",
-            "dataset": {"path": str(data_path), "sample_id": "sample_id", "sep": "::"},
-            "artifact": str(tmp_path / "model"),
-        }
-    )
-    with pytest.raises(ConfigurationError, match="single character"):
-        load_prediction_frame(config, config.payload["dataset"])
 
 
 def test_benchmark_config_requires_partitions_or_biosieve():

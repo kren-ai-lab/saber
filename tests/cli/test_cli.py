@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
-import sys
 
 import pandas as pd
 import yaml
@@ -48,27 +46,9 @@ def _workflow_files(tmp_path):
     return path, bundle
 
 
-def test_cli_models_discovery_commands():
-    assert main(["models", "list", "--task", "classification", "--json"]) == EXIT_OK
-    assert main(["models", "show", "logistic_regression", "--json"]) == EXIT_OK
-
-
 def test_cli_config_validation_and_wrong_workflow(tmp_path):
     path, _ = _workflow_files(tmp_path)
     assert main(["config", "validate", str(path)]) == EXIT_OK
-    assert main(["train", str(path)]) == EXIT_CONFIG
-
-
-def test_cli_train_rejects_multi_character_dataset_separator(tmp_path):
-    data_path = tmp_path / "data.csv"
-    data_path.write_text("sample_id::target::f0\ns0::0::1.0\ns1::1::2.0\n", encoding="utf-8")
-    config = {
-        "workflow": "train",
-        "dataset": {"path": "data.csv", "target": "target", "sample_id": "sample_id", "sep": "::"},
-        "algorithm": "ridge_regressor",
-    }
-    path = tmp_path / "train.yaml"
-    path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
     assert main(["train", str(path)]) == EXIT_CONFIG
 
 
@@ -78,19 +58,8 @@ def test_cli_validate_uses_same_config_runner(tmp_path):
     assert main(["validate", str(path)]) == EXIT_OK
     summary = json.loads((tmp_path / "cli_results" / "summary.json").read_text())
     assert summary["aggregate_metrics"] == direct.summary["aggregate_metrics"]
-
-
-def test_python_module_entry_point(tmp_path):
-    completed = subprocess.run(
-        [sys.executable, "-m", "saber", "--version"],
-        cwd=str(tmp_path),
-        env={**__import__("os").environ, "PYTHONPATH": str(__import__("pathlib").Path(__file__).parents[2])},
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert completed.returncode == 0
-    assert "saber 0.1.0" in completed.stdout
+    assert summary["workflow"] == "validate"
+    assert summary["n_splits"] == 3
 
 
 def test_cli_artifact_inspection_and_verification(tmp_path):

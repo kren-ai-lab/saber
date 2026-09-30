@@ -203,6 +203,7 @@ def test_failed_candidate_is_explicit_in_history() -> None:
     assert result.failures
     assert result.failures[0]["status"] == "failed"
     assert np.isfinite(result.best_score)
+    assert result.best_params["C"] == 1.0
 
 
 def test_regression_loss_scores_keep_natural_display_direction() -> None:

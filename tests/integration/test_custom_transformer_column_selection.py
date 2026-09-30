@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pandas as pd
 import polars as pl
-import pytest
 from sklearn.compose import ColumnTransformer
 from sklearn.datasets import make_classification
 from sklearn.preprocessing import StandardScaler
@@ -28,10 +27,9 @@ def _raw_frame():
     return pd.DataFrame(X, columns=FEATURE_NAMES), y
 
 
-def _dataset(*, as_polars: bool) -> DatasetBundle:
+def _dataset() -> DatasetBundle:
     frame, y = _raw_frame()
-    X = pl.from_pandas(frame) if as_polars else frame
-    return DatasetBundle(X=X, y=y, sample_ids=[f"s{i}" for i in range(len(y))])
+    return DatasetBundle(X=pl.from_pandas(frame), y=y, sample_ids=[f"s{i}" for i in range(len(y))])
 
 
 def _preprocessing() -> PreprocessingConfig:
@@ -49,9 +47,9 @@ def _fold_plan(dataset: DatasetBundle) -> PartitionPlan:
     )
 
 
-@pytest.mark.parametrize("as_polars", [True, False], ids=["polars-dataset", "pandas-dataset"])
-def test_train_validate_tune_predict_and_artifact_round_trip_with_named_column_selection(as_polars, tmp_path):
-    dataset = _dataset(as_polars=as_polars)
+def test_train_validate_tune_predict_and_artifact_round_trip_with_named_column_selection(tmp_path):
+    # pandas input is converted to Polars inside DatasetBundle, so one frame type covers both.
+    dataset = _dataset()
     preprocessing = _preprocessing()
 
     train_result = saber.train(

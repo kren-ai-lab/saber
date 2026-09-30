@@ -7,7 +7,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_score
 
 from saber.core.metrics import get_metric_spec, validate_metric
-from saber.exceptions import MetricProblemTypeError, MetricTaskMismatchError
+from saber.exceptions import MetricNotFoundError, MetricProblemTypeError, MetricTaskMismatchError
 from saber.tuning.scorers import get_scorer, normalize_score
 
 
@@ -46,3 +46,8 @@ def test_loss_metric_has_natural_score_conversion() -> None:
     assert spec.is_loss
     assert spec.optimization_direction == "maximize"
     assert normalize_score("rmse", -2.5) == 2.5
+
+
+def test_unknown_scorer_raises() -> None:
+    with pytest.raises(MetricNotFoundError):
+        get_scorer("unknown_score")

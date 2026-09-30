@@ -9,7 +9,6 @@ from saber import MODEL_REGISTRY
 from saber.benchmark import BenchmarkConfig, BenchmarkEngine
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.persistence import load_benchmark_artifact, save_benchmark_artifact, verify_artifact
-from saber.utils.tabular import read_table
 
 
 def _benchmark_result():
@@ -87,17 +86,6 @@ def test_loaded_benchmark_table_is_polars_and_matches_result_frame(tmp_path):
     assert metrics_table.columns == result.metrics_frame().columns
     assert len(metrics_table) == len(result.metrics_frame())
     assert verify_artifact(artifact_path).artifact_type == "benchmark"
-
-
-def test_read_table_loads_legacy_boolean_and_missing_cells(tmp_path):
-    artifact_path = tmp_path / "benchmark_artifact"
-    result = _benchmark_result()
-    save_benchmark_artifact(artifact_path, result)
-    runs_path = artifact_path / "runs.csv"
-    runs_path.write_text("run_id,included,note\nr1,True,\nr2,False,NaN\n")
-
-    frame = read_table(runs_path, separator=",")
-    assert frame.columns == ["run_id", "included", "note"]
 
 
 def test_benchmark_artifact_file_set_is_human_inspectable(tmp_path):

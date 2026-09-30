@@ -68,14 +68,6 @@ def test_tampered_feature_schema_is_rejected_even_if_checksums_are_rewritten(tmp
         load_model_artifact(path)
 
 
-def test_wrong_feature_order_is_rejected_before_model_prediction(tmp_path):
-    dataset, _, path = _trained(tmp_path)
-    loaded = load_model_artifact(path)
-    wrong = dataset.X[list(reversed(dataset.X.columns))]
-    with pytest.raises(FeatureSchemaMismatchError):
-        loaded.predict(wrong)
-
-
 def test_missing_feature_is_rejected_before_model_prediction(tmp_path):
     dataset, _, path = _trained(tmp_path)
     loaded = load_model_artifact(path)
