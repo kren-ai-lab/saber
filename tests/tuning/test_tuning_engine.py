@@ -13,6 +13,7 @@ from saber.core.search_space import LogFloat, SearchSpace
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.exceptions import ValidationContractError
 from saber.tuning import TuningConfig, TuningEngine
+from saber.validation import ValidationEngine
 
 
 def _classification_dataset(n: int = 60, *, sample_weight: bool = False):
@@ -278,3 +279,47 @@ def test_protected_test_rows_do_not_influence_search_or_selection() -> None:
         shifted.best_model.named_steps["estimator"].coef_,
         base.best_model.named_steps["estimator"].coef_,
     )
+
+
+@pytest.mark.parametrize("positive_class", [None, "active"], ids=["default-positive", "explicit-positive"])
+def test_binary_tuning_scores_match_evaluation_of_the_positive_class(positive_class) -> None:
+    # Imbalanced string labels: a class-weighted average would diverge from the
+    # positive-class scores that evaluation reports.
+    X, y_int = make_classification(
+        n_samples=90, n_features=6, n_informative=4, weights=[0.8], flip_y=0.05, random_state=3
+    )
+    y = np.where(y_int == 1, "active", "inactive")
+    dataset = DatasetBundle(X=X, y=y, sample_ids=[f"sample_{i}" for i in range(90)])
+    plan = _three_fold_plan(dataset)
+    metrics = ("precision", "recall", "f1", "roc_auc")
+
+    tuned = TuningEngine(MODEL_REGISTRY).run(
+        dataset=dataset,
+        algorithm="logistic_regression",
+        config=TuningConfig(optimizer="grid", metrics=metrics, refit_metric="f1", n_jobs=1),
+        partition_plan=plan,
+        search_space=SearchSpace("lr", {"C": [1.0]}),
+        positive_class=positive_class,
+    )
+    validated = ValidationEngine(MODEL_REGISTRY).run(
+        dataset=dataset,
+        algorithm="logistic_regression",
+        partition_plan=plan,
+        metrics=metrics,
+        positive_class=positive_class,
+    )
+
+    assert tuned.best_scores == pytest.approx(validated.aggregate_metrics)
+
+
+def test_tuning_rejects_positive_class_outside_the_binary_target() -> None:
+    dataset = _classification_dataset()
+    with pytest.raises(ValidationContractError, match="positive_class"):
+        TuningEngine(MODEL_REGISTRY).run(
+            dataset=dataset,
+            algorithm="logistic_regression",
+            config=TuningConfig(optimizer="grid", metrics=("f1",), n_jobs=1),
+            partition_plan=_three_fold_plan(dataset),
+            search_space=SearchSpace("lr", {"C": [1.0]}),
+            positive_class="missing",
+        )

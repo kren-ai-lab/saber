@@ -33,6 +33,7 @@ from saber.exceptions import (
     MetricNotFoundError,
     MetricProblemTypeError,
     MetricTaskMismatchError,
+    ValidationContractError,
 )
 
 if TYPE_CHECKING:
@@ -65,6 +66,9 @@ class MetricSpec:
     problem_types
         Classification regimes supported by the metric. Regression metrics
         use ``("regression",)``.
+    positive_class_aware
+        Whether a binary scorer must be computed for an explicit positive
+        class (as evaluation does) instead of by class order or averaging.
     description
         Human-readable summary.
 
@@ -81,14 +85,24 @@ class MetricSpec:
     scorer_kwargs: dict[str, Any] = field(default_factory=dict)
     problem_types: tuple[ProblemType, ...] = field(default_factory=tuple)
     description: str | None = None
+    positive_class_aware: bool = False
 
-    def make_scorer(self) -> Any:
-        """Build a scikit-learn compatible scorer."""
+    def make_scorer(self, *, positive_class: Any | None = None) -> Any:
+        """Build a scikit-learn compatible scorer.
+
+        ``positive_class`` is only meaningful for binary targets: positive-class
+        aware metrics are then scored for that class, matching evaluation,
+        rather than averaged across classes.
+        """
+        kwargs = dict(self.scorer_kwargs)
+        if positive_class is not None and self.positive_class_aware:
+            kwargs.pop("average", None)
+            kwargs["pos_label"] = positive_class
         return make_scorer(
             self.score_func,
             response_method=self.response_method,
             greater_is_better=self.greater_is_better,
-            **dict(self.scorer_kwargs),
+            **kwargs,
         )
 
     @property
@@ -131,6 +145,13 @@ class MetricSpec:
             )
 
 
+def _roc_auc_for_positive_class(y_true: Any, y_score: Any, *, pos_label: Any | None = None) -> float:
+    """ROC AUC where ``y_score`` ranks ``pos_label`` (sklearn orients the response to it)."""
+    if pos_label is None:
+        return float(roc_auc_score(y_true, y_score))
+    return float(roc_auc_score(np.asarray(y_true) == pos_label, y_score))
+
+
 _CLASSIFICATION_SPECS = (
     MetricSpec(
         name="accuracy",
@@ -152,7 +173,8 @@ _CLASSIFICATION_SPECS = (
         score_func=precision_score,
         scorer_kwargs={"average": "weighted", "zero_division": 0},
         problem_types=("binary", "multiclass"),
-        description="Weighted precision across classes.",
+        description="Positive-class precision (binary); weighted across classes (multiclass).",
+        positive_class_aware=True,
     ),
     MetricSpec(
         name="recall",
@@ -160,7 +182,8 @@ _CLASSIFICATION_SPECS = (
         score_func=recall_score,
         scorer_kwargs={"average": "weighted", "zero_division": 0},
         problem_types=("binary", "multiclass"),
-        description="Weighted recall across classes.",
+        description="Positive-class recall (binary); weighted across classes (multiclass).",
+        positive_class_aware=True,
     ),
     MetricSpec(
         name="f1",
@@ -168,7 +191,8 @@ _CLASSIFICATION_SPECS = (
         score_func=f1_score,
         scorer_kwargs={"average": "weighted", "zero_division": 0},
         problem_types=("binary", "multiclass"),
-        description="Weighted harmonic mean of precision and recall.",
+        description="Positive-class F1 (binary); weighted across classes (multiclass).",
+        positive_class_aware=True,
     ),
     MetricSpec(
         name="mcc",
@@ -180,10 +204,11 @@ _CLASSIFICATION_SPECS = (
     MetricSpec(
         name="roc_auc",
         task="classification",
-        score_func=roc_auc_score,
+        score_func=_roc_auc_for_positive_class,
         response_method=("decision_function", "predict_proba"),
         problem_types=("binary",),
         description="Area under the ROC curve for binary classification.",
+        positive_class_aware=True,
     ),
 )
 
@@ -279,6 +304,28 @@ def infer_problem_type(*, task: str, y: Sequence[Any] | np.ndarray | None = None
     # dataset-level validation belongs to a later phase. Returning binary here
     # keeps metric validation focused on its own contract.
     return "binary"
+
+
+def resolve_positive_class(
+    *, task: str, y: Sequence[Any] | np.ndarray, positive_class: Any | None = None
+) -> Any:
+    """Return the binary positive class used for scoring, or ``None`` when not binary.
+
+    The default is the last class in sorted order, the same rule
+    ``PredictionResult`` applies to a fitted estimator's ``classes_``.
+    """
+    classes = np.unique(np.asarray(y)) if task == "classification" else np.asarray([])
+    if classes.size != 2:
+        if positive_class is not None:
+            raise ValidationContractError("positive_class is only valid for binary classification.")
+        return None
+    if positive_class is None:
+        return classes[-1].item()
+    if positive_class not in classes.tolist():
+        raise ValidationContractError(
+            f"positive_class {positive_class!r} is not one of the target classes {classes.tolist()}."
+        )
+    return positive_class
 
 
 def validate_metric(

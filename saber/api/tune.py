@@ -29,6 +29,7 @@ def tune(
     evaluation_role: EvaluationRole = "auto",
     require_complete: bool = True,
     model_params: Mapping[str, Any] | None = None,
+    positive_class: Any | None = None,
     registry: AlgorithmRegistry = MODEL_REGISTRY,
 ) -> OptimizationResult:
     """Optimize a model on explicit/BioSieve partitions."""
@@ -44,6 +45,7 @@ def tune(
         evaluation_role=evaluation_role,
         require_complete=require_complete,
         model_params=model_params,
+        positive_class=positive_class,
     )
 
 

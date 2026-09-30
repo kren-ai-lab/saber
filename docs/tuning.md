@@ -35,7 +35,7 @@ space = SearchSpace(
 )
 ```
 
-Finite lists remain valid categorical domains. Grid search requires enumerable domains; a continuous `Float` without a step is therefore rejected instead of being discretized silently.
+Finite lists remain valid categorical domains. Grid search requires enumerable domains; a continuous `Float` without a step is therefore rejected instead of being discretized silently. A stepped `Float` must have a range divisible by its step (`Float(0.0, 0.9, step=0.3)`, not `Float(0.0, 1.0, step=0.3)`), so grid, random and Optuna search the same lattice.
 
 ## Multi-metric tuning
 
@@ -52,6 +52,8 @@ config = TuningConfig(
 ```
 
 One metric is the explicit optimization/refit objective. Additional requested metrics are retained for the same candidate/folds.
+
+For binary targets, `precision`, `recall`, `f1` and `roc_auc` are scored for the positive class, exactly as evaluation reports them: pass `positive_class=` to `saber.tune()` (or `positive_class:` in a tune/benchmark YAML), otherwise the last class in sorted order is used. Multiclass targets keep weighted averaging.
 
 ## Leakage safety
 

@@ -356,6 +356,7 @@ class BenchmarkEngine:
             evaluation_role="auto",
             require_complete=config.require_complete,
             model_params=model_params,
+            positive_class=positive_class,
         )
         final_params = {**model_params, **optimization.best_params}
         validation = self.validation_engine.run(

@@ -21,6 +21,11 @@ First public release, published on PyPI as `saberlib`.
 - Custom preprocessing (`PreprocessingConfig(transformer=...)`) receives a Polars frame, so
   selecting columns by name works as usual; `sklearn.compose.make_column_selector` is pandas-only
   and is therefore not supported — select columns by name instead.
+- Binary tuning scores `precision`, `recall`, `f1` and `roc_auc` for the positive class, the same
+  quantity evaluation reports; `saber.tune()` and the tune workflow accept `positive_class`, and
+  tuned benchmark runs select with the benchmark's `positive_class`.
+- A stepped `Float` domain must have a range divisible by its step, so every optimizer searches the
+  same grid.
 - Sample identifiers must share one scalar type (`str`, `int`, `float`, or `bool`); mixing types
   across `sample_ids` is rejected.
 - Datasets loaded from CSV are parsed with Polars, including correctly rounded floats. A partition
