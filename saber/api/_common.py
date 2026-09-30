@@ -117,7 +117,7 @@ def prediction_from_model(
     return PredictionResult(
         task=result.spec.task,
         **outputs,
-        positive_class=positive_class,
+        positive_class=result.positive_class if positive_class is None else positive_class,
         sample_ids=None if sample_ids is None else np.asarray(sample_ids),
         metadata={
             "algorithm": result.spec.name,

@@ -344,8 +344,12 @@ def _run_predict(config: WorkflowConfig) -> WorkflowExecution:
     }
     outputs: dict[str, str] = {}
     output = _output_mapping(config)
-    if output and output.get("path"):
-        target = config.resolve_path(output["path"])
+    if output and (output.get("path") or output.get("directory")):
+        target = (
+            config.resolve_path(output["path"])
+            if output.get("path")
+            else config.resolve_path(output["directory"]) / "predictions.csv"
+        )
         target.parent.mkdir(parents=True, exist_ok=True)
         _prediction_frame(result).write_csv(target)
         outputs["predictions"] = str(target)

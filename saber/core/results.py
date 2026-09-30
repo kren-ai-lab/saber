@@ -19,3 +19,4 @@ class TrainResult:
     parameters: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
     feature_schema: FeatureSchema | None = None
+    positive_class: Any | None = None

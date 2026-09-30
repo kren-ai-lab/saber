@@ -185,6 +185,32 @@ def test_train_yaml_artifact_then_predict_yaml_round_trip(tmp_path):
     assert (tmp_path / "predictions.csv").exists()
 
 
+def test_predict_output_directory_writes_predictions(tmp_path):
+    X, y = make_regression(n_samples=40, n_features=4, random_state=19)  # pyrefly: ignore[bad-unpacking]
+    frame = pd.DataFrame(X, columns=["a", "b", "c", "d"])
+    frame["target"] = y
+    frame.to_csv(tmp_path / "r.csv", index=False)
+    dataset = {"path": str(tmp_path / "r.csv"), "target": "target"}
+    run_config(
+        {
+            "workflow": "train",
+            "dataset": dataset,
+            "algorithm": "ridge_regressor",
+            "artifact": {"path": str(tmp_path / "model"), "overwrite": True},
+        }
+    )
+    execution = run_config(
+        {
+            "workflow": "predict",
+            "dataset": dataset,
+            "artifact": str(tmp_path / "model"),
+            "output": {"directory": str(tmp_path / "out")},
+        }
+    )
+    assert (tmp_path / "out" / "predictions.csv").exists()
+    assert execution.outputs["predictions"] == str(tmp_path / "out" / "predictions.csv")
+
+
 def test_benchmark_yaml_runs_same_public_engine(tmp_path):
     _, _, bundle, plan = _write_classification_inputs(tmp_path)
     config = {

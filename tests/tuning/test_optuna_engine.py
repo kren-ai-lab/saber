@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 import pytest
@@ -112,3 +113,20 @@ def test_optuna_storage_can_resume_existing_study(tmp_path) -> None:
     assert len(second.history) == 4
     second_new_values = [entry["params"]["C"] for entry in second.history[2:]]
     assert second_new_values != first_values
+
+
+def test_optuna_failed_trials_are_counted_as_failures() -> None:
+    dataset, plan = _inputs()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        result = tune(
+            dataset=dataset,
+            algorithm="logistic_regression",
+            config=TuningConfig(
+                optimizer="optuna", metrics=("accuracy",), n_trials=4, random_state=1, n_jobs=1
+            ),
+            partition_plan=plan,
+            search_space=SearchSpace("lr", {"C": [-1.0, 1.0]}),
+        )
+    assert result.failures
+    assert all(row["status"] == "failed" for row in result.failures)

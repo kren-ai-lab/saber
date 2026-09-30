@@ -42,6 +42,8 @@ def train(
         model_params=model_params,
     )
 
+    result.positive_class = positive_class
+
     if artifact_path is not None:
         save_model(
             artifact_path,

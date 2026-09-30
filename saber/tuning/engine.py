@@ -521,7 +521,7 @@ def _run_optuna(
             "params": dict(trial.params),
             "score": None if trial.value is None else float(trial.value),
             "metrics": {refit_metric: None if trial.value is None else float(trial.value)},
-            "status": str(trial.state).split(".")[-1].lower(),
+            "status": {"FAIL": "failed"}.get(trial.state.name, trial.state.name.lower()),
             "error": trial.user_attrs.get("saber_error"),
         }
         for trial in study.trials
