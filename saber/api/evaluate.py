@@ -1,4 +1,4 @@
-"""High-level validation and direct evaluation APIs."""
+"""High-level direct evaluation API."""
 
 from __future__ import annotations
 
@@ -9,48 +9,11 @@ from saber.api._common import prediction_from_model
 from saber.core.results import TrainResult
 from saber.evaluation import EvaluationResult, evaluate_prediction
 from saber.persistence import LoadedModelArtifact, load_model_artifact
-from saber.validation import ValidationEngine, ValidationResult
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Sequence
 
-    from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
-    from saber.preprocessing import PreprocessingConfig
-    from saber.validation.partitioning import EvaluationRole
-
-
-def validate(
-    *,
-    dataset: DatasetBundle,
-    algorithm: str,
-    partition_plan: PartitionPlan | None = None,
-    partitioning: BioSievePartitionConfig | None = None,
-    biosieve_extra_columns: Mapping[str, Sequence[Any]] | None = None,
-    preprocessing: PreprocessingConfig | Any | None = None,
-    metrics: Sequence[str] | None = None,
-    evaluation_role: EvaluationRole = "auto",
-    positive_class: Any | None = None,
-    random_state: int | None = None,
-    return_estimators: bool = False,
-    require_complete: bool = True,
-    model_params: Mapping[str, Any] | None = None,
-) -> ValidationResult:
-    """Validate a registered model using explicit/BioSieve partitions."""
-    return ValidationEngine().run(
-        dataset=dataset,
-        algorithm=algorithm,
-        partition_plan=partition_plan,
-        partitioning=partitioning,
-        biosieve_extra_columns=biosieve_extra_columns,
-        preprocessing=preprocessing,
-        metrics=metrics,
-        evaluation_role=evaluation_role,
-        positive_class=positive_class,
-        random_state=random_state,
-        return_estimators=return_estimators,
-        require_complete=require_complete,
-        **dict(model_params or {}),
-    )
+    from saber.datasets import DatasetBundle
 
 
 def evaluate(
@@ -85,4 +48,4 @@ def evaluate(
     return evaluate_prediction(dataset.y, prediction, metrics=metrics)
 
 
-__all__ = ["evaluate", "validate"]
+__all__ = ["evaluate"]

@@ -8,11 +8,12 @@ from saber.api.artifacts import (
     save_model,
     verify_artifact,
 )
-from saber.api.benchmark import benchmark
-from saber.api.evaluate import evaluate, validate
+from saber.api.evaluate import evaluate
 from saber.api.predict import predict
 from saber.api.train import train
-from saber.api.tune import tune
+from saber.benchmark import benchmark
+from saber.tuning import tune
+from saber.validation import validate
 
 __all__ = [
     "benchmark",

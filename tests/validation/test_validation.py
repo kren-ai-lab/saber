@@ -11,7 +11,7 @@ from saber.datasets import DatasetBundle, PartitionPlan
 from saber.datasets.biosieve import BioSievePartitionConfig
 from saber.exceptions import ValidationContractError
 from saber.preprocessing import PreprocessingConfig
-from saber.validation import ValidationEngine
+from saber.validation import validate
 from saber.validation.results import aggregate_fold_metrics
 
 
@@ -36,13 +36,14 @@ def test_validation_fits_scaler_only_on_training_partition():
         test_ids=list("ef"),
         dataset_fingerprint=dataset.fingerprint,
     )
-    result = ValidationEngine().run(
+    result = validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,
         preprocessing=PreprocessingConfig(imputation=None, scaler="standard"),
         evaluation_role="test",
         random_state=42,
+        return_estimators=True,
     )
     assert result.folds[0].estimator is not None
     scaler = result.folds[0].estimator.named_steps["scaler"]
@@ -70,13 +71,14 @@ def test_validation_fits_imputer_only_on_training_partition():
         train_ids=list("abcd"),
         test_ids=list("ef"),
     )
-    result = ValidationEngine().run(
+    result = validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,
         preprocessing=PreprocessingConfig(imputation="median", scaler=None),
         evaluation_role="test",
         random_state=42,
+        return_estimators=True,
     )
     assert result.folds[0].estimator is not None
     imputer = result.folds[0].estimator.named_steps["imputer"]
@@ -98,7 +100,7 @@ def test_predefined_folds_produce_complete_identity_preserving_oof_predictions()
         fold_assignments=assignments,
         dataset_fingerprint=dataset.fingerprint,
     )
-    result = ValidationEngine().run(
+    result = validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,
@@ -128,7 +130,7 @@ def test_regression_validation_returns_fold_and_oof_metrics():
         sample_ids=ids,
         fold_assignments=np.arange(50) % 5,
     )
-    result = ValidationEngine().run(
+    result = validate(
         dataset=dataset,
         algorithm="ridge_regressor",
         partition_plan=plan,
@@ -143,7 +145,7 @@ def test_unpartitioned_data_require_explicit_biosieve_configuration():
     X, y = make_classification(n_samples=30, n_features=5, random_state=2)
     dataset = DatasetBundle(X=X, y=y)
     with pytest.raises(ValidationContractError, match="BioSievePartitionConfig"):
-        ValidationEngine().run(
+        validate(
             dataset=dataset,
             algorithm="logistic_regression",
         )
@@ -157,7 +159,7 @@ def test_partition_plan_and_biosieve_configuration_are_mutually_exclusive():
         test_ids=range(20, 30),
     )
     with pytest.raises(ValidationContractError, match="not both"):
-        ValidationEngine().run(
+        validate(
             dataset=dataset,
             algorithm="logistic_regression",
             partition_plan=plan,
@@ -172,11 +174,12 @@ def test_sample_weights_are_forwarded_aligned_with_the_training_fold():
     dataset = DatasetBundle(X=X, y=y, sample_ids=ids, sample_weight=weights)
     # Train on a non-prefix block so a misaligned weight slice would be detected.
     plan = PartitionPlan.holdout(train_ids=ids[10:], test_ids=ids[:10])
-    result = ValidationEngine().run(
+    result = validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,
         evaluation_role="test",
+        return_estimators=True,
     )
     fitted = result.folds[0].estimator
     assert fitted is not None
@@ -201,7 +204,7 @@ def test_sample_weights_fail_for_estimator_without_weight_support():
         test_ids=dataset.sample_ids[30:],
     )
     with pytest.raises(ValidationContractError, match="sample-weight support"):
-        ValidationEngine().run(
+        validate(
             dataset=dataset,
             algorithm="knn",
             partition_plan=plan,
@@ -218,7 +221,7 @@ def test_holdout_auto_role_prefers_validation_over_final_test():
         validation_ids=ids[30:40],
         test_ids=ids[40:],
     )
-    result = ValidationEngine().run(
+    result = validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,
@@ -248,7 +251,7 @@ def test_cross_validation_auto_role_uses_biosieve_style_test_fold():
         )
     plan = PartitionPlan(splits=tuple(splits), kind="cross_validation")
 
-    result = ValidationEngine().run(
+    result = validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,
@@ -284,7 +287,7 @@ def test_oof_prediction_carries_probabilities_decision_scores_and_classes():
         fold_assignments=np.arange(60) % 3,
         dataset_fingerprint=dataset.fingerprint,
     )
-    result = ValidationEngine().run(
+    result = validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,

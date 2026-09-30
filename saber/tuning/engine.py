@@ -75,436 +75,271 @@ class TuningConfig:
         return metric
 
 
-class TuningEngine:
-    """Tune a registered estimator using explicit/BioSieve partitions.
+def tune(
+    *,
+    dataset: DatasetBundle,
+    algorithm: str,
+    config: TuningConfig,
+    partition_plan: PartitionPlan | None = None,
+    partitioning: BioSievePartitionConfig | None = None,
+    biosieve_extra_columns: Mapping[str, Sequence[Any]] | None = None,
+    preprocessing: PreprocessingConfig | Any | None = None,
+    search_space: SearchSpace | None = None,
+    evaluation_role: EvaluationRole = "auto",
+    require_complete: bool = True,
+    model_params: Mapping[str, Any] | None = None,
+    positive_class: Any | None = None,
+) -> OptimizationResult:
+    """Tune an algorithm over explicit/BioSieve partitions and return the best result.
 
     Preprocessing is embedded in the searched sklearn Pipeline so imputation and
     scaling are fitted independently inside each fold. saber never generates
     fallback splitters here: unpartitioned data are delegated to BioSieve.
+
+    Binary positive-class metrics (precision, recall, F1, ROC AUC) are scored
+    for ``positive_class``, defaulting to the last sorted class as evaluation does.
     """
+    spec = get_algorithm(algorithm)
+    dataset.validate(task=spec.task)
 
-    def run(
-        self,
-        *,
-        dataset: DatasetBundle,
-        algorithm: str,
-        config: TuningConfig,
-        partition_plan: PartitionPlan | None = None,
-        partitioning: BioSievePartitionConfig | None = None,
-        biosieve_extra_columns: Mapping[str, Sequence[Any]] | None = None,
-        preprocessing: PreprocessingConfig | Any | None = None,
-        search_space: SearchSpace | None = None,
-        evaluation_role: EvaluationRole = "auto",
-        require_complete: bool = True,
-        model_params: Mapping[str, Any] | None = None,
-        positive_class: Any | None = None,
-    ) -> OptimizationResult:
-        """Tune an algorithm over explicit/BioSieve partitions and return the best result.
+    plan = resolve_partition_plan(
+        dataset=dataset,
+        partition_plan=partition_plan,
+        partitioning=partitioning,
+        biosieve_extra_columns=biosieve_extra_columns,
+    )
+    plan.validate_against(dataset, require_complete=require_complete)
 
-        Binary positive-class metrics (precision, recall, F1, ROC AUC) are scored
-        for ``positive_class``, defaulting to the last sorted class as evaluation does.
-        """
-        spec = get_algorithm(algorithm)
-        dataset.validate(task=spec.task)
+    search_dataset, cv, evaluation_roles = build_explicit_cv(
+        dataset=dataset,
+        plan=plan,
+        evaluation_role=evaluation_role,
+        require_complete=require_complete,
+    )
 
-        plan = resolve_partition_plan(
-            dataset=dataset,
-            partition_plan=partition_plan,
-            partitioning=partitioning,
-            biosieve_extra_columns=biosieve_extra_columns,
-        )
-        plan.validate_against(dataset, require_complete=require_complete)
-
-        search_dataset, cv, evaluation_roles = build_explicit_cv(
-            dataset=dataset,
-            plan=plan,
-            evaluation_role=evaluation_role,
-            require_complete=require_complete,
-        )
-
-        search_dataset_ids = search_dataset.resolved_sample_ids
-        for split_index, (train_index, _) in enumerate(cv):
-            train_ids = tuple(search_dataset_ids[index] for index in train_index)
-            try:
-                search_dataset.subset(train_ids).validate(task=spec.task)
-            except DatasetValidationError as exc:
-                raise ValidationContractError(
-                    f"Training membership for tuning split {split_index} is invalid "
-                    f"for task '{spec.task}': {exc}"
-                ) from exc
-
-        space = search_space if search_space is not None else spec.search_space
-        if space is None:
-            raise ValidationContractError(f"No search space defined for algorithm '{spec.name}'.")
-        if len(space) == 0:
-            raise ValidationContractError(f"Search space for algorithm '{spec.name}' is empty.")
-
-        metrics = tuple(dict.fromkeys(config.metrics))
-        if not metrics:
-            raise ValidationContractError("At least one tuning metric is required.")
-        refit_metric = config.resolved_refit_metric()
-        scoring_positive_class = resolve_positive_class(
-            task=spec.task, y=search_dataset.y, positive_class=positive_class
-        )
-        scorers = {
-            metric: validate_metric(metric, task=spec.task, y=search_dataset.y).make_scorer(
-                positive_class=scoring_positive_class
-            )
-            for metric in metrics
-        }
-
-        first_train_index = cv[0][0]
-        first_train = search_dataset.subset(tuple(search_dataset_ids[index] for index in first_train_index))
-        estimator = spec.build_estimator(
-            random_state=config.random_state,
-            **dict(model_params or {}),
-        )
-        pipeline = build_model_pipeline(
-            spec=spec,
-            estimator=estimator,
-            training_data=first_train,
-            preprocessing=preprocessing,
-        )
-
-        fit_params = spec.sample_weight_fit_params(search_dataset.sample_weight)
-        start = perf_counter()
-
-        if config.optimizer == "optuna":
-            result = self._run_optuna(
-                spec=spec,
-                pipeline=pipeline,
-                dataset=search_dataset,
-                cv=cv,
-                search_space=space,
-                scorers=scorers,
-                refit_metric=refit_metric,
-                config=config,
-                fit_params=fit_params,
-            )
-        else:
-            result = self._run_sklearn(
-                spec=spec,
-                pipeline=pipeline,
-                dataset=search_dataset,
-                cv=cv,
-                search_space=space,
-                scorers=scorers,
-                refit_metric=refit_metric,
-                config=config,
-                fit_params=fit_params,
-            )
-
-        result.partition_plan = plan
-        result.metrics = metrics
-        result.refit_metric = refit_metric
-        result.metadata.update(
-            {
-                "dataset_fingerprint": dataset.fingerprint,
-                "search_dataset_fingerprint": search_dataset.fingerprint,
-                "partition_fingerprint": plan.fingerprint,
-                "partition_source": plan.metadata.get("source", "external"),
-                "evaluation_roles": evaluation_roles,
-                "n_splits": len(cv),
-                "n_search_samples": search_dataset.n_samples,
-                "n_total_samples": dataset.n_samples,
-                "protected_samples": dataset.n_samples - search_dataset.n_samples,
-                "elapsed_seconds": float(perf_counter() - start),
-                "search_space": space.to_dict(),
-            }
-        )
-        return result
-
-    def _run_sklearn(
-        self,
-        *,
-        spec: Any,
-        pipeline: Any,
-        dataset: DatasetBundle,
-        cv: tuple[tuple[np.ndarray, np.ndarray], ...],
-        search_space: SearchSpace,
-        scorers: dict[str, Any],
-        refit_metric: str,
-        config: TuningConfig,
-        fit_params: dict[str, Any],
-    ) -> OptimizationResult:
-        optimizer = config.optimizer
-        common: dict[str, Any] = {
-            "estimator": pipeline,
-            "scoring": scorers,
-            "cv": cv,
-            "n_jobs": config.n_jobs,
-            "refit": refit_metric if config.refit else False,
-            "return_train_score": True,
-            "error_score": config.error_score,
-        }
-
+    search_dataset_ids = search_dataset.resolved_sample_ids
+    for split_index, (train_index, _) in enumerate(cv):
+        train_ids = tuple(search_dataset_ids[index] for index in train_index)
         try:
-            grid_parameters = (
-                search_space.to_grid(prefix="estimator__") if optimizer in {"grid", "halving_grid"} else None
-            )
-            random_parameters = (
-                search_space.to_random(prefix="estimator__")
-                if optimizer in {"random", "halving_random"}
-                else None
-            )
-        except ValueError as exc:
+            search_dataset.subset(train_ids).validate(task=spec.task)
+        except DatasetValidationError as exc:
             raise ValidationContractError(
-                f"Search space for optimizer '{optimizer}' is incompatible: {exc}"
+                f"Training membership for tuning split {split_index} is invalid for task '{spec.task}': {exc}"
             ) from exc
 
-        if optimizer == "grid":
-            if grid_parameters is None:  # always set above whenever optimizer is "grid"
-                raise AssertionError("grid optimizer resolved no grid_parameters.")
-            search = GridSearchCV(
-                param_grid=grid_parameters,
-                **common,
-            )
-        elif optimizer == "random":
-            if random_parameters is None:  # always set above whenever optimizer is "random"
-                raise AssertionError("random optimizer resolved no random_parameters.")
-            search = RandomizedSearchCV(
-                param_distributions=random_parameters,
-                n_iter=config.n_iter,
-                random_state=config.random_state,
-                **common,
-            )
-        elif optimizer in {"halving_grid", "halving_random"}:
-            # sklearn's successive-halving estimators currently accept only a
-            # single scoring objective. We optimize the explicit refit metric,
-            # then evaluate the selected configuration with all requested
-            # metrics on the same explicit folds.
-            single_common = dict(common)
-            single_common["scoring"] = scorers[refit_metric]
-            single_common["refit"] = config.refit
+    space = search_space if search_space is not None else spec.search_space
+    if space is None:
+        raise ValidationContractError(f"No search space defined for algorithm '{spec.name}'.")
+    if len(space) == 0:
+        raise ValidationContractError(f"Search space for algorithm '{spec.name}' is empty.")
 
-            # Deferred: enables the experimental halving search API only when it is used.
-            from sklearn.experimental import enable_halving_search_cv  # noqa: F401, PLC0415
-
-            # sklearn stubs omit these experimental estimators; real once enabled above.
-            from sklearn.model_selection import (  # noqa: PLC0415
-                HalvingGridSearchCV,  # pyrefly: ignore[missing-module-attribute]
-                HalvingRandomSearchCV,  # pyrefly: ignore[missing-module-attribute]
-            )
-
-            halving_common = {
-                **single_common,
-                "factor": config.factor,
-                "resource": config.resource,
-                "max_resources": config.max_resources,
-                "min_resources": config.min_resources,
-                "aggressive_elimination": config.aggressive_elimination,
-            }
-            if optimizer == "halving_grid":
-                search = HalvingGridSearchCV(
-                    param_grid=grid_parameters,
-                    **halving_common,
-                )
-            else:
-                min_resources = config.min_resources
-                if min_resources == "exhaust":
-                    # HalvingRandomSearchCV uses "smallest" as its canonical
-                    # automatic lower-resource policy.
-                    min_resources = "smallest"
-                halving_common["min_resources"] = min_resources
-                search = HalvingRandomSearchCV(
-                    param_distributions=random_parameters,
-                    random_state=config.random_state,
-                    **halving_common,
-                )
-        else:
-            raise ValidationContractError(f"Unknown tuning optimizer '{optimizer}'.")
-
-        try:
-            search.fit(pipeline_input(pipeline, dataset.X), dataset.y, **fit_params)
-        except ValueError as exc:
-            message = str(exc)
-            if "fits failed" in message and "All the" in message:
-                raise OptimizationError(
-                    f"Optimizer '{optimizer}' could not fit any candidate for "
-                    f"algorithm '{spec.name}'. All candidate fits failed."
-                ) from exc
-            raise
-        results = search.cv_results_
-
-        if optimizer in {"grid", "random"}:
-            mean_key = f"mean_test_{refit_metric}"
-            best_index = _best_index(results[mean_key], spec.name, refit_metric, optimizer)
-            best_score = float(results[mean_key][best_index])
-            best_scores = {metric: float(results[f"mean_test_{metric}"][best_index]) for metric in scorers}
-            history = _history_from_results(results, {metric: metric for metric in scorers})
-        else:
-            best_index = _best_index(
-                results["mean_test_score"],
-                spec.name,
-                refit_metric,
-                optimizer,
-            )
-            best_score = float(results["mean_test_score"][best_index])
-            history = _history_from_results(results, {refit_metric: "score"})
-            # sklearn *SearchCV stubs omit `.estimator`, though it's always set
-            # from the constructor arg at runtime.
-            best_scores = _evaluate_selected_metrics(
-                pipeline=search.estimator,  # pyrefly: ignore[missing-attribute]
-                params=results["params"][best_index],
-                dataset=dataset,
-                cv=cv,
-                scorers=scorers,
-                fit_params=fit_params,
-                n_jobs=config.n_jobs,
-            )
-            best_scores[refit_metric] = best_score
-
-        best_score = _ensure_finite(
-            best_score,
-            algorithm=spec.name,
-            metric=refit_metric,
-            optimizer=optimizer,
+    metrics = tuple(dict.fromkeys(config.metrics))
+    if not metrics:
+        raise ValidationContractError("At least one tuning metric is required.")
+    refit_metric = config.resolved_refit_metric()
+    scoring_positive_class = resolve_positive_class(
+        task=spec.task, y=search_dataset.y, positive_class=positive_class
+    )
+    scorers = {
+        metric: validate_metric(metric, task=spec.task, y=search_dataset.y).make_scorer(
+            positive_class=scoring_positive_class
         )
-        _validate_best_scores(
-            best_scores,
-            algorithm=spec.name,
-            optimizer=optimizer,
-        )
-        best_params = _strip_estimator_prefix(dict(results["params"][best_index]))
-        best_model = search.best_estimator_ if config.refit else None
+        for metric in metrics
+    }
 
-        return OptimizationResult(
-            algorithm=spec.name,
-            optimizer=optimizer,
-            metric=refit_metric,
-            best_score=best_score,
-            best_params=best_params,
-            best_model=best_model,
+    first_train_index = cv[0][0]
+    first_train = search_dataset.subset(tuple(search_dataset_ids[index] for index in first_train_index))
+    estimator = spec.build_estimator(
+        random_state=config.random_state,
+        **dict(model_params or {}),
+    )
+    pipeline = build_model_pipeline(
+        spec=spec,
+        estimator=estimator,
+        training_data=first_train,
+        preprocessing=preprocessing,
+    )
+
+    fit_params = spec.sample_weight_fit_params(search_dataset.sample_weight)
+    start = perf_counter()
+
+    if config.optimizer == "optuna":
+        result = _run_optuna(
             spec=spec,
-            history=history,
-            study=search,
-            refit=config.refit,
-            best_scores=best_scores,
-        )
-
-    def _run_optuna(
-        self,
-        *,
-        spec: Any,
-        pipeline: Any,
-        dataset: DatasetBundle,
-        cv: tuple[tuple[np.ndarray, np.ndarray], ...],
-        search_space: SearchSpace,
-        scorers: dict[str, Any],
-        refit_metric: str,
-        config: TuningConfig,
-        fit_params: dict[str, Any],
-    ) -> OptimizationResult:
-        try:
-            import optuna  # noqa: PLC0415  # optuna is an optional dependency
-            from optuna.trial import TrialState  # noqa: PLC0415
-        except ImportError as exc:
-            # Deferred: only needed on the optuna-missing path.
-            from saber.exceptions import OptionalDependencyError  # noqa: PLC0415
-
-            raise OptionalDependencyError(
-                dependency="optuna",
-                extra="optuna",
-                purpose="Optuna hyperparameter optimization",
-            ) from exc
-
-        sampler = None
-        sampler_seed = config.random_state
-        if (
-            sampler_seed is not None
-            and config.optuna_storage is not None
-            and config.optuna_study_name is not None
-            and config.optuna_load_if_exists
-        ):
-            try:
-                existing = optuna.load_study(
-                    study_name=config.optuna_study_name,
-                    storage=config.optuna_storage,
-                )
-                # Optuna does not persist sampler RNG state. Advance the seed
-                # deterministically on resume so an existing study does not
-                # replay the exact same initial suggestions.
-                sampler_seed = sampler_seed + len(existing.trials)
-            except KeyError:
-                pass
-        if sampler_seed is not None:
-            sampler = optuna.samplers.TPESampler(seed=sampler_seed)
-
-        study = optuna.create_study(
-            study_name=config.optuna_study_name,
-            storage=config.optuna_storage,
-            load_if_exists=config.optuna_load_if_exists,
-            direction="maximize",
-            sampler=sampler,
-        )
-
-        def objective(trial: Any) -> float:
-            params = search_space.sample_optuna(trial)
-            pipeline_params = {f"estimator__{name}": value for name, value in params.items()}
-            candidate = pipeline.set_params(**pipeline_params)
-            try:
-                scores = cross_validate(
-                    candidate,
-                    pipeline_input(pipeline, dataset.X),
-                    dataset.y,
-                    scoring=scorers[refit_metric],
-                    cv=cv,
-                    n_jobs=config.n_jobs,
-                    # sklearn stubs predate the `params=` kwarg (sklearn 1.4+);
-                    # installed sklearn (1.9.1) supports it.
-                    params=fit_params or None,  # pyrefly: ignore[unexpected-keyword]
-                    error_score=config.error_score,
-                )["test_score"]
-                score = float(np.mean(np.asarray(scores, dtype=float)))
-                if not np.isfinite(score):
-                    raise NonFiniteScoreError(  # noqa: TRY301  # except below records this on the trial
-                        algorithm=spec.name,
-                        metric=refit_metric,
-                        optimizer="optuna",
-                        score=score,
-                    )
-            except Exception as exc:
-                trial.set_user_attr("saber_error", f"{type(exc).__name__}: {exc}")
-                raise
-            else:
-                return score
-
-        study.optimize(
-            objective,
-            n_trials=config.n_trials,
-            timeout=config.timeout,
-            catch=(Exception,),
-        )
-
-        completed = [
-            trial
-            for trial in study.trials
-            if trial.state == TrialState.COMPLETE
-            and trial.value is not None
-            and np.isfinite(float(trial.value))
-        ]
-        if not completed:
-            raise NonFiniteScoreError(
-                algorithm=spec.name,
-                metric=refit_metric,
-                optimizer="optuna",
-                score=float("nan"),
-            )
-
-        best_trial = max(completed, key=_finite_trial_value)
-        best_score = _ensure_finite(
-            _finite_trial_value(best_trial),
-            algorithm=spec.name,
-            metric=refit_metric,
-            optimizer="optuna",
-        )
-        best_params = dict(best_trial.params)
-        pipeline_params = {f"estimator__{name}": value for name, value in best_params.items()}
-        selected = pipeline.set_params(**pipeline_params)
-
-        best_scores = _evaluate_selected_metrics(
             pipeline=pipeline,
-            params=pipeline_params,
+            dataset=search_dataset,
+            cv=cv,
+            search_space=space,
+            scorers=scorers,
+            refit_metric=refit_metric,
+            config=config,
+            fit_params=fit_params,
+        )
+    else:
+        result = _run_sklearn(
+            spec=spec,
+            pipeline=pipeline,
+            dataset=search_dataset,
+            cv=cv,
+            search_space=space,
+            scorers=scorers,
+            refit_metric=refit_metric,
+            config=config,
+            fit_params=fit_params,
+        )
+
+    result.partition_plan = plan
+    result.metrics = metrics
+    result.refit_metric = refit_metric
+    result.metadata.update(
+        {
+            "dataset_fingerprint": dataset.fingerprint,
+            "search_dataset_fingerprint": search_dataset.fingerprint,
+            "partition_fingerprint": plan.fingerprint,
+            "partition_source": plan.metadata.get("source", "external"),
+            "evaluation_roles": evaluation_roles,
+            "n_splits": len(cv),
+            "n_search_samples": search_dataset.n_samples,
+            "n_total_samples": dataset.n_samples,
+            "protected_samples": dataset.n_samples - search_dataset.n_samples,
+            "elapsed_seconds": float(perf_counter() - start),
+            "search_space": space.to_dict(),
+        }
+    )
+    return result
+
+
+def _run_sklearn(
+    *,
+    spec: Any,
+    pipeline: Any,
+    dataset: DatasetBundle,
+    cv: tuple[tuple[np.ndarray, np.ndarray], ...],
+    search_space: SearchSpace,
+    scorers: dict[str, Any],
+    refit_metric: str,
+    config: TuningConfig,
+    fit_params: dict[str, Any],
+) -> OptimizationResult:
+    optimizer = config.optimizer
+    common: dict[str, Any] = {
+        "estimator": pipeline,
+        "scoring": scorers,
+        "cv": cv,
+        "n_jobs": config.n_jobs,
+        "refit": refit_metric if config.refit else False,
+        "return_train_score": True,
+        "error_score": config.error_score,
+    }
+
+    try:
+        grid_parameters = (
+            search_space.to_grid(prefix="estimator__") if optimizer in {"grid", "halving_grid"} else None
+        )
+        random_parameters = (
+            search_space.to_random(prefix="estimator__")
+            if optimizer in {"random", "halving_random"}
+            else None
+        )
+    except ValueError as exc:
+        raise ValidationContractError(
+            f"Search space for optimizer '{optimizer}' is incompatible: {exc}"
+        ) from exc
+
+    if optimizer == "grid":
+        if grid_parameters is None:  # always set above whenever optimizer is "grid"
+            raise AssertionError("grid optimizer resolved no grid_parameters.")
+        search = GridSearchCV(
+            param_grid=grid_parameters,
+            **common,
+        )
+    elif optimizer == "random":
+        if random_parameters is None:  # always set above whenever optimizer is "random"
+            raise AssertionError("random optimizer resolved no random_parameters.")
+        search = RandomizedSearchCV(
+            param_distributions=random_parameters,
+            n_iter=config.n_iter,
+            random_state=config.random_state,
+            **common,
+        )
+    elif optimizer in {"halving_grid", "halving_random"}:
+        # sklearn's successive-halving estimators currently accept only a
+        # single scoring objective. We optimize the explicit refit metric,
+        # then evaluate the selected configuration with all requested
+        # metrics on the same explicit folds.
+        single_common = dict(common)
+        single_common["scoring"] = scorers[refit_metric]
+        single_common["refit"] = config.refit
+
+        # Deferred: enables the experimental halving search API only when it is used.
+        from sklearn.experimental import enable_halving_search_cv  # noqa: F401, PLC0415
+
+        # sklearn stubs omit these experimental estimators; real once enabled above.
+        from sklearn.model_selection import (  # noqa: PLC0415
+            HalvingGridSearchCV,  # pyrefly: ignore[missing-module-attribute]
+            HalvingRandomSearchCV,  # pyrefly: ignore[missing-module-attribute]
+        )
+
+        halving_common = {
+            **single_common,
+            "factor": config.factor,
+            "resource": config.resource,
+            "max_resources": config.max_resources,
+            "min_resources": config.min_resources,
+            "aggressive_elimination": config.aggressive_elimination,
+        }
+        if optimizer == "halving_grid":
+            search = HalvingGridSearchCV(
+                param_grid=grid_parameters,
+                **halving_common,
+            )
+        else:
+            min_resources = config.min_resources
+            if min_resources == "exhaust":
+                # HalvingRandomSearchCV uses "smallest" as its canonical
+                # automatic lower-resource policy.
+                min_resources = "smallest"
+            halving_common["min_resources"] = min_resources
+            search = HalvingRandomSearchCV(
+                param_distributions=random_parameters,
+                random_state=config.random_state,
+                **halving_common,
+            )
+    else:
+        raise ValidationContractError(f"Unknown tuning optimizer '{optimizer}'.")
+
+    try:
+        search.fit(pipeline_input(pipeline, dataset.X), dataset.y, **fit_params)
+    except ValueError as exc:
+        message = str(exc)
+        if "fits failed" in message and "All the" in message:
+            raise OptimizationError(
+                f"Optimizer '{optimizer}' could not fit any candidate for "
+                f"algorithm '{spec.name}'. All candidate fits failed."
+            ) from exc
+        raise
+    results = search.cv_results_
+
+    if optimizer in {"grid", "random"}:
+        mean_key = f"mean_test_{refit_metric}"
+        best_index = _best_index(results[mean_key], spec.name, refit_metric, optimizer)
+        best_score = float(results[mean_key][best_index])
+        best_scores = {metric: float(results[f"mean_test_{metric}"][best_index]) for metric in scorers}
+        history = _history_from_results(results, {metric: metric for metric in scorers})
+    else:
+        best_index = _best_index(
+            results["mean_test_score"],
+            spec.name,
+            refit_metric,
+            optimizer,
+        )
+        best_score = float(results["mean_test_score"][best_index])
+        history = _history_from_results(results, {refit_metric: "score"})
+        # sklearn *SearchCV stubs omit `.estimator`, though it's always set
+        # from the constructor arg at runtime.
+        best_scores = _evaluate_selected_metrics(
+            pipeline=search.estimator,  # pyrefly: ignore[missing-attribute]
+            params=results["params"][best_index],
             dataset=dataset,
             cv=cv,
             scorers=scorers,
@@ -512,42 +347,199 @@ class TuningEngine:
             n_jobs=config.n_jobs,
         )
         best_scores[refit_metric] = best_score
-        _validate_best_scores(
-            best_scores,
+
+    best_score = _ensure_finite(
+        best_score,
+        algorithm=spec.name,
+        metric=refit_metric,
+        optimizer=optimizer,
+    )
+    _validate_best_scores(
+        best_scores,
+        algorithm=spec.name,
+        optimizer=optimizer,
+    )
+    best_params = _strip_estimator_prefix(dict(results["params"][best_index]))
+    best_model = search.best_estimator_ if config.refit else None
+
+    return OptimizationResult(
+        algorithm=spec.name,
+        optimizer=optimizer,
+        metric=refit_metric,
+        best_score=best_score,
+        best_params=best_params,
+        best_model=best_model,
+        spec=spec,
+        history=history,
+        study=search,
+        refit=config.refit,
+        best_scores=best_scores,
+    )
+
+
+def _run_optuna(
+    *,
+    spec: Any,
+    pipeline: Any,
+    dataset: DatasetBundle,
+    cv: tuple[tuple[np.ndarray, np.ndarray], ...],
+    search_space: SearchSpace,
+    scorers: dict[str, Any],
+    refit_metric: str,
+    config: TuningConfig,
+    fit_params: dict[str, Any],
+) -> OptimizationResult:
+    try:
+        import optuna  # noqa: PLC0415  # optuna is an optional dependency
+        from optuna.trial import TrialState  # noqa: PLC0415
+    except ImportError as exc:
+        # Deferred: only needed on the optuna-missing path.
+        from saber.exceptions import OptionalDependencyError  # noqa: PLC0415
+
+        raise OptionalDependencyError(
+            dependency="optuna",
+            extra="optuna",
+            purpose="Optuna hyperparameter optimization",
+        ) from exc
+
+    sampler = None
+    sampler_seed = config.random_state
+    if (
+        sampler_seed is not None
+        and config.optuna_storage is not None
+        and config.optuna_study_name is not None
+        and config.optuna_load_if_exists
+    ):
+        try:
+            existing = optuna.load_study(
+                study_name=config.optuna_study_name,
+                storage=config.optuna_storage,
+            )
+            # Optuna does not persist sampler RNG state. Advance the seed
+            # deterministically on resume so an existing study does not
+            # replay the exact same initial suggestions.
+            sampler_seed = sampler_seed + len(existing.trials)
+        except KeyError:
+            pass
+    if sampler_seed is not None:
+        sampler = optuna.samplers.TPESampler(seed=sampler_seed)
+
+    study = optuna.create_study(
+        study_name=config.optuna_study_name,
+        storage=config.optuna_storage,
+        load_if_exists=config.optuna_load_if_exists,
+        direction="maximize",
+        sampler=sampler,
+    )
+
+    def objective(trial: Any) -> float:
+        params = search_space.sample_optuna(trial)
+        pipeline_params = {f"estimator__{name}": value for name, value in params.items()}
+        candidate = pipeline.set_params(**pipeline_params)
+        try:
+            scores = cross_validate(
+                candidate,
+                pipeline_input(pipeline, dataset.X),
+                dataset.y,
+                scoring=scorers[refit_metric],
+                cv=cv,
+                n_jobs=config.n_jobs,
+                # sklearn stubs predate the `params=` kwarg (sklearn 1.4+);
+                # installed sklearn (1.9.1) supports it.
+                params=fit_params or None,  # pyrefly: ignore[unexpected-keyword]
+                error_score=config.error_score,
+            )["test_score"]
+            score = float(np.mean(np.asarray(scores, dtype=float)))
+            if not np.isfinite(score):
+                raise NonFiniteScoreError(  # noqa: TRY301  # except below records this on the trial
+                    algorithm=spec.name,
+                    metric=refit_metric,
+                    optimizer="optuna",
+                    score=score,
+                )
+        except Exception as exc:
+            trial.set_user_attr("saber_error", f"{type(exc).__name__}: {exc}")
+            raise
+        else:
+            return score
+
+    study.optimize(
+        objective,
+        n_trials=config.n_trials,
+        timeout=config.timeout,
+        catch=(Exception,),
+    )
+
+    completed = [
+        trial
+        for trial in study.trials
+        if trial.state == TrialState.COMPLETE and trial.value is not None and np.isfinite(float(trial.value))
+    ]
+    if not completed:
+        raise NonFiniteScoreError(
             algorithm=spec.name,
-            optimizer="optuna",
-        )
-
-        best_model = None
-        if config.refit:
-            best_model = selected
-            best_model.fit(pipeline_input(best_model, dataset.X), dataset.y, **fit_params)
-
-        history: list[dict[str, Any]] = [
-            {
-                "trial": trial.number,
-                "params": dict(trial.params),
-                "score": None if trial.value is None else float(trial.value),
-                "metrics": {refit_metric: None if trial.value is None else float(trial.value)},
-                "status": str(trial.state).split(".")[-1].lower(),
-                "error": trial.user_attrs.get("saber_error"),
-            }
-            for trial in study.trials
-        ]
-
-        return OptimizationResult(
-            algorithm=spec.name,
-            optimizer="optuna",
             metric=refit_metric,
-            best_score=best_score,
-            best_params=best_params,
-            best_model=best_model,
-            spec=spec,
-            history=history,
-            study=study,
-            refit=config.refit,
-            best_scores=best_scores,
+            optimizer="optuna",
+            score=float("nan"),
         )
+
+    best_trial = max(completed, key=_finite_trial_value)
+    best_score = _ensure_finite(
+        _finite_trial_value(best_trial),
+        algorithm=spec.name,
+        metric=refit_metric,
+        optimizer="optuna",
+    )
+    best_params = dict(best_trial.params)
+    pipeline_params = {f"estimator__{name}": value for name, value in best_params.items()}
+    selected = pipeline.set_params(**pipeline_params)
+
+    best_scores = _evaluate_selected_metrics(
+        pipeline=pipeline,
+        params=pipeline_params,
+        dataset=dataset,
+        cv=cv,
+        scorers=scorers,
+        fit_params=fit_params,
+        n_jobs=config.n_jobs,
+    )
+    best_scores[refit_metric] = best_score
+    _validate_best_scores(
+        best_scores,
+        algorithm=spec.name,
+        optimizer="optuna",
+    )
+
+    best_model = None
+    if config.refit:
+        best_model = selected
+        best_model.fit(pipeline_input(best_model, dataset.X), dataset.y, **fit_params)
+
+    history: list[dict[str, Any]] = [
+        {
+            "trial": trial.number,
+            "params": dict(trial.params),
+            "score": None if trial.value is None else float(trial.value),
+            "metrics": {refit_metric: None if trial.value is None else float(trial.value)},
+            "status": str(trial.state).split(".")[-1].lower(),
+            "error": trial.user_attrs.get("saber_error"),
+        }
+        for trial in study.trials
+    ]
+
+    return OptimizationResult(
+        algorithm=spec.name,
+        optimizer="optuna",
+        metric=refit_metric,
+        best_score=best_score,
+        best_params=best_params,
+        best_model=best_model,
+        spec=spec,
+        history=history,
+        study=study,
+        refit=config.refit,
+        best_scores=best_scores,
+    )
 
 
 def _finite_trial_value(trial: Any) -> float:

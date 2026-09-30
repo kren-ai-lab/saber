@@ -9,7 +9,7 @@ pytest.importorskip("optuna")
 
 from saber.core.search_space import LogFloat, SearchSpace
 from saber.datasets import DatasetBundle, PartitionPlan
-from saber.tuning import TuningConfig, TuningEngine
+from saber.tuning import TuningConfig, tune
 
 
 def _inputs():
@@ -31,7 +31,7 @@ def _inputs():
 
 def test_optuna_uses_typed_space_pipeline_and_multiple_metrics() -> None:
     dataset, plan = _inputs()
-    result = TuningEngine().run(
+    result = tune(
         dataset=dataset,
         algorithm="logistic_regression",
         config=TuningConfig(
@@ -61,14 +61,14 @@ def test_seeded_optuna_is_reproducible() -> None:
         n_jobs=1,
     )
     space = SearchSpace("lr", {"C": LogFloat(1e-3, 10.0)})
-    first = TuningEngine().run(
+    first = tune(
         dataset=dataset,
         algorithm="logistic_regression",
         config=config,
         partition_plan=plan,
         search_space=space,
     )
-    second = TuningEngine().run(
+    second = tune(
         dataset=dataset,
         algorithm="logistic_regression",
         config=config,
@@ -93,7 +93,7 @@ def test_optuna_storage_can_resume_existing_study(tmp_path) -> None:
         "optuna_load_if_exists": True,
     }
     space = SearchSpace("lr", {"C": LogFloat(1e-3, 10.0)})
-    first = TuningEngine().run(
+    first = tune(
         dataset=dataset,
         algorithm="logistic_regression",
         config=TuningConfig(**base),
@@ -102,7 +102,7 @@ def test_optuna_storage_can_resume_existing_study(tmp_path) -> None:
     )
     assert len(first.history) == 2
     first_values = [entry["params"]["C"] for entry in first.history]
-    second = TuningEngine().run(
+    second = tune(
         dataset=dataset,
         algorithm="logistic_regression",
         config=TuningConfig(**base),

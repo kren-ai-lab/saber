@@ -31,131 +31,127 @@ if TYPE_CHECKING:
     from saber.datasets.biosieve import BioSievePartitionConfig
 
 
-class ValidationEngine:
-    """Execute explicit partition plans with fold-local preprocessing."""
+def validate(
+    *,
+    dataset: DatasetBundle,
+    algorithm: str,
+    partition_plan: PartitionPlan | None = None,
+    partitioning: BioSievePartitionConfig | None = None,
+    biosieve_extra_columns: Mapping[str, Sequence[Any]] | None = None,
+    preprocessing: PreprocessingConfig | Any | None = None,
+    metrics: Sequence[str] | None = None,
+    evaluation_role: EvaluationRole = "auto",
+    positive_class: Any | None = None,
+    random_state: int | None = None,
+    return_estimators: bool = False,
+    require_complete: bool = True,
+    model_params: Mapping[str, Any] | None = None,
+) -> ValidationResult:
+    """Validate one registered algorithm over an explicit/generated plan."""
+    spec = get_algorithm(algorithm)
+    dataset.validate(task=spec.task)
 
-    def run(
-        self,
-        *,
-        dataset: DatasetBundle,
-        algorithm: str,
-        partition_plan: PartitionPlan | None = None,
-        partitioning: BioSievePartitionConfig | None = None,
-        biosieve_extra_columns: Mapping[str, Sequence[Any]] | None = None,
-        preprocessing: PreprocessingConfig | Any | None = None,
-        metrics: Sequence[str] | None = None,
-        evaluation_role: EvaluationRole = "auto",
-        positive_class: Any | None = None,
-        random_state: int | None = None,
-        return_estimators: bool = True,
-        require_complete: bool = True,
-        **model_params: Any,
-    ) -> ValidationResult:
-        """Validate one registered algorithm over an explicit/generated plan."""
-        spec = get_algorithm(algorithm)
-        dataset.validate(task=spec.task)
+    plan = resolve_partition_plan(
+        dataset=dataset,
+        partition_plan=partition_plan,
+        partitioning=partitioning,
+        biosieve_extra_columns=biosieve_extra_columns,
+    )
+    plan.validate_against(dataset, require_complete=require_complete)
 
-        plan = resolve_partition_plan(
-            dataset=dataset,
-            partition_plan=partition_plan,
-            partitioning=partitioning,
-            biosieve_extra_columns=biosieve_extra_columns,
+    folds: list[FoldValidationResult] = []
+    for split in plan.splits:
+        resolved = plan.resolve(
+            dataset,
+            split.name,
+            require_complete=require_complete,
         )
-        plan.validate_against(dataset, require_complete=require_complete)
-
-        folds: list[FoldValidationResult] = []
-        for split in plan.splits:
-            resolved = plan.resolve(
-                dataset,
-                split.name,
-                require_complete=require_complete,
-            )
-            role, evaluation_data = resolve_evaluation_dataset(
-                resolved,
-                requested=evaluation_role,
-                plan_kind=plan.kind,
-            )
-
-            try:
-                resolved.train.validate(task=spec.task)
-            except DatasetValidationError as exc:
-                raise ValidationContractError(
-                    f"Training membership for split '{split.name}' is invalid for task '{spec.task}': {exc}"
-                ) from exc
-
-            estimator = spec.build_estimator(
-                random_state=random_state,
-                **model_params,
-            )
-            pipeline = build_model_pipeline(
-                spec=spec,
-                estimator=estimator,
-                training_data=resolved.train,
-                preprocessing=preprocessing,
-            )
-
-            fit_kwargs = spec.sample_weight_fit_params(resolved.train.sample_weight)
-
-            start = perf_counter()
-            pipeline.fit(pipeline_input(pipeline, resolved.train.X), resolved.train.y, **fit_kwargs)
-            fit_seconds = perf_counter() - start
-
-            prediction = _prediction_from_pipeline(
-                pipeline,
-                spec_task=spec.task,
-                X=evaluation_data.X,
-                sample_ids=evaluation_data.sample_ids,
-                positive_class=positive_class,
-                algorithm=spec.name,
-                provider=spec.provider,
-            )
-            evaluation = evaluate_prediction(
-                evaluation_data.y,
-                prediction,
-                metrics=metrics,
-            )
-
-            folds.append(
-                FoldValidationResult(
-                    split_name=split.name,
-                    evaluation_role=role,
-                    train_ids=tuple(resolved.train.resolved_sample_ids),
-                    evaluation_ids=tuple(evaluation_data.sample_ids),
-                    prediction=prediction,
-                    evaluation=evaluation,
-                    estimator=pipeline if return_estimators else None,
-                    fit_seconds=float(fit_seconds),
-                    metadata={
-                        "partition_metadata": dict(split.metadata),
-                        "n_train": resolved.train.n_samples,
-                        "n_evaluation": evaluation_data.n_samples,
-                    },
-                )
-            )
-
-        fold_tuple = tuple(folds)
-        aggregate_metrics, metric_summary = aggregate_fold_metrics(fold_tuple)
-        oof_prediction, oof_metadata = _build_oof_prediction(
-            dataset=dataset,
-            folds=fold_tuple,
-            task=spec.task,
+        role, evaluation_data = resolve_evaluation_dataset(
+            resolved,
+            requested=evaluation_role,
+            plan_kind=plan.kind,
         )
 
-        return ValidationResult(
+        try:
+            resolved.train.validate(task=spec.task)
+        except DatasetValidationError as exc:
+            raise ValidationContractError(
+                f"Training membership for split '{split.name}' is invalid for task '{spec.task}': {exc}"
+            ) from exc
+
+        estimator = spec.build_estimator(
+            random_state=random_state,
+            **dict(model_params or {}),
+        )
+        pipeline = build_model_pipeline(
+            spec=spec,
+            estimator=estimator,
+            training_data=resolved.train,
+            preprocessing=preprocessing,
+        )
+
+        fit_kwargs = spec.sample_weight_fit_params(resolved.train.sample_weight)
+
+        start = perf_counter()
+        pipeline.fit(pipeline_input(pipeline, resolved.train.X), resolved.train.y, **fit_kwargs)
+        fit_seconds = perf_counter() - start
+
+        prediction = _prediction_from_pipeline(
+            pipeline,
+            spec_task=spec.task,
+            X=evaluation_data.X,
+            sample_ids=evaluation_data.sample_ids,
+            positive_class=positive_class,
             algorithm=spec.name,
-            task=spec.task,
-            partition_plan=plan,
-            folds=fold_tuple,
-            aggregate_metrics=aggregate_metrics,
-            metric_summary=metric_summary,
-            oof_prediction=oof_prediction,
-            metadata={
-                "partition_source": plan.metadata.get("source", "external"),
-                "partition_fingerprint": plan.fingerprint,
-                "dataset_fingerprint": dataset.fingerprint,
-                **oof_metadata,
-            },
+            provider=spec.provider,
         )
+        evaluation = evaluate_prediction(
+            evaluation_data.y,
+            prediction,
+            metrics=metrics,
+        )
+
+        folds.append(
+            FoldValidationResult(
+                split_name=split.name,
+                evaluation_role=role,
+                train_ids=tuple(resolved.train.resolved_sample_ids),
+                evaluation_ids=tuple(evaluation_data.sample_ids),
+                prediction=prediction,
+                evaluation=evaluation,
+                estimator=pipeline if return_estimators else None,
+                fit_seconds=float(fit_seconds),
+                metadata={
+                    "partition_metadata": dict(split.metadata),
+                    "n_train": resolved.train.n_samples,
+                    "n_evaluation": evaluation_data.n_samples,
+                },
+            )
+        )
+
+    fold_tuple = tuple(folds)
+    aggregate_metrics, metric_summary = aggregate_fold_metrics(fold_tuple)
+    oof_prediction, oof_metadata = _build_oof_prediction(
+        dataset=dataset,
+        folds=fold_tuple,
+        task=spec.task,
+    )
+
+    return ValidationResult(
+        algorithm=spec.name,
+        task=spec.task,
+        partition_plan=plan,
+        folds=fold_tuple,
+        aggregate_metrics=aggregate_metrics,
+        metric_summary=metric_summary,
+        oof_prediction=oof_prediction,
+        metadata={
+            "partition_source": plan.metadata.get("source", "external"),
+            "partition_fingerprint": plan.fingerprint,
+            "dataset_fingerprint": dataset.fingerprint,
+            **oof_metadata,
+        },
+    )
 
 
 def _prediction_from_pipeline(
