@@ -5,6 +5,7 @@ import pytest
 
 from saber.datasets import DatasetBundle, FeatureSchema
 from saber.exceptions import DatasetValidationError, FeatureSchemaMismatchError
+from saber.utils.tabular import to_numpy
 
 
 def _frame() -> pl.DataFrame:
@@ -36,9 +37,12 @@ def test_polars_and_pandas_inputs_share_fingerprint():
     assert from_polars.feature_names == ("f0", "f1", "n", "flag")
 
 
-def test_nan_and_null_are_both_missing_features():
+def test_nan_and_null_are_both_missing_features_stored_as_null():
     frame = pl.DataFrame({"a": [1.0, float("nan"), None, 4.0], "b": [1.0, 2.0, 3.0, 4.0]})
     bundle = DatasetBundle(X=frame, y=np.array([0, 1, 0, 1]))
+    assert bundle.X["a"].null_count() == 2
+    assert not bundle.X["a"].is_nan().any()
+    assert np.isnan(to_numpy(bundle.X)[[1, 2], 0]).all()
     with pytest.raises(DatasetValidationError):
         bundle.validate(require_finite_features=True)
 

@@ -123,3 +123,10 @@ def test_read_table_casts_all_empty_column_to_float64(tmp_path):
 def test_as_frame_rejects_labels_that_collide_as_strings():
     with pytest.raises(DatasetValidationError, match="unique"):
         as_frame(pd.DataFrame({1: [1.0, 2.0], "1": [3.0, 4.0]}))
+
+
+def test_as_frame_stores_pandas_nan_as_null_without_pyarrow(monkeypatch):
+    _force_no_pyarrow(monkeypatch)
+    frame = as_frame(pd.DataFrame({"a": [1.0, np.nan]}))
+    assert frame["a"].null_count() == 1
+    assert not frame["a"].is_nan().any()

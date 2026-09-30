@@ -44,6 +44,7 @@ def verify_checksums(root: str | Path) -> None:
     if not checksum_path.is_file():
         raise ArtifactIntegrityError(f"Artifact checksum file '{CHECKSUM_FILENAME}' is missing.")
 
+    listed: set[str] = set()
     for line_number, raw_line in enumerate(
         checksum_path.read_text(encoding="utf-8").splitlines(),
         start=1,
@@ -54,6 +55,7 @@ def verify_checksums(root: str | Path) -> None:
             expected, relative = raw_line.split("  ", 1)
         except ValueError as exc:
             raise ArtifactIntegrityError(f"Malformed checksum entry on line {line_number}.") from exc
+        listed.add(relative)
         target = base / relative
         if not target.is_file():
             raise ArtifactIntegrityError(f"Artifact file listed in checksums is missing: '{relative}'.")
@@ -62,3 +64,12 @@ def verify_checksums(root: str | Path) -> None:
             raise ArtifactIntegrityError(
                 f"Checksum mismatch for '{relative}': expected {expected}, observed {observed}."
             )
+
+    present = {
+        path.relative_to(base).as_posix()
+        for path in base.rglob("*")
+        if path.is_file() and path.name != CHECKSUM_FILENAME
+    }
+    unlisted = sorted(present - listed)
+    if unlisted:
+        raise ArtifactIntegrityError(f"Artifact files not covered by checksums: {unlisted}.")

@@ -29,18 +29,26 @@ def _is_pandas_frame(value: Any) -> bool:
 
 
 def as_frame(X: Any) -> Any:
-    """Return pandas DataFrames as Polars; leave every other input unchanged."""
+    """Return DataFrames as Polars with missing floats as null; leave other inputs unchanged."""
+    if isinstance(X, pl.DataFrame):
+        return _nan_to_null(X)
     if not _is_pandas_frame(X):
         return X
     if len({str(column) for column in X.columns}) != len(X.columns):
         raise DatasetValidationError("DataFrame feature names must be unique.")
     try:
-        return pl.from_pandas(X)
+        frame = pl.from_pandas(X)
     except ImportError:
         # No pyarrow: convert column by column without it and without importing
         # pandas. Non-numeric columns (e.g. plain strings) are then rejected by
         # the normal validate_feature_matrix path, with its usual message.
-        return pl.DataFrame(_pandas_columns_without_pyarrow(X))
+        frame = pl.DataFrame(_pandas_columns_without_pyarrow(X))
+    return _nan_to_null(frame)
+
+
+def _nan_to_null(frame: pl.DataFrame) -> pl.DataFrame:
+    """Store float NaN as Polars null, the tabular layer's single missing marker."""
+    return frame.with_columns(pl.col(pl.Float32, pl.Float64).fill_nan(None))
 
 
 def _pandas_columns_without_pyarrow(X: Any) -> dict[str, Any]:

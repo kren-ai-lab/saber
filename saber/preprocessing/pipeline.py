@@ -5,8 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+import polars as pl
 from sklearn.base import clone
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import FunctionTransformer
 
 from saber.preprocessing.imputation import build_imputer
 from saber.preprocessing.scaling import build_scaler, resolve_scaler_name
@@ -54,6 +56,8 @@ def build_model_pipeline(
         return Pipeline(
             [
                 ("preprocess", transformer),
+                # A custom transformer may emit a DataFrame; the estimator must not.
+                ("to_numpy", FunctionTransformer(_frame_to_numpy)),
                 ("estimator", estimator),
             ]
         )
@@ -105,6 +109,12 @@ def pipeline_input(model: Any, X: Any) -> Any:
     if named_steps is not None and "preprocess" in named_steps:
         return as_frame(X)
     return to_numpy(X)
+
+
+def _frame_to_numpy(X: Any) -> Any:
+    """Convert a DataFrame to the estimator-facing matrix; pass arrays and sparse output through."""
+    X = as_frame(X)
+    return to_numpy(X) if isinstance(X, pl.DataFrame) else X
 
 
 def _normalize_config(preprocessing: PreprocessingConfig | Any | None) -> PreprocessingConfig:

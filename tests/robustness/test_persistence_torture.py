@@ -39,6 +39,22 @@ def test_missing_checksum_file_is_rejected(tmp_path):
         verify_artifact(path)
 
 
+def test_file_not_covered_by_checksums_is_rejected(tmp_path):
+    _, _, path = _trained(tmp_path)
+    checksums = path / "checksums.sha256"
+    lines = checksums.read_text().splitlines(keepends=True)
+    checksums.write_text("".join(line for line in lines if "model.joblib" not in line))
+    with pytest.raises(ArtifactIntegrityError, match=r"model\.joblib"):
+        load_model_artifact(path)
+
+
+def test_empty_checksum_file_is_rejected(tmp_path):
+    _, _, path = _trained(tmp_path)
+    (path / "checksums.sha256").write_text("")
+    with pytest.raises(ArtifactIntegrityError, match="not covered"):
+        verify_artifact(path)
+
+
 def test_missing_manifest_is_rejected_even_when_checksum_verification_disabled(tmp_path):
     _, _, path = _trained(tmp_path)
     (path / "manifest.json").unlink()
