@@ -134,6 +134,7 @@ def test_workflow_json_mode_is_machine_readable(tmp_path, capsys):
     assert main(["run", str(config), "--json"]) == EXIT_OK
     output = capsys.readouterr().out
     payload = json.loads(output)
+    assert payload["status"] == "ok"
     assert payload["summary"]["workflow"] == "validate"
     assert payload["summary"]["algorithm"] == "logistic_regression"
     assert payload["summary"]["n_splits"] == 3

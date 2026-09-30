@@ -138,7 +138,7 @@ def _(comparison, complete, mo, np, opt, pl, plt, score_col, tuned):
         {metric: comparison.get_column(metric).to_numpy() for metric in ("mcc","balanced_accuracy","roc_auc")},
     )
     axes[1].set_ylim(-.05,1.05); axes[1].set_title("Protected test")
-    axes[2].bar(["search","protected test"],[opt.display_scores["mcc"],tuned.aggregate_metrics["mcc"]]); axes[2].set_ylim(-.05,1.05); axes[2].set_title("Selection vs final estimate")
+    axes[2].bar(["search","protected test"],[opt.best_scores["mcc"],tuned.aggregate_metrics["mcc"]]); axes[2].set_ylim(-.05,1.05); axes[2].set_title("Selection vs final estimate")
     plt.tight_layout()
     mo.output.append(mo.as_html(fig))
     FIGURE_COUNT=1

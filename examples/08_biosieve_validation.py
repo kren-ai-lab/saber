@@ -103,8 +103,8 @@ def _(dataset, np, pl, result):
     fold_rows=[]
     for fold in result.folds:
         eval_y=dataset.subset(fold.evaluation_ids).y
-        fold_rows.append({"fold":fold.split_name,"n_eval":len(eval_y),"positive_rate":float(np.mean(eval_y)),**fold.evaluation.metrics})
-    fold_df=pl.DataFrame(fold_rows)
+        fold_rows.append({"fold":fold.split,"n_eval":len(eval_y),"positive_rate":float(np.mean(eval_y))})
+    fold_df=pl.DataFrame(fold_rows).join(result.metrics_frame().filter(pl.col("level")=="fold").pivot("metric",index="split",values="score").rename({"split":"fold"}),on="fold",how="left")
     fold_df
     return (fold_df,)
 

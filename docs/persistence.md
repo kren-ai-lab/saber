@@ -45,7 +45,8 @@ pickle, so load artifacts only from sources you trust.
 ## Benchmarks
 
 `saber.save_benchmark()` writes the benchmark tables (runs, metrics,
-predictions, failures, tuning history) as CSV files plus metadata. Saving the
+predictions, tuning history) as CSV files plus metadata; failed runs are the
+`runs.csv` rows with `status == "failed"`. Saving the
 full Python `BenchmarkResult` is optional and can produce much larger
 artifacts.
 

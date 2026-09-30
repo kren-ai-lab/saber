@@ -70,11 +70,20 @@ partitioning:
 | Workflow | Files written into `output` |
 |---|---|
 | `train` | `summary.json` |
-| `validate` | `summary.json`, `metrics.csv` (per split), `predictions.csv` (out-of-fold) |
+| `validate` | `summary.json`, `metrics.csv` (`ValidationResult.metrics_frame()`), `predictions.csv` (out-of-fold `PredictionResult.to_frame()` with `y_true`) |
 | `tune` | `summary.json`, `optimization_history.csv` |
 | `evaluate` | `summary.json`, `metrics.csv` |
-| `predict` | `summary.json`, `predictions.csv` |
-| `benchmark` | the `saber.save_benchmark` directory: `runs.csv`, `metrics.csv`, `predictions.csv`, `failures.csv`, `optimization_history.csv`, `benchmark_metadata.json`, manifest and checksums |
+| `predict` | `summary.json`, `predictions.csv` (`PredictionResult.to_frame()`) |
+| `benchmark` | the `saber.save_benchmark` directory: `runs.csv`, `metrics.csv`, `predictions.csv`, `optimization_history.csv`, `benchmark_metadata.json`, manifest and checksums |
+
+`summary.json` (and the `summary` of `saber run --json`, whose payload also has
+`"status": "ok"`) is `{"workflow": ...}` followed by the result's `to_dict()`:
+`algorithm` (`algorithms` for `benchmark`), `task`, `dataset_fingerprint`
+(`dataset_fingerprints` for `benchmark`; absent for `predict`),
+`partition_fingerprint` for `validate`/`tune`, then workflow-specific fields.
+`metrics` maps metric to score: fold means for `validate`, the selected
+candidate's cross-validated scores for `tune`, and the scores on the evaluated dataset for `evaluate`.
+`evaluate` and `predict` also record the `model` path.
 
 ## train
 

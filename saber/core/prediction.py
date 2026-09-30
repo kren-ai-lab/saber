@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import polars as pl
 
 from saber.exceptions import PredictionContractError
 
@@ -142,6 +143,41 @@ class PredictionResult:
         raise PredictionContractError(
             "Binary decision scores must have shape (n_samples,) or (n_samples, 2)."
         )
+
+    def to_frame(self, y_true: Any | None = None) -> pl.DataFrame:
+        """Return one row per sample: ``sample_id``, ``y_true`` (if given), ``y_pred``, then scores.
+
+        Classification adds ``probability__{class}`` per class when probabilities
+        are available, and ``decision_score`` (binary, oriented toward
+        ``positive_class``) or ``decision_score__{class}`` (multiclass).
+        """
+        sample_ids = self.sample_ids if self.sample_ids is not None else np.arange(self.n_samples)
+        columns: dict[str, Any] = {"sample_id": sample_ids}
+        if y_true is not None:
+            columns["y_true"] = y_true
+        columns["y_pred"] = self.predictions
+        if self.probabilities is not None:
+            labels = self.classes if self.classes is not None else (self.positive_class,)
+            for label in labels:
+                columns[f"probability__{label}"] = self.probabilities_for(label)
+        scores = self.decision_scores
+        if scores is not None:
+            if self.is_binary:
+                columns["decision_score"] = self.positive_decision_scores()
+            elif scores.ndim == 2 and self.classes is not None and scores.shape[1] == self.classes.size:
+                for index, label in enumerate(self.classes):
+                    columns[f"decision_score__{label}"] = scores[:, index]
+        return pl.DataFrame({name: np.asarray(values).tolist() for name, values in columns.items()})
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a serialization-friendly summary (the rows are in :meth:`to_frame`)."""
+        return {
+            "algorithm": self.metadata.get("algorithm"),
+            "task": self.task,
+            "n_samples": self.n_samples,
+            "classes": None if self.classes is None else self.classes.tolist(),
+            "positive_class": self.positive_class,
+        }
 
     def _validate_response_shapes(self) -> None:
         for name, values in (

@@ -169,7 +169,10 @@ def _render_validation(console: Console, result: ValidationResult) -> None:
     if result.oof_prediction is not None:
         overview.add_row("OOF samples", str(result.oof_prediction.n_samples))
     console.print(overview)
-    _render_metric_table(console, result.aggregate_metrics, result.metric_summary)
+    aggregate = result.metrics_frame().filter(pl.col("level") == "aggregate")
+    _render_metric_table(
+        console, result.aggregate_metrics, {row["metric"]: row for row in aggregate.iter_rows(named=True)}
+    )
 
 
 def _render_optimization(console: Console, result: OptimizationResult) -> None:
@@ -179,14 +182,14 @@ def _render_optimization(console: Console, result: OptimizationResult) -> None:
     overview.add_row("Algorithm", result.algorithm)
     overview.add_row("Optimizer", str(result.optimizer))
     overview.add_row("Refit metric", str(result.refit_metric))
-    overview.add_row("Best score", _format_number(result.display_score))
+    overview.add_row("Best score", _format_number(result.best_score))
     overview.add_row("Candidates", str(len(result.history)))
     overview.add_row("Failed", str(len(result.failures)))
     overview.add_row("Refit model", _yes_no(result.best_model is not None))
     console.print(overview)
 
-    if result.display_scores:
-        _render_metric_table(console, result.display_scores, None, title="Best candidate metrics")
+    if result.best_scores:
+        _render_metric_table(console, result.best_scores, None, title="Best candidate metrics")
     if result.best_params:
         params = Table(title="Best parameters", header_style="bold cyan")
         params.add_column("Parameter")
@@ -242,7 +245,7 @@ def _render_benchmark(console: Console, result: BenchmarkResult) -> None:
 def _render_metric_table(
     console: Console,
     metrics: Mapping[str, float],
-    summary: Mapping[str, Mapping[str, float]] | None,
+    summary: Mapping[str, Mapping[str, Any]] | None,
     *,
     title: str = "Metrics",
 ) -> None:

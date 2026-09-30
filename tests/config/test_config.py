@@ -79,9 +79,29 @@ def test_yaml_validation_workflow_matches_direct_python_api(tmp_path):
     assert execution.result.aggregate_metrics == pytest.approx(direct.aggregate_metrics)
     assert direct.oof_prediction is not None
     assert execution.result.oof_prediction.predictions.tolist() == direct.oof_prediction.predictions.tolist()
-    assert (tmp_path / "results" / "summary.json").exists()
-    assert (tmp_path / "results" / "metrics.csv").exists()
-    assert (tmp_path / "results" / "predictions.csv").exists()
+    summary = json.loads((tmp_path / "results" / "summary.json").read_text())
+    assert list(summary)[:5] == [
+        "workflow",
+        "algorithm",
+        "task",
+        "dataset_fingerprint",
+        "partition_fingerprint",
+    ]
+    assert summary["dataset_fingerprint"] == bundle.fingerprint
+    assert summary["metrics"] == pytest.approx(direct.aggregate_metrics)
+    metrics = read_table(tmp_path / "results" / "metrics.csv", separator=",")
+    assert metrics.columns == direct.metrics_frame().columns
+    assert metrics.filter(pl.col("level") == "fold").height == 2 * direct.n_splits
+    predictions = read_table(tmp_path / "results" / "predictions.csv", separator=",")
+    assert predictions.columns == [
+        "sample_id",
+        "y_true",
+        "y_pred",
+        "probability__0",
+        "probability__1",
+        "decision_score",
+    ]
+    assert predictions["y_true"].to_list() == bundle.y.tolist()
 
 
 def test_config_normalization_round_trip(tmp_path):
@@ -233,7 +253,7 @@ def test_benchmark_yaml_runs_same_public_engine(tmp_path):
     assert execution.outputs == {"benchmark": str(tmp_path / "results")}
     loaded = saber.load_benchmark(tmp_path / "results")
     assert loaded.metadata["metadata"] == {"study": "config-test"}
-    for name in ("runs", "metrics", "predictions", "failures", "optimization_history"):
+    for name in ("runs", "metrics", "predictions", "optimization_history"):
         read_table(tmp_path / "results" / f"{name}.csv", separator=",")  # must exist and parse
     assert not (tmp_path / "results" / "summary.json").exists()
     direct = saber.benchmark(
@@ -547,6 +567,9 @@ class _FakeBenchmark:
     n_runs = 0
     successes = ()
     failures = ()
+
+    def to_dict(self):
+        return {}
 
 
 @pytest.mark.parametrize("workflow", ["evaluate", "predict"])

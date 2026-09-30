@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, cross_validate
 
-from saber.core.metrics import resolve_positive_class, validate_metric
+from saber.core.metrics import get_metric_spec, resolve_positive_class, validate_metric
 from saber.core.registry import get_algorithm
 from saber.exceptions import (
     DatasetValidationError,
@@ -370,15 +370,15 @@ def _run_sklearn(
     return OptimizationResult(
         algorithm=spec.name,
         optimizer=optimizer,
-        metric=refit_metric,
-        best_score=best_score,
+        refit_metric=refit_metric,
+        best_score=_natural(refit_metric, best_score),
         best_params=best_params,
         best_model=best_model,
         spec=spec,
         history=history,
         study=search,
         refit=config.refit,
-        best_scores=best_scores,
+        best_scores=_natural_scores(best_scores),
     )
 
 
@@ -521,30 +521,32 @@ def _run_optuna(
         best_model = selected
         best_model.fit(pipeline_input(best_model, dataset.X), dataset.y, **fit_params)
 
-    history: list[dict[str, Any]] = [
-        {
-            "trial": trial.number,
-            "params": dict(trial.params),
-            "score": None if trial.value is None else float(trial.value),
-            "metrics": {refit_metric: None if trial.value is None else float(trial.value)},
-            "status": {"FAIL": "failed"}.get(trial.state.name, trial.state.name.lower()),
-            "error": trial.user_attrs.get("saber_error"),
-        }
-        for trial in study.trials
-    ]
+    history: list[dict[str, Any]] = []
+    for trial in study.trials:
+        score = None if trial.value is None else _natural(refit_metric, trial.value)
+        history.append(
+            {
+                "trial": trial.number,
+                "params": dict(trial.params),
+                "score": score,
+                "metrics": {refit_metric: score},
+                "status": {"FAIL": "failed"}.get(trial.state.name, trial.state.name.lower()),
+                "error": trial.user_attrs.get("saber_error"),
+            }
+        )
 
     return OptimizationResult(
         algorithm=spec.name,
         optimizer="optuna",
-        metric=refit_metric,
-        best_score=best_score,
+        refit_metric=refit_metric,
+        best_score=_natural(refit_metric, best_score),
         best_params=best_params,
         best_model=best_model,
         spec=spec,
         history=history,
         study=study,
         refit=config.refit,
-        best_scores=best_scores,
+        best_scores=_natural_scores(best_scores),
     )
 
 
@@ -607,6 +609,15 @@ def _validate_best_scores(
             )
 
 
+def _natural(metric: str, score: float) -> float:
+    """Convert an internal maximize-oriented score (sklearn/optuna) to the metric's natural sign."""
+    return get_metric_spec(metric).to_natural_score(score)
+
+
+def _natural_scores(scores: Mapping[str, float]) -> dict[str, float]:
+    return {metric: _natural(metric, score) for metric, score in scores.items()}
+
+
 def _strip_estimator_prefix(params: dict[str, Any]) -> dict[str, Any]:
     prefix = "estimator__"
     return {key.removeprefix(prefix): value for key, value in params.items()}
@@ -621,7 +632,7 @@ def _history_from_results(
     for index, raw_params in enumerate(results["params"]):
         metric_payload = {
             metric: {
-                "mean": float(results[f"mean_test_{suffix}"][index]),
+                "mean": _natural(metric, results[f"mean_test_{suffix}"][index]),
                 "std": float(results[f"std_test_{suffix}"][index]),
                 "rank": int(results[f"rank_test_{suffix}"][index]),
             }

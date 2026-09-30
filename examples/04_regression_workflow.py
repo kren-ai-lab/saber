@@ -100,7 +100,7 @@ def _(dataset, ids, pl, plan, validate, y):
         .sort("target_quartile")
     )
     worst = report.sort("absolute_error", descending=True).head(10)
-    fold_metrics = pl.DataFrame([{"fold":f.split_name,**f.evaluation.metrics} for f in result.folds])
+    fold_metrics = result.metrics_frame().filter(pl.col("level")=="fold").pivot("metric",index="split",values="score").rename({"split":"fold"})
     print({k: round(result.aggregate_metrics[k], 4) for k in sorted(result.aggregate_metrics)})
     quartile_error
     return fold_metrics, metrics, oof, quartile_error, report, result, worst

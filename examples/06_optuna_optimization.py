@@ -98,7 +98,7 @@ def _(DEMO_TEST, TuningConfig, dataset, pl, plan, space, tune):
     score_col=next(c for c in completed.columns if c in {"metric__mcc","metric__mcc__mean"})
     completed=completed.with_columns(pl.col(score_col).cum_max().alias("best_so_far"))
     top=completed.sort(score_col,descending=True).head(min(5,len(completed)))
-    print("Best:",opt.best_params,opt.display_scores)
+    print("Best:",opt.best_params,opt.best_scores)
     top.select(["param__C","param__gamma",score_col]).head()
     return completed, history, n_trials, opt, score_col
 
@@ -110,7 +110,7 @@ def _(completed, mo, np, opt, plt, score_col):
     best_so_far = completed.get_column("best_so_far").to_numpy()
     axes[0].plot(np.arange(len(completed)),scores,"o-",alpha=.6,label="trial"); axes[0].plot(best_so_far,label="best so far"); axes[0].set(title="Optimization convergence",xlabel="trial",ylabel="MCC"); axes[0].legend()
     sc=axes[1].scatter(completed.get_column("param__C").to_numpy(),completed.get_column("param__gamma").to_numpy(),c=scores); axes[1].set_xscale("log"); axes[1].set_yscale("log"); axes[1].set(title="Explored search space",xlabel="C",ylabel="gamma"); fig.colorbar(sc,ax=axes[1],label="MCC")
-    secondary_scores={k:v for k,v in opt.display_scores.items() if k!="mcc"}
+    secondary_scores={k:v for k,v in opt.best_scores.items() if k!="mcc"}
     axes[2].bar(list(secondary_scores.keys()),list(secondary_scores.values()))
     axes[2].set(title="Secondary metrics for selected trial",ylabel="score",ylim=(0,1.05))
     plt.tight_layout()

@@ -71,3 +71,48 @@ def test_decision_function_only_classifier_is_directly_evaluable() -> None:
     assert np.isfinite(evaluation.metrics["roc_auc"])
     assert np.isfinite(evaluation.metrics["pr_auc"])
     assert "brier_score" not in evaluation.metrics
+
+
+def test_prediction_frame_binary_columns_and_positive_oriented_decision_score() -> None:
+    result = PredictionResult(
+        task="classification",
+        predictions=np.array(["pos", "neg"]),
+        probabilities=np.array([[0.3, 0.7], [0.6, 0.4]]),
+        decision_scores=np.array([1.5, -0.5]),  # sklearn orients toward classes_[1] == "pos"
+        classes=np.array(["neg", "pos"]),
+        positive_class="neg",
+        sample_ids=np.array(["a", "b"]),
+    )
+    frame = result.to_frame(y_true=["pos", "pos"])
+    assert frame.columns == [
+        "sample_id",
+        "y_true",
+        "y_pred",
+        "probability__neg",
+        "probability__pos",
+        "decision_score",
+    ]
+    assert frame["sample_id"].to_list() == ["a", "b"]
+    assert frame["probability__neg"].to_list() == [0.3, 0.6]
+    assert frame["decision_score"].to_list() == [-1.5, 0.5]
+
+
+def test_prediction_frame_multiclass_and_regression_columns() -> None:
+    multiclass = PredictionResult(
+        task="classification",
+        predictions=np.array([0, 2]),
+        probabilities=np.full((2, 3), 1 / 3),
+        decision_scores=np.array([[1.0, 0.0, -1.0], [0.0, 0.5, 2.0]]),
+        classes=np.array([0, 1, 2]),
+    )
+    assert multiclass.to_frame().columns == [
+        "sample_id",
+        "y_pred",
+        *(f"probability__{label}" for label in range(3)),
+        *(f"decision_score__{label}" for label in range(3)),
+    ]
+    assert multiclass.to_frame()["decision_score__2"].to_list() == [-1.0, 2.0]
+    regression = PredictionResult(task="regression", predictions=np.array([1.5, 2.5]))
+    frame = regression.to_frame(y_true=[1.0, 3.0])
+    assert frame.columns == ["sample_id", "y_true", "y_pred"]
+    assert frame["sample_id"].to_list() == [0, 1]

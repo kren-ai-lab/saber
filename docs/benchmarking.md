@@ -36,16 +36,26 @@ refit on train+validation first, so rows stay comparable.
 
 ```python
 result.runs_frame()
-result.aggregate_metrics_frame()
-result.fold_metrics_frame()
+result.metrics_frame()               # aggregate_metrics_frame() + fold_metrics_frame()
 result.predictions_frame()
-result.failures_frame()
 result.optimization_history_frame()
 ```
 
 Every row carries a `run_id` that links it to its representation, partition,
-algorithm, mode, seed and parameters. Failed runs go to `failures_frame()`
-instead of stopping the benchmark, unless you set `fail_fast=True`.
+algorithm, mode, seed and parameters. The other columns are the ones of the
+per-run results:
+
+- `metrics_frame()`: `ValidationResult.metrics_frame()` columns (`level`,
+  `split`, `evaluation_role`, `metric`, `score`, `std`, `min`, `max`, `n`,
+  `fit_seconds`) plus the run's `elapsed_seconds`.
+- `predictions_frame()`: `split`, `evaluation_role`, then
+  `PredictionResult.to_frame()` columns (`sample_id`, `y_true`, `y_pred`,
+  `probability__{class}`, `decision_score` or `decision_score__{class}`).
+- `optimization_history_frame()`: `OptimizationResult.history_frame()` columns,
+  scores in their natural direction.
+
+A failed run is a `runs_frame()` row with `status == "failed"` and its `error`;
+it doesn't stop the benchmark unless you set `fail_fast=True`.
 
 Saber doesn't plot; feed these tables to your plotting or reporting tool of
 choice.

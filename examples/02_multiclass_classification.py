@@ -106,7 +106,7 @@ def _(DEMO_TEST, classification_report, dataset, pl, plan, validate, y):
     )
     oof = result.oof_prediction
     assert oof is not None and tuple(oof.classes) == (0,1,2)
-    fold_metrics = pl.DataFrame([{"fold":f.split_name, **f.evaluation.metrics} for f in result.folds])
+    fold_metrics = result.metrics_frame().filter(pl.col("level")=="fold").pivot("metric",index="split",values="score").rename({"split":"fold"})
     class_report_dict = classification_report(y, oof.predictions, output_dict=True, zero_division=0)
     per_class = pl.DataFrame(
         [{"class": key, **value} for key, value in class_report_dict.items() if isinstance(value, dict)]

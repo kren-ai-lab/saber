@@ -146,7 +146,7 @@ def _(dataset, pl, plan, validate):
     oof = result.oof_prediction
     assert oof is not None
     proba = oof.positive_probabilities()
-    fold_metrics = pl.DataFrame([{"fold": f.split_name, **f.evaluation.metrics} for f in result.folds])
+    fold_metrics = result.metrics_frame().filter(pl.col("level")=="fold").pivot("metric",index="split",values="score").rename({"split":"fold"})
     aggregate = {k: round(result.aggregate_metrics[k], 4) for k in sorted(result.aggregate_metrics)}
     print(aggregate)
     fold_metrics.head()

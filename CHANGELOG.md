@@ -114,3 +114,29 @@ First public release, published on PyPI as `saberlib`.
   - `benchmark` takes `datasets` only (one representation is a one-entry mapping) and its
     `benchmark` block is optional; `partitioning_reference` requires `partitioning`. A `train`
     `partition_plan` (artifact provenance) requires `artifact`.
+- Output formats:
+  - `PredictionResult.to_frame(y_true=None)` is the one prediction table: `sample_id`, `y_true`
+    (if given), `y_pred`, `probability__{class}` per class, and `decision_score` (binary, oriented
+    toward `positive_class`) or `decision_score__{class}` (multiclass). Validate/predict
+    `predictions.csv` and `BenchmarkResult.predictions_frame()` (which adds run identity, `split`
+    and `evaluation_role`) use it; the `prediction` and one-dimensional `probability` columns were
+    removed, and validate `predictions.csv` gains `y_true`.
+  - `ValidationResult.metrics_frame()` returns long-form metrics (`level`, `split`,
+    `evaluation_role`, `metric`, `score`, `std`, `min`, `max`, `n`, `fit_seconds`): one
+    `aggregate` row per metric (mean, sample std, min, max and integer `n` of finite fold scores)
+    and one `fold` row per split. Validate `metrics.csv` is this table, and benchmark metrics tables
+    carry the same columns plus run identity and `elapsed_seconds`. `ValidationResult.metric_summary`
+    was removed.
+  - `FoldValidationResult` has `split` (was `split_name`) and `metrics` (was `evaluation.metrics`);
+    `evaluation` was removed, `prediction` stays.
+  - `BenchmarkResult.failures_frame()` and the benchmark artifact's `failures.csv` were removed:
+    failed runs are the `runs_frame()`/`runs.csv` rows with `status == "failed"`.
+  - Every workflow result (`TrainResult`, `EvaluationResult`, `ValidationResult`,
+    `OptimizationResult`, `BenchmarkResult`, `PredictionResult`) has `to_dict()`. `summary.json` and
+    the `saber run --json` summary are `{"workflow", ...result.to_dict()}` with `algorithm`
+    (`algorithms`), `task`, `dataset_fingerprint`, `partition_fingerprint` (validate/tune) and
+    `metrics` (validate fold means, tune selection scores, evaluate scores); `saber run --json`
+    adds `"status": "ok"`.
+  - `OptimizationResult.best_score`, `best_scores`, the history and `optimization_history.csv`
+    report metrics in their natural direction (RMSE is positive); selection is unchanged.
+    `display_score`, `display_scores` and `metric` (always `refit_metric`) were removed.

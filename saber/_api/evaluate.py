@@ -33,7 +33,11 @@ def evaluate(
         sample_ids=dataset.sample_ids,
         positive_class=positive_class,
     )
-    return evaluate_prediction(dataset.y, prediction, metrics=metrics)
+    result = evaluate_prediction(dataset.y, prediction, metrics=metrics)
+    result.metadata.update(
+        algorithm=prediction.metadata.get("algorithm"), dataset_fingerprint=dataset.fingerprint
+    )
+    return result
 
 
 __all__ = ["evaluate"]

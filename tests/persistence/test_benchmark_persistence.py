@@ -58,7 +58,7 @@ def test_benchmark_artifact_persists_analysis_tables(tmp_path):
     assert not loaded.table("runs").is_empty()
     assert not loaded.table("metrics").is_empty()
     assert not loaded.table("predictions").is_empty()
-    assert loaded.table("failures").is_empty()
+    assert set(loaded.table("runs")["status"]) == {"complete"}
 
 
 def test_benchmark_artifact_can_optionally_round_trip_python_object(tmp_path):
@@ -104,7 +104,6 @@ def test_benchmark_artifact_file_set_is_human_inspectable(tmp_path):
         "runs.csv",
         "metrics.csv",
         "predictions.csv",
-        "failures.csv",
         "optimization_history.csv",
         "checksums.sha256",
     }

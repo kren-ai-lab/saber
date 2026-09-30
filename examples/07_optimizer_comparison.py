@@ -95,7 +95,7 @@ def _(DEMO_TEST, TuningConfig, dataset, pl, perf_counter, plan, space, tune):
                          n_iter=6 if DEMO_TEST else 10,n_trials=6 if DEMO_TEST else 16)
         t0=perf_counter(); res=tune(dataset=dataset,algorithm="logistic_regression",config=cfg,partition_plan=plan,search_space=space,metrics=("mcc","roc_auc"),random_state=123); elapsed=perf_counter()-t0
         hist=res.history_frame(); histories[name]=hist
-        rows.append({"optimizer":name,"best_mcc":res.display_scores["mcc"],"best_roc_auc":res.display_scores["roc_auc"],
+        rows.append({"optimizer":name,"best_mcc":res.best_scores["mcc"],"best_roc_auc":res.best_scores["roc_auc"],
                      "elapsed_seconds":elapsed,"candidates":len(hist),"best_params":res.best_params})
     summary=pl.DataFrame(rows)
     summary

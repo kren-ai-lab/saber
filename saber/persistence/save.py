@@ -64,7 +64,7 @@ def save_model(
         training_config["tuning"] = result.metadata.get("tuning_config")
         selection_scores = {
             "refit_metric": result.refit_metric,
-            "selection_scores": result.display_scores,
+            "selection_scores": dict(result.best_scores),
         }
         if partition_plan is None:
             partition_plan = result.partition_plan
@@ -208,7 +208,6 @@ def save_benchmark(
             "runs": "runs.csv",
             "metrics": "metrics.csv",
             "predictions": "predictions.csv",
-            "failures": "failures.csv",
             "optimization_history": "optimization_history.csv",
         }
         if include_object:
@@ -228,7 +227,6 @@ def save_benchmark(
         _write_frame(result.runs_frame(), root / files["runs"])
         _write_frame(result.metrics_frame(), root / files["metrics"])
         _write_frame(result.predictions_frame(), root / files["predictions"])
-        _write_frame(result.failures_frame(), root / files["failures"])
         _write_frame(
             result.optimization_history_frame(),
             root / files["optimization_history"],

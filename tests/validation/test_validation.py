@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import numpy as np
+import polars as pl
 import pytest
 from sklearn.base import clone
 from sklearn.datasets import make_classification, make_regression
@@ -246,7 +247,7 @@ def test_cross_validation_auto_role_uses_biosieve_style_test_fold():
 
 
 def _fold(metrics):
-    return SimpleNamespace(evaluation=SimpleNamespace(metrics=metrics))
+    return SimpleNamespace(metrics=metrics)
 
 
 def test_fold_aggregation_skips_non_finite_values_and_uses_sample_std():
@@ -255,10 +256,10 @@ def test_fold_aggregation_skips_non_finite_values_and_uses_sample_std():
         _fold({"accuracy": 0.8, "roc_auc": 0.9}),
         _fold({"accuracy": 1.0}),
     )
-    means, summary = aggregate_fold_metrics(folds)  # pyrefly: ignore[bad-argument-type]
-    assert means == pytest.approx({"accuracy": 0.8, "roc_auc": 0.9})
-    assert summary["accuracy"] == pytest.approx({"mean": 0.8, "std": 0.2, "min": 0.6, "max": 1.0, "n": 3.0})
-    assert summary["roc_auc"] == pytest.approx({"mean": 0.9, "std": 0.0, "min": 0.9, "max": 0.9, "n": 1.0})
+    summary = aggregate_fold_metrics(folds)  # pyrefly: ignore[bad-argument-type]
+    assert summary["accuracy"] == pytest.approx({"mean": 0.8, "std": 0.2, "min": 0.6, "max": 1.0, "n": 3})
+    assert summary["roc_auc"] == pytest.approx({"mean": 0.9, "std": 0.0, "min": 0.9, "max": 0.9, "n": 1})
+    assert type(summary["accuracy"]["n"]) is int
 
 
 def test_oof_prediction_carries_probabilities_decision_scores_and_classes():
@@ -283,3 +284,41 @@ def test_oof_prediction_carries_probabilities_decision_scores_and_classes():
     assert oof.probabilities.shape == (60, 2)
     assert oof.decision_scores is not None
     np.testing.assert_array_equal(oof.classes, [0, 1])
+
+
+def test_metrics_frame_is_long_form_with_aggregate_and_fold_rows():
+    X, y = make_classification(n_samples=60, n_features=6, random_state=3)
+    ids = [f"s{i}" for i in range(60)]
+    dataset = DatasetBundle(X=X, y=y, sample_ids=ids)
+    plan = PartitionPlan.from_predefined_folds(
+        sample_ids=ids, fold_assignments=np.arange(60) % 3, dataset=dataset
+    )
+    result = validate(
+        dataset=dataset,
+        algorithm="logistic_regression",
+        partition_plan=plan,
+        metrics=("accuracy", "mcc"),
+        random_state=3,
+    )
+    frame = result.metrics_frame()
+    assert frame.columns == [
+        "level",
+        "split",
+        "evaluation_role",
+        "metric",
+        "score",
+        "std",
+        "min",
+        "max",
+        "n",
+        "fit_seconds",
+    ]
+    aggregate = frame.filter(pl.col("level") == "aggregate")
+    assert dict(zip(aggregate["metric"], aggregate["score"], strict=True)) == pytest.approx(
+        result.aggregate_metrics
+    )
+    assert aggregate["n"].to_list() == [3, 3]
+    folds = frame.filter(pl.col("level") == "fold")
+    assert folds["split"].to_list() == [fold.split for fold in result.folds for _ in range(2)]
+    assert folds["score"].to_list() == [score for fold in result.folds for score in fold.metrics.values()]
+    assert result.to_dict()["metrics"] == result.aggregate_metrics

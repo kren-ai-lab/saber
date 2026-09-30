@@ -6,9 +6,6 @@ import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
-import numpy as np
-import polars as pl
-
 from saber._api import evaluate, predict, train
 from saber.benchmark import benchmark
 from saber.config.builders import (
@@ -27,11 +24,13 @@ from saber.persistence import load_model, save_benchmark, save_model
 from saber.tuning import tune
 from saber.utils.serialization import to_jsonable
 from saber.utils.tabular import records_frame
-from saber.validation import ValidationResult, validate
+from saber.validation import validate
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
+
+    import polars as pl
 
     from saber.config.schema import WorkflowConfig
     from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
@@ -80,15 +79,7 @@ def _run_train(config: WorkflowConfig) -> WorkflowExecution:
         plan = payload.get("partition_plan")
         partition_plan = None if plan is None else build_partition_plan(config, plan)
         outputs["artifact"] = _save_model(config, result, dataset, partition_plan)
-    summary = {
-        "workflow": "train",
-        "algorithm": result.spec.name,
-        "task": result.spec.task,
-        "provider": result.spec.provider,
-        "dataset_fingerprint": dataset.fingerprint,
-        "n_samples": dataset.n_samples,
-        "n_features": dataset.n_features,
-    }
+    summary = _summary(config, result)
     outputs |= _write_output(config, summary)
     return WorkflowExecution(config, result, summary, outputs)
 
@@ -103,12 +94,7 @@ def _run_evaluate(config: WorkflowConfig) -> WorkflowExecution:
         metrics=payload.get("metrics"),
         positive_class=payload.get("positive_class"),
     )
-    summary = {
-        "workflow": "evaluate",
-        "task": result.task,
-        "metrics": dict(result.metrics),
-        "model": str(model_path),
-    }
+    summary = _summary(config, result, model=str(model_path))
     metrics = records_frame([{"metric": name, "score": score} for name, score in result.metrics.items()])
     outputs = _write_output(config, summary, {"metrics": metrics})
     return WorkflowExecution(config, result, summary, outputs)
@@ -132,15 +118,13 @@ def _run_validate(config: WorkflowConfig) -> WorkflowExecution:
         positive_class=payload.get("positive_class"),
         random_state=payload.get("random_state"),
     )
-    rows = [
-        {"split": fold.split_name, "metric": metric, "score": score}
-        for fold in result.folds
-        for metric, score in fold.evaluation.metrics.items()
-    ]
-    tables = {"metrics": records_frame(rows)}
-    if result.oof_prediction is not None:
-        tables["predictions"] = _prediction_frame(result.oof_prediction)
-    summary = _validation_summary(result)
+    tables = {"metrics": result.metrics_frame()}
+    oof = result.oof_prediction
+    if oof is not None:
+        targets = dict(zip(dataset.resolved_sample_ids, dataset.y.tolist(), strict=True))
+        sample_ids = [] if oof.sample_ids is None else oof.sample_ids.tolist()
+        tables["predictions"] = oof.to_frame(y_true=[targets[sample_id] for sample_id in sample_ids])
+    summary = _summary(config, result)
     outputs = _write_output(config, summary, tables)
     return WorkflowExecution(config, result, summary, outputs)
 
@@ -165,15 +149,7 @@ def _run_tune(config: WorkflowConfig) -> WorkflowExecution:
         positive_class=payload.get("positive_class"),
         random_state=payload.get("random_state"),
     )
-    summary = {
-        "workflow": "tune",
-        "algorithm": result.algorithm,
-        "optimizer": result.optimizer,
-        "refit_metric": result.refit_metric,
-        "best_score": result.display_score,
-        "best_scores": result.display_scores,
-        "best_params": dict(result.best_params),
-    }
+    summary = _summary(config, result)
     outputs: dict[str, str] = {}
     if "artifact" in payload:
         outputs["artifact"] = _save_model(config, result, dataset)
@@ -220,12 +196,7 @@ def _run_benchmark(config: WorkflowConfig) -> WorkflowExecution:
         require_complete=payload.get("require_complete", True),
         positive_class=payload.get("positive_class"),
     )
-    summary = {
-        "workflow": "benchmark",
-        "n_runs": result.n_runs,
-        "n_successes": len(result.successes),
-        "n_failures": len(result.failures),
-    }
+    summary = _summary(config, result)
     outputs: dict[str, str] = {}
     if "output" in payload:
         # The output directory is the checksummed benchmark artifact; its
@@ -243,31 +214,21 @@ def _run_benchmark(config: WorkflowConfig) -> WorkflowExecution:
 def _run_predict(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
     X, sample_ids = load_prediction_frame(config, payload["dataset"])
-    _, model = _load_model(config)
+    model_path, model = _load_model(config)
     result = predict(
         model,
         X,
         sample_ids=sample_ids,
         positive_class=payload.get("positive_class"),
     )
-    summary = {
-        "workflow": "predict",
-        "task": result.task,
-        "n_samples": result.n_samples,
-    }
-    outputs = _write_output(config, summary, {"predictions": _prediction_frame(result)})
+    summary = _summary(config, result, model=str(model_path))
+    outputs = _write_output(config, summary, {"predictions": result.to_frame()})
     return WorkflowExecution(config, result, summary, outputs)
 
 
-def _validation_summary(result: ValidationResult) -> dict[str, Any]:
-    return {
-        "workflow": "validate",
-        "algorithm": result.algorithm,
-        "task": result.task,
-        "n_splits": result.n_splits,
-        "aggregate_metrics": dict(result.aggregate_metrics),
-        "total_fit_seconds": result.total_fit_seconds,
-    }
+def _summary(config: WorkflowConfig, result: Any, **extra: Any) -> dict[str, Any]:
+    """Return the ``summary.json`` envelope: ``workflow`` then ``result.to_dict()`` and ``extra``."""
+    return {"workflow": config.workflow, **result.to_dict(), **extra}
 
 
 def _write_output(
@@ -348,23 +309,3 @@ def _partition_plan(
     if missing:
         raise ConfigurationError(f"Dataset is missing partitioning.extra_columns: {sorted(missing)!r}.")
     return build_partitioning(payload["partitioning"], extras)
-
-
-def _prediction_frame(result: Any) -> pl.DataFrame:
-    sample_ids = list(result.sample_ids) if result.sample_ids is not None else list(range(result.n_samples))
-    frame: dict[str, Any] = {
-        "sample_id": sample_ids,
-        "prediction": result.predictions,
-    }
-    if result.probabilities is not None:
-        probabilities = np.asarray(result.probabilities)
-        if probabilities.ndim == 1:
-            frame["probability"] = probabilities
-        elif result.classes is not None:
-            for index, label in enumerate(result.classes):
-                frame[f"probability__{label}"] = probabilities[:, index]
-    if result.decision_scores is not None:
-        scores = np.asarray(result.decision_scores)
-        if scores.ndim == 1:
-            frame["decision_score"] = scores
-    return pl.DataFrame(frame)

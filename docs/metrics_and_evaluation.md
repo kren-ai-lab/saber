@@ -43,3 +43,17 @@ isn't, and Saber raises an error instead of returning a misleading number.
 For complete, non-repeated cross-validation, `result.oof_prediction` is a
 `PredictionResult` in the original sample order. Use it for thresholds,
 calibration or error analysis without refitting.
+
+## Result tables
+
+`PredictionResult.to_frame(y_true=None)` returns one row per sample:
+`sample_id`, `y_true` (when given), `y_pred`, `probability__{class}` per class
+(when the model has probabilities), and `decision_score` (binary, oriented
+toward the positive class) or `decision_score__{class}` (multiclass).
+
+`ValidationResult.metrics_frame()` is long form. Each metric has one
+`level == "aggregate"` row, where `score` is the mean of the finite fold scores
+and `std` (sample), `min`, `max` and `n` (number of finite folds) describe them,
+followed by one `level == "fold"` row per split with its `split`,
+`evaluation_role`, `score` and `fit_seconds`. Each fold is also available as
+`result.folds[i]` with `split`, `metrics` and `prediction`.

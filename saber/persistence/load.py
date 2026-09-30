@@ -96,7 +96,7 @@ def load_benchmark(
     metadata = read_json(root / manifest.files["benchmark_metadata"])
 
     tables: dict[str, pl.DataFrame] = {}
-    for name in ("runs", "metrics", "predictions", "failures", "optimization_history"):
+    for name in ("runs", "metrics", "predictions", "optimization_history"):
         relative = manifest.files.get(name)
         if relative is not None:
             target = root / relative

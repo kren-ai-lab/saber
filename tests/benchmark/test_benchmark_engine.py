@@ -86,8 +86,12 @@ EXPECTED_METRICS_COLUMNS = [
     "evaluation_role",
     "metric",
     "score",
-    "elapsed_seconds",
+    "std",
+    "min",
+    "max",
+    "n",
     "fit_seconds",
+    "elapsed_seconds",
 ]
 EXPECTED_PREDICTIONS_COLUMNS = [
     "run_id",
@@ -127,21 +131,6 @@ EXPECTED_RUNS_COLUMNS = [
     "elapsed_seconds",
     "metric__accuracy",
 ]
-EXPECTED_FAILURES_COLUMNS = [
-    "run_id",
-    "dataset",
-    "representation",
-    "partition",
-    "algorithm",
-    "provider",
-    "task",
-    "mode",
-    "seed",
-    "configuration_id",
-    "parameters",
-    "error",
-    "elapsed_seconds",
-]
 EXPECTED_OPTIMIZATION_HISTORY_COLUMNS = [
     "run_id",
     "dataset",
@@ -172,14 +161,12 @@ def test_result_frames_are_polars_and_keep_their_columns() -> None:
         "metrics_frame",
         "predictions_frame",
         "optimization_history_frame",
-        "failures_frame",
         "runs_frame",
     ):
         assert isinstance(getattr(result, name)(), pl.DataFrame), name
     assert list(result.metrics_frame().columns) == EXPECTED_METRICS_COLUMNS
     assert list(result.predictions_frame().columns) == EXPECTED_PREDICTIONS_COLUMNS
     assert list(result.runs_frame().columns) == EXPECTED_RUNS_COLUMNS
-    assert list(result.failures_frame().columns) == EXPECTED_FAILURES_COLUMNS
     assert list(result.optimization_history_frame().columns) == EXPECTED_OPTIMIZATION_HISTORY_COLUMNS
     assert result.predictions_frame()["sample_id"].to_list() == EXPECTED_SAMPLE_ORDER
 
@@ -295,9 +282,8 @@ def test_failed_algorithm_does_not_invalidate_successful_runs() -> None:
     assert result.failures[0].algorithm == "not_a_model"
     assert result.failures[0].error is not None
     assert "AlgorithmNotFoundError" in result.failures[0].error
-    assert result.failures_frame()["error"][0].startswith(
-        "AlgorithmNotFoundError: Algorithm 'not_a_model' was not found."
-    )
+    failed = result.runs_frame().filter(pl.col("status") == "failed")
+    assert failed["error"][0].startswith("AlgorithmNotFoundError: Algorithm 'not_a_model' was not found.")
     assert set(result.runs_frame()["status"]) == {"complete", "failed"}
 
 

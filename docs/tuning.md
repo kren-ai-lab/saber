@@ -48,6 +48,10 @@ print(result.best_params)
 print(result.history_frame())
 ```
 
+`result.best_score` (for `refit_metric`), `result.best_scores` and
+`history_frame()` report every metric in its natural direction, so RMSE is
+positive and lower is better; history ranks keep 1 as the best candidate.
+
 `metrics` and `random_state` are keyword arguments of `tune`. `refit_metric` (default: the first metric, and it must be in `metrics`) is the objective; the other metrics are recorded for every
 candidate. For binary targets, `precision`, `recall`, `f1` and `roc_auc` are
 scored for the positive class; pass `positive_class=` to change it.

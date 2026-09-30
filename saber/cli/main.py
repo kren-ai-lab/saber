@@ -105,7 +105,7 @@ def run(config: ConfigArg, dry_run: DryRunOpt = False, json_output: JsonOpt = Fa
         return
     if json_output:
         execution = run_config(loaded)
-        _print_json(console, {"summary": execution.summary, "outputs": execution.outputs})
+        _print_json(console, {"status": "ok", "summary": execution.summary, "outputs": execution.outputs})
         return
     render_preflight(console, loaded)
     with console.status(f"[bold cyan]Running {loaded.workflow} workflow…[/bold cyan]", spinner="dots"):

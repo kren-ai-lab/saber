@@ -3,6 +3,7 @@ from __future__ import annotations
 import warnings
 
 import numpy as np
+import polars as pl
 import pytest
 from sklearn.base import clone
 from sklearn.datasets import make_classification, make_regression
@@ -218,21 +219,66 @@ def test_failed_candidate_is_explicit_in_history() -> None:
     assert result.best_params["C"] == 1.0
 
 
-def test_regression_loss_scores_keep_natural_display_direction() -> None:
+@pytest.mark.parametrize("optimizer", ["grid", "optuna"])
+def test_regression_loss_scores_are_reported_in_natural_direction(optimizer) -> None:
     X, y = make_regression(n_samples=60, n_features=5, random_state=42)  # pyrefly: ignore[bad-unpacking]
     ids = [f"sample_{i}" for i in range(60)]
     dataset = DatasetBundle(X=X, y=y, sample_ids=ids)
+    plan = _three_fold_plan(dataset)
+    space = SearchSpace(
+        "ridge", {"alpha": [0.1, 1.0]} if optimizer == "grid" else {"alpha": LogFloat(0.1, 1.0)}
+    )
     result = tune(
         dataset=dataset,
         algorithm="ridge_regressor",
-        config=TuningConfig(optimizer="grid", refit_metric="rmse", n_jobs=1),
-        partition_plan=_three_fold_plan(dataset),
-        search_space=SearchSpace("ridge", {"alpha": [0.1, 1.0]}),
+        config=TuningConfig(optimizer=optimizer, refit_metric="rmse", n_jobs=1, n_trials=4),
+        partition_plan=plan,
+        search_space=space,
+        metrics=("rmse", "r2"),
+        random_state=0,
+    )
+    # The selected candidate's own cross-validated RMSE: positive, lower is better.
+    selected = validate(
+        dataset=dataset,
+        algorithm="ridge_regressor",
+        model_params=result.best_params,
+        partition_plan=plan,
         metrics=("rmse", "r2"),
     )
-    assert result.best_score < 0
-    assert result.display_score > 0
-    assert result.display_scores["rmse"] > 0
+    assert result.best_score > 0
+    assert result.best_score == pytest.approx(selected.aggregate_metrics["rmse"])
+    assert result.best_scores == pytest.approx(selected.aggregate_metrics)
+    history = result.history_frame().filter(pl.col("status") == "complete")
+    column = "metric__rmse__mean" if optimizer == "grid" else "score"
+    assert history[column].min() == pytest.approx(result.best_score)
+    assert (history[column] > 0).all()
+    if optimizer == "grid":
+        best_row = history.filter(pl.col("metric__rmse__rank") == 1)
+        assert best_row["metric__rmse__mean"].item() == pytest.approx(result.best_score)
+
+
+def test_classification_scores_keep_their_sign() -> None:
+    dataset = _classification_dataset()
+    plan = _three_fold_plan(dataset)
+    result = tune(
+        dataset=dataset,
+        algorithm="logistic_regression",
+        config=TuningConfig(optimizer="grid", n_jobs=1),
+        partition_plan=plan,
+        search_space=SearchSpace("lr", {"C": [0.01, 1.0]}),
+        metrics=("mcc", "accuracy"),
+    )
+    selected = validate(
+        dataset=dataset,
+        algorithm="logistic_regression",
+        model_params=result.best_params,
+        partition_plan=plan,
+        metrics=("mcc", "accuracy"),
+    )
+    assert result.best_score > 0
+    assert result.best_score == pytest.approx(selected.aggregate_metrics["mcc"])
+    assert result.best_scores == pytest.approx(selected.aggregate_metrics)
+    assert result.history_frame()["metric__mcc__mean"].max() == pytest.approx(result.best_score)
 
 
 def test_optimization_history_exports_as_flat_dataframe() -> None:

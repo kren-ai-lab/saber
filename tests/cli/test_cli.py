@@ -52,7 +52,7 @@ def test_cli_run_uses_same_config_runner(tmp_path):
     direct = run_config(path)
     assert main(["run", str(path)]) == EXIT_OK
     summary = json.loads((tmp_path / "cli_results" / "summary.json").read_text())
-    assert summary["aggregate_metrics"] == direct.summary["aggregate_metrics"]
+    assert summary["metrics"] == direct.summary["metrics"]
     assert summary["workflow"] == "validate"
     assert summary["n_splits"] == 3
 

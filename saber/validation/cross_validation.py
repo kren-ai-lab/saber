@@ -110,12 +110,12 @@ def validate(
 
         folds.append(
             FoldValidationResult(
-                split_name=split.name,
+                split=split.name,
                 evaluation_role=role,
                 train_ids=tuple(resolved.train.resolved_sample_ids),
                 evaluation_ids=tuple(evaluation_data.sample_ids),
                 prediction=prediction,
-                evaluation=evaluation,
+                metrics=evaluation.metrics,
                 estimator=pipeline if return_estimators else None,
                 fit_seconds=float(fit_seconds),
                 metadata={
@@ -127,7 +127,7 @@ def validate(
         )
 
     fold_tuple = tuple(folds)
-    aggregate_metrics, metric_summary = aggregate_fold_metrics(fold_tuple)
+    aggregate_metrics = {name: stats["mean"] for name, stats in aggregate_fold_metrics(fold_tuple).items()}
     oof_prediction, oof_metadata = _build_oof_prediction(
         dataset=dataset,
         folds=fold_tuple,
@@ -140,7 +140,6 @@ def validate(
         partition_plan=plan,
         folds=fold_tuple,
         aggregate_metrics=aggregate_metrics,
-        metric_summary=metric_summary,
         oof_prediction=oof_prediction,
         metadata={
             "partition_source": plan.metadata.get("source", "external"),
