@@ -50,12 +50,12 @@ def _validate_config(tmp_path: Path) -> Path:
 
     config = {
         "workflow": "validate",
-        "dataset": {"path": "data.csv", "target": "label", "sample_id": "sample_id"},
+        "dataset": {"path": "data.csv", "target_col": "label", "sample_id_col": "sample_id"},
         "algorithm": "logistic_regression",
-        "partition": {"path": "folds.json"},
+        "partition_plan": {"path": "folds.json"},
         "metrics": ["accuracy", "balanced_accuracy", "mcc"],
         "random_state": 42,
-        "output": {"directory": "results"},
+        "output": "results",
     }
     config_path = tmp_path / "validate.yaml"
     config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
@@ -92,11 +92,11 @@ def _benchmark_config(tmp_path: Path) -> Path:
 
     config = {
         "workflow": "benchmark",
-        "datasets": {"rep_a": {"path": "data.csv", "target": "label", "sample_id": "sample_id"}},
+        "datasets": {"rep_a": {"path": "data.csv", "target_col": "label", "sample_id_col": "sample_id"}},
         "algorithms": ["logistic_regression"],
         "partitions": {"cv": {"path": "folds.json"}},
+        "metrics": ["accuracy"],
         "benchmark": {
-            "metrics": ["accuracy"],
             "seeds": [42],
             "modes": ["untuned"],
             "include_baselines": False,

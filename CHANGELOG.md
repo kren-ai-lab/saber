@@ -87,3 +87,30 @@ First public release, published on PyPI as `saberlib`.
     raises `ValidationContractError` for bad inputs. `LoadedModelArtifact.predict_result` is private.
   - `PartitionPlan.holdout`, `PartitionPlan.from_predefined_folds`, `partition_plan_from_frame`
     and `load_partition_plan` take `dataset=` instead of `dataset_fingerprint=`.
+- Config schema 2.0 (`schema_version: "2.0"`; `1.0` configs are rejected). Keys mirror the Python
+  API:
+  - `output: DIR` is a directory string (`output.path`, `output.directory` and `output.summary`
+    were removed). Every workflow writes `summary.json` and fixed-name tables into it: `validate`
+    `metrics.csv` and `predictions.csv`, `tune` `optimization_history.csv`, `evaluate`
+    `metrics.csv`, `predict` `predictions.csv`. For `benchmark` the output directory is the
+    `save_benchmark` artifact; the `benchmark` `artifact` block and `include_object` were removed.
+  - `train`/`tune` save the model to `artifact: PATH`; `evaluate`/`predict` read `model: PATH`.
+    A top-level `overwrite: true` lets both `artifact` and `output` replace existing paths; by
+    default an existing path is refused before the workflow runs.
+  - Dataset keys are `path`, `target_col`, `sample_id_col`, `feature_cols`, `group_col`,
+    `sample_weight_col` and `sep` (were `target`, `sample_id`, `features`, `groups`,
+    `sample_weight`). Datasets may be `.csv`, `.tsv`, `.txt` (tab-separated) or `.parquet`, for
+    labeled and unlabeled workflows alike.
+  - `partition` is `partition_plan` (keys: `path`, `sample_id_col`, `role_col`, `split_col`,
+    `fold_col`, `always_train_value`). `partitioning` takes `strategy`, `params`,
+    `seq_col`, `cluster_col`, `date_col` and `extra_columns`, a list of dataset columns read into
+    `BioSievePartitionConfig.extra_columns`; columns named by any of these are never used as
+    features. `biosieve_extra_columns` was removed.
+  - `metrics`, `evaluation_role`, `require_complete`, `positive_class` and `random_state` are
+    top-level keys in every workflow that takes them; `tuning` holds `TuningConfig` fields only and
+    `benchmark` holds `BenchmarkConfig` fields only (no `metrics`, `metadata`, `evaluation_role`,
+    `require_complete`, `return_estimators`, nor `tuning.metrics`/`tuning.random_state`).
+    `return_estimators` is not a config key.
+  - `benchmark` takes `datasets` only (one representation is a one-entry mapping) and its
+    `benchmark` block is optional; `partitioning_reference` requires `partitioning`. A `train`
+    `partition_plan` (artifact provenance) requires `artifact`.

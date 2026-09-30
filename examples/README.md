@@ -25,8 +25,9 @@ external libraries. Plotting and reporting stay outside the `saber` core.
 
 ## Configs
 
-`examples/configs/` holds minimal example YAML configs used by the CLI docs
-and `saber config validate`.
+`examples/configs/` holds minimal example YAML configs (schema 2.0) for
+`saber run CONFIG`; check one with `saber run CONFIG --dry-run`. They read
+`data/classification.csv` and `data/regression.csv` next to the config.
 
 ### Test mode
 

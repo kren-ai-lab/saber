@@ -20,6 +20,10 @@ saber run experiment.yaml --json
 --json      machine-readable summary
 ```
 
+`saber run CONFIG` does what `saber.run_config(CONFIG)` does. Results go to the config's `output`
+directory and a trained or tuned model to its `artifact` path; existing paths are refused unless the
+config sets `overwrite: true`. See [output files](configuration.md#output-files).
+
 ## Model discovery
 
 ```bash

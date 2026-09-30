@@ -39,36 +39,22 @@ def render_preflight(console: Console, config: WorkflowConfig) -> None:
     if "datasets" in payload:
         table.add_row("Datasets", ", ".join(str(key) for key in payload["datasets"]))
     elif "dataset" in payload:
-        dataset = payload["dataset"]
-        if isinstance(dataset, Mapping):
-            table.add_row("Dataset", str(dataset.get("path", "prepared input")))
+        table.add_row("Dataset", str(payload["dataset"]["path"]))
 
     if "partitioning" in payload:
-        partitioning = payload["partitioning"]
-        if isinstance(partitioning, Mapping):
-            table.add_row("Partitioning", f"BioSieve / {partitioning.get('strategy', 'configured')}")
+        table.add_row("Partitioning", f"BioSieve / {payload['partitioning']['strategy']}")
     elif "partitions" in payload:
         table.add_row("Partitions", ", ".join(str(key) for key in payload["partitions"]))
-    elif "partition" in payload:
-        partition = payload["partition"]
-        if isinstance(partition, Mapping):
-            table.add_row("Partition", str(partition.get("path", "external")))
+    elif "partition_plan" in payload:
+        table.add_row("Partition plan", str(payload["partition_plan"]["path"]))
 
     metrics = _configured_metrics(config)
     if metrics:
         table.add_row("Metrics", ", ".join(metrics))
 
-    output = payload.get("output")
-    if isinstance(output, Mapping):
-        destination = output.get("directory") or output.get("path")
-        if destination:
-            table.add_row("Output", str(destination))
-    artifact = payload.get("artifact")
-    if artifact is not None:
-        if isinstance(artifact, Mapping):
-            artifact = artifact.get("path")
-        if artifact:
-            table.add_row("Artifact", str(artifact))
+    for key in ("model", "artifact", "output"):
+        if key in payload:
+            table.add_row(key.title(), str(payload[key]))
 
     console.print(Panel(table, title="[bold]saber execution plan[/bold]", border_style="cyan"))
 
@@ -301,16 +287,7 @@ def _render_outputs(console: Console, outputs: Mapping[str, str]) -> None:
 
 
 def _configured_metrics(config: WorkflowConfig) -> list[str]:
-    payload = config.payload
-    if isinstance(payload.get("metrics"), Sequence) and not isinstance(payload.get("metrics"), (str, bytes)):
-        return [str(value) for value in payload["metrics"]]
-    tuning = payload.get("tuning")
-    if isinstance(tuning, Mapping):
-        return [str(value) for value in tuning.get("metrics", ())]
-    benchmark = payload.get("benchmark")
-    if isinstance(benchmark, Mapping):
-        return [str(value) for value in benchmark.get("metrics", ())]
-    return []
+    return [str(value) for value in config.payload.get("metrics", ())]
 
 
 def _display_value(value: Any) -> str:

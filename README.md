@@ -124,7 +124,7 @@ saber artifact verify artifacts/model
 ```
 
 Every workflow can be written as a YAML or JSON file and run from the CLI or
-with `saber.run_config(...)`. See the [configuration](docs/configuration.md)
+with `saber.run_config("experiment.yaml")`. See the [configuration](docs/configuration.md)
 and [CLI](docs/cli.md) references.
 
 ## Design principles

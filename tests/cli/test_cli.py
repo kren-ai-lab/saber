@@ -34,12 +34,13 @@ def _workflow_files(tmp_path):
     (tmp_path / "folds.json").write_text(json.dumps(plan.to_dict()), encoding="utf-8")
     config = {
         "workflow": "validate",
-        "dataset": {"path": "data.csv", "target": "label", "sample_id": "sample_id"},
+        "dataset": {"path": "data.csv", "target_col": "label", "sample_id_col": "sample_id"},
         "algorithm": "logistic_regression",
-        "partition": {"path": "folds.json"},
+        "partition_plan": {"path": "folds.json"},
         "metrics": ["accuracy"],
         "random_state": 42,
-        "output": {"directory": "cli_results"},
+        "output": "cli_results",
+        "overwrite": True,
     }
     path = tmp_path / "validate.yaml"
     path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
