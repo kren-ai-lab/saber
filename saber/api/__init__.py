@@ -12,7 +12,7 @@ from saber.api.benchmark import benchmark
 from saber.api.evaluate import evaluate, validate
 from saber.api.predict import predict
 from saber.api.train import train
-from saber.api.tune import optimize, tune
+from saber.api.tune import tune
 
 __all__ = [
     "benchmark",
@@ -20,7 +20,6 @@ __all__ = [
     "inspect_artifact",
     "load_benchmark",
     "load_model",
-    "optimize",
     "predict",
     "save_benchmark",
     "save_model",

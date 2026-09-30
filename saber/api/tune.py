@@ -47,6 +47,4 @@ def tune(
     )
 
 
-optimize = tune
-
-__all__ = ["optimize", "tune"]
+__all__ = ["tune"]

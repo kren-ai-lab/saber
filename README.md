@@ -33,7 +33,7 @@ python -m pip install "saberlib[lightgbm]"   # LightGBM models
 python -m pip install "saberlib[all]"
 ```
 
-`saber doctor` shows which extras are available. For development setup with
+For development setup with
 `uv`, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Validate a model
@@ -117,8 +117,8 @@ See the [tuning](docs/tuning.md), [benchmarking](docs/benchmarking.md) and
 
 ```bash
 saber models list --task classification
-saber validate experiment.yaml --dry-run
-saber benchmark study.yaml --json
+saber run experiment.yaml --dry-run
+saber run study.yaml --json
 saber artifact verify artifacts/model
 ```
 

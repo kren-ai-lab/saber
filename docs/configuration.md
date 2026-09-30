@@ -42,8 +42,6 @@ benchmark
 predict
 ```
 
-`optimize` is an alias for `tune` in the CLI and Python, not a separate workflow.
-
 ## Existing versus generated partitions
 
 Use exactly one of:
@@ -113,14 +111,12 @@ benchmark:
   include_baselines: true
 ```
 
-## Validation and normalization
+## Validation
 
 ```bash
-saber config validate experiment.yaml
-saber config show experiment.yaml
-saber config normalize experiment.yaml -o normalized.yaml
+saber run experiment.yaml --dry-run
 ```
 
-`--dry-run` on workflow commands validates and renders the plan without executing the experiment.
+`--dry-run` validates the config and renders the plan without executing the experiment.
 
 Complete minimal files live in [`examples/configs/`](../examples/configs/).

@@ -173,22 +173,6 @@ def render_artifact(console: Console, payload: Mapping[str, Any], path: str) -> 
     console.print(Panel(table, title="Artifact", border_style="cyan"))
 
 
-def render_doctor(console: Console, payload: Mapping[str, Any]) -> None:
-    """Render the environment/dependency status table for `saber doctor`."""
-    table = Table(title="saber doctor", header_style="bold cyan")
-    table.add_column("Component")
-    table.add_column("Status")
-    table.add_column("Version / detail")
-    for item in payload.get("components", []):
-        available = bool(item.get("available"))
-        table.add_row(
-            str(item.get("name")),
-            "[green]available[/green]" if available else "[yellow]not installed[/yellow]",
-            str(item.get("version") or item.get("detail") or "-"),
-        )
-    console.print(table)
-
-
 def _render_validation(console: Console, result: ValidationResult) -> None:
     overview = Table.grid(padding=(0, 2))
     overview.add_column(style="bold cyan")
