@@ -112,8 +112,6 @@ def test_predefined_folds_produce_complete_identity_preserving_oof_predictions()
     assert result.oof_prediction.n_samples == dataset.n_samples
     assert result.oof_prediction.sample_ids is not None
     assert list(result.oof_prediction.sample_ids) == ids
-    assert result.metadata["oof_complete"] is True
-    assert result.metadata["oof_coverage"] == 1.0
     assert "accuracy" in result.aggregate_metrics
 
 
@@ -243,7 +241,6 @@ def test_cross_validation_auto_role_uses_biosieve_style_test_fold():
     )
     assert all(fold.evaluation_role == "test" for fold in result.folds)
     assert result.oof_prediction is not None
-    assert result.metadata["oof_complete"] is True
 
 
 def _fold(metrics):

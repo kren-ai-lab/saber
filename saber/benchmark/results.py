@@ -36,7 +36,6 @@ class BenchmarkRun:
     elapsed_seconds: float = 0.0
     error: str | None = None
     parameters: dict[str, Any] = field(default_factory=dict)
-    targets: dict[Any, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -59,6 +58,7 @@ class BenchmarkResult:
     """Collection of benchmark runs with analysis-ready exports."""
 
     runs: tuple[BenchmarkRun, ...]
+    targets: dict[Any, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -129,7 +129,7 @@ class BenchmarkResult:
             if run.validation is None:
                 continue
             for fold in run.validation.folds:
-                y_true = [run.targets.get(sample_id) for sample_id in fold.evaluation_ids]
+                y_true = [self.targets.get(sample_id) for sample_id in fold.evaluation_ids]
                 frame = fold.prediction.to_frame(y_true=y_true)
                 frames.append(
                     _with_identity(frame, run, split=fold.split, evaluation_role=fold.evaluation_role)

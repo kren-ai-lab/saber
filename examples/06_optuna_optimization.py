@@ -84,7 +84,7 @@ def _(
     ids=[f"opt_{i:04d}" for i in range(len(y))]
     dataset=DatasetBundle(X=X,y=y,sample_ids=ids,feature_names=[f"f{i}" for i in range(X.shape[1])])
     plan=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=balanced_fold_labels(y,4),dataset=dataset)
-    space=SearchSpace("svc_optuna",{"C":LogFloat(1e-2,30.0),"gamma":LogFloat(1e-4,1.0),"kernel":Categorical(["rbf"])})
+    space=SearchSpace({"C":LogFloat(1e-2,30.0),"gamma":LogFloat(1e-4,1.0),"kernel":Categorical(["rbf"])})
     return dataset, plan, space
 
 
@@ -125,7 +125,7 @@ def _(FIGURE_COUNT, completed, history, n_trials, np, opt, secondary_scores):
     DEMO_CHECKS={
         "requested_trials": len(history)==n_trials,
         "all_complete": (history.get_column("status")=="complete").all(),
-        "finite_best": np.isfinite(opt.best_score),
+        "finite_best": np.isfinite(opt.best_scores[opt.refit_metric]),
         "study_available": opt.study is not None,
         "typed_parameters": {"param__C","param__gamma"}.issubset(history.columns),
         "monotonic_best": bool(np.all(np.diff(_best_so_far)>=0)),

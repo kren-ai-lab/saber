@@ -234,7 +234,7 @@ def test_optimization_result_artifact_records_selection_scores_and_training_conf
         algorithm="logistic_regression",
         config=TuningConfig(optimizer="grid", n_jobs=1),
         partition_plan=plan,
-        search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
+        search_space=SearchSpace({"C": [0.1, 1.0]}),
         preprocessing=PreprocessingConfig(scaler="standard"),
         metrics=("accuracy",),
         random_state=5,

@@ -178,7 +178,6 @@ def _render_optimization(console: Console, result: OptimizationResult) -> None:
     overview.add_row("Algorithm", result.algorithm)
     overview.add_row("Optimizer", str(result.optimizer))
     overview.add_row("Refit metric", str(result.refit_metric))
-    overview.add_row("Best score", _format_number(result.best_score))
     overview.add_row("Candidates", str(len(result.history)))
     overview.add_row("Failed", str(len(result.failures)))
     overview.add_row("Refit model", _yes_no(result.best_model is not None))

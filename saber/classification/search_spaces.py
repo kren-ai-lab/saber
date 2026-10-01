@@ -9,7 +9,6 @@ from saber.core.search_space import SearchSpace
 # ============================================================
 
 LOGISTIC_REGRESSION = SearchSpace(
-    name="logistic_regression",
     parameters={
         "C": [0.001, 0.01, 0.1, 1.0, 10.0, 100.0],
         "solver": ["lbfgs", "liblinear"],
@@ -18,14 +17,12 @@ LOGISTIC_REGRESSION = SearchSpace(
 )
 
 RIDGE_CLASSIFIER = SearchSpace(
-    name="ridge_classifier",
     parameters={
         "alpha": [0.001, 0.01, 0.1, 1.0, 10.0, 100.0],
     },
 )
 
 SGD_CLASSIFIER = SearchSpace(
-    name="sgd_classifier",
     parameters={
         "alpha": [1e-5, 1e-4, 1e-3, 1e-2],
         "loss": ["hinge", "log_loss", "modified_huber"],
@@ -39,7 +36,6 @@ SGD_CLASSIFIER = SearchSpace(
 # ============================================================
 
 DECISION_TREE = SearchSpace(
-    name="decision_tree_classifier",
     parameters={
         "max_depth": [3, 5, 10, 20, None],
         "min_samples_split": [2, 5, 10],
@@ -48,7 +44,6 @@ DECISION_TREE = SearchSpace(
 )
 
 EXTRA_TREE = SearchSpace(
-    name="extra_tree_classifier",
     parameters={
         "max_depth": [3, 5, 10, 20, None],
         "min_samples_split": [2, 5, 10],
@@ -57,7 +52,6 @@ EXTRA_TREE = SearchSpace(
 )
 
 RANDOM_FOREST = SearchSpace(
-    name="random_forest_classifier",
     parameters={
         "n_estimators": [100, 200, 500],
         "max_depth": [3, 5, 10, 20, None],
@@ -68,7 +62,6 @@ RANDOM_FOREST = SearchSpace(
 )
 
 EXTRA_TREES = SearchSpace(
-    name="extra_trees_classifier",
     parameters={
         "n_estimators": [100, 200, 500],
         "max_depth": [3, 5, 10, 20, None],
@@ -84,7 +77,6 @@ EXTRA_TREES = SearchSpace(
 # ============================================================
 
 GRADIENT_BOOSTING = SearchSpace(
-    name="gradient_boosting_classifier",
     parameters={
         "n_estimators": [100, 200, 500],
         "learning_rate": [0.01, 0.05, 0.1],
@@ -94,7 +86,6 @@ GRADIENT_BOOSTING = SearchSpace(
 )
 
 ADABOOST = SearchSpace(
-    name="adaboost_classifier",
     parameters={
         "n_estimators": [50, 100, 200, 500],
         "learning_rate": [0.01, 0.05, 0.1, 1.0],
@@ -102,7 +93,6 @@ ADABOOST = SearchSpace(
 )
 
 HIST_GRADIENT_BOOSTING = SearchSpace(
-    name="hist_gradient_boosting_classifier",
     parameters={
         "learning_rate": [0.01, 0.05, 0.1],
         "max_depth": [3, 5, 10, None],
@@ -111,7 +101,6 @@ HIST_GRADIENT_BOOSTING = SearchSpace(
 )
 
 BAGGING = SearchSpace(
-    name="bagging_classifier",
     parameters={
         "n_estimators": [10, 50, 100, 200],
     },
@@ -123,7 +112,6 @@ BAGGING = SearchSpace(
 # ============================================================
 
 SVC_SPACE = SearchSpace(
-    name="svc",
     parameters={
         "C": [0.01, 0.1, 1.0, 10.0, 100.0],
         "kernel": ["linear", "rbf"],
@@ -132,14 +120,12 @@ SVC_SPACE = SearchSpace(
 )
 
 LINEAR_SVC = SearchSpace(
-    name="linear_svc",
     parameters={
         "C": [0.01, 0.1, 1.0, 10.0, 100.0],
     },
 )
 
 NU_SVC = SearchSpace(
-    name="nu_svc",
     parameters={
         "nu": [0.1, 0.25, 0.5, 0.75],
         "kernel": ["linear", "rbf"],
@@ -152,7 +138,6 @@ NU_SVC = SearchSpace(
 # ============================================================
 
 KNN = SearchSpace(
-    name="knn_classifier",
     parameters={
         "n_neighbors": [3, 5, 7, 11, 15],
         "weights": ["uniform", "distance"],
@@ -161,7 +146,6 @@ KNN = SearchSpace(
 )
 
 RADIUS_NEIGHBORS = SearchSpace(
-    name="radius_neighbors_classifier",
     parameters={
         "radius": [0.5, 1.0, 2.0, 5.0],
         "weights": ["uniform", "distance"],
@@ -169,7 +153,6 @@ RADIUS_NEIGHBORS = SearchSpace(
 )
 
 NEAREST_CENTROID = SearchSpace(
-    name="nearest_centroid",
     parameters={},
 )
 
@@ -179,14 +162,12 @@ NEAREST_CENTROID = SearchSpace(
 # ============================================================
 
 LDA = SearchSpace(
-    name="lda",
     parameters={
         "solver": ["svd", "lsqr", "eigen"],
     },
 )
 
 QDA = SearchSpace(
-    name="qda",
     parameters={
         "reg_param": [0.0, 0.1, 0.25, 0.5],
     },
@@ -198,7 +179,6 @@ QDA = SearchSpace(
 # ============================================================
 
 GAUSSIAN_PROCESS = SearchSpace(
-    name="gaussian_process_classifier",
     parameters={},
 )
 
@@ -208,7 +188,6 @@ GAUSSIAN_PROCESS = SearchSpace(
 # ============================================================
 
 GAUSSIAN_NB = SearchSpace(
-    name="gaussian_nb",
     parameters={
         "var_smoothing": [
             1e-12,
@@ -220,28 +199,24 @@ GAUSSIAN_NB = SearchSpace(
 )
 
 BERNOULLI_NB = SearchSpace(
-    name="bernoulli_nb",
     parameters={
         "alpha": [0.01, 0.1, 1.0, 10.0],
     },
 )
 
 CATEGORICAL_NB = SearchSpace(
-    name="categorical_nb",
     parameters={
         "alpha": [0.01, 0.1, 1.0, 10.0],
     },
 )
 
 MULTINOMIAL_NB = SearchSpace(
-    name="multinomial_nb",
     parameters={
         "alpha": [0.01, 0.1, 1.0, 10.0],
     },
 )
 
 COMPLEMENT_NB = SearchSpace(
-    name="complement_nb",
     parameters={
         "alpha": [0.01, 0.1, 1.0, 10.0],
     },
@@ -253,7 +228,6 @@ COMPLEMENT_NB = SearchSpace(
 # ============================================================
 
 XGB_CLASSIFIER = SearchSpace(
-    name="xgb_classifier",
     parameters={
         "n_estimators": [100, 200, 500],
         "max_depth": [3, 5, 7, 10],
@@ -264,7 +238,6 @@ XGB_CLASSIFIER = SearchSpace(
 )
 
 XGB_RF_CLASSIFIER = SearchSpace(
-    name="xgb_rf_classifier",
     parameters={
         "n_estimators": [100, 200, 500],
         "max_depth": [3, 5, 7, 10],
@@ -279,7 +252,6 @@ XGB_RF_CLASSIFIER = SearchSpace(
 # ============================================================
 
 LGBM_CLASSIFIER = SearchSpace(
-    name="lgbm_classifier",
     parameters={
         "n_estimators": [100, 200, 500],
         "num_leaves": [31, 63, 127],

@@ -64,7 +64,7 @@ def _small_benchmark():
             tuning=TuningConfig(optimizer="grid", n_jobs=1),
         ),
         partitions=plan,
-        search_spaces={"logistic_regression": SearchSpace("lr", {"C": [0.1, 1.0]})},
+        search_spaces={"logistic_regression": SearchSpace({"C": [0.1, 1.0]})},
         metrics=("accuracy",),
     )
 
@@ -352,7 +352,7 @@ def test_tuned_cv_is_rejected_without_destroying_untuned_result() -> None:
             ),
         ),
         partitions=_cv_plan(dataset),
-        search_spaces={"logistic_regression": SearchSpace("lr", {"C": [1.0]})},
+        search_spaces={"logistic_regression": SearchSpace({"C": [1.0]})},
         metrics=("accuracy",),
     )
     assert len(result.successes) == 1
@@ -428,7 +428,7 @@ def test_tuned_benchmark_exports_annotated_optimization_history() -> None:
             tuning=TuningConfig(optimizer="grid", n_jobs=1),
         ),
         partitions=_safe_holdout(dataset),
-        search_spaces={"logistic_regression": SearchSpace("lr", {"C": [0.1, 1.0]})},
+        search_spaces={"logistic_regression": SearchSpace({"C": [0.1, 1.0]})},
         metrics=("accuracy",),
     )
     history = result.optimization_history_frame()
@@ -456,7 +456,7 @@ def test_mixed_tuned_and_untuned_holdout_use_same_protected_test() -> None:
         ),
         partitions=plan,
         search_spaces={
-            "logistic_regression": SearchSpace("lr", {"C": [0.1, 1.0]}),
+            "logistic_regression": SearchSpace({"C": [0.1, 1.0]}),
         },
         metrics=("accuracy", "mcc"),
     )
@@ -473,6 +473,5 @@ def test_mixed_tuned_and_untuned_holdout_use_same_protected_test() -> None:
         assert len(fold.train_ids) == 50
     tuned = next(run for run in result.successes if run.mode == "tuned")
     assert tuned.optimization is not None
-    assert tuned.optimization.metadata["protected_samples"] == 10
     assert tuned.oof_prediction is not None
     assert tuned.oof_prediction.n_samples == 10

@@ -11,7 +11,6 @@ using the same partitions and metrics as `saber.validate(...)`. Optimizers:
 from saber import Categorical, Integer, LogFloat, SearchSpace
 
 space = SearchSpace(
-    name="forest",
     parameters={
         "n_estimators": Integer(100, 500, step=100),
         "max_features": Categorical(["sqrt", "log2", None]),
@@ -48,7 +47,7 @@ print(result.best_params)
 print(result.history_frame())
 ```
 
-`result.best_score` (for `refit_metric`), `result.best_scores` and
+`result.best_scores` (`best_scores[refit_metric]` is the selection score) and
 `history_frame()` report every metric in its natural direction, so RMSE is
 positive and lower is better; history ranks keep 1 as the best candidate.
 

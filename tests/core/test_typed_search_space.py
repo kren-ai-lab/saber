@@ -14,26 +14,26 @@ from saber.core.search_space import (
 
 
 def test_legacy_lists_remain_supported() -> None:
-    space = SearchSpace("legacy", {"C": [0.1, 1.0]})
+    space = SearchSpace({"C": [0.1, 1.0]})
     assert space.to_grid() == {"C": [0.1, 1.0]}
     assert space.to_random() == {"C": [0.1, 1.0]}
 
 
 def test_integer_is_shared_across_grid_random_and_optuna() -> None:
-    space = SearchSpace("typed", {"depth": Integer(2, 6, step=2)})
+    space = SearchSpace({"depth": Integer(2, 6, step=2)})
     assert space.to_grid()["depth"] == [2, 4, 6]
     assert space.to_random()["depth"] == [2, 4, 6]
     assert space.sample_optuna(FixedTrial({"depth": 4})) == {"depth": 4}
 
 
 def test_categorical_is_shared_across_backends() -> None:
-    space = SearchSpace("typed", {"kernel": Categorical(["linear", "rbf"])})
+    space = SearchSpace({"kernel": Categorical(["linear", "rbf"])})
     assert space.to_grid()["kernel"] == ["linear", "rbf"]
     assert space.sample_optuna(FixedTrial({"kernel": "rbf"}))["kernel"] == "rbf"
 
 
 def test_continuous_float_requires_discretization_for_grid() -> None:
-    space = SearchSpace("typed", {"alpha": Float(0.0, 1.0)})
+    space = SearchSpace({"alpha": Float(0.0, 1.0)})
     with pytest.raises(ValueError, match="not directly enumerable"):
         space.to_grid()
     samples = space.to_random()["alpha"].rvs(size=20, random_state=42)
@@ -41,7 +41,7 @@ def test_continuous_float_requires_discretization_for_grid() -> None:
 
 
 def test_stepped_float_can_be_gridded() -> None:
-    space = SearchSpace("typed", {"alpha": Float(0.0, 1.0, step=0.5)})
+    space = SearchSpace({"alpha": Float(0.0, 1.0, step=0.5)})
     assert space.to_grid()["alpha"] == [0.0, 0.5, 1.0]
     # Grid points land on the step lattice and end exactly on the upper bound.
     values = Float(0.0, 0.9, step=0.3).grid_values()
@@ -57,7 +57,7 @@ def test_stepped_float_rejects_range_not_divisible_by_step() -> None:
 
 
 def test_log_float_supports_random_and_optuna_but_not_grid() -> None:
-    space = SearchSpace("typed", {"C": LogFloat(1e-3, 1e2)})
+    space = SearchSpace({"C": LogFloat(1e-3, 1e2)})
     with pytest.raises(ValueError, match="not directly enumerable"):
         space.to_grid()
     values = space.to_random()["C"].rvs(size=20, random_state=42)
@@ -67,6 +67,6 @@ def test_log_float_supports_random_and_optuna_but_not_grid() -> None:
 
 
 def test_parameter_prefixing_for_pipeline_backends() -> None:
-    space = SearchSpace("typed", {"C": [0.1, 1.0]})
+    space = SearchSpace({"C": [0.1, 1.0]})
     assert set(space.to_grid(prefix="estimator__")) == {"estimator__C"}
     assert set(space.to_random(prefix="estimator__")) == {"estimator__C"}

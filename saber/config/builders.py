@@ -88,7 +88,6 @@ def load_dataset(
         feature_names=feature_cols,
         groups=None if group_col is None else frame[group_col].to_list(),
         sample_weight=None if weight_col is None else frame[weight_col].to_numpy(),
-        metadata={"source": str(config.resolve_path(payload["path"]))},
     )
     return dataset, {name: frame[name].to_list() for name in extra_columns if name in frame.columns}
 
@@ -144,14 +143,14 @@ def build_benchmark_config(payload: Mapping[str, Any] | None) -> BenchmarkConfig
     return BenchmarkConfig(**values)
 
 
-def build_search_space(name: str, payload: Mapping[str, Any] | None) -> SearchSpace | None:
+def build_search_space(payload: Mapping[str, Any] | None) -> SearchSpace | None:
     """Build a SearchSpace from a validated search-space payload, or None if absent."""
     if payload is None:
         return None
     parameters: dict[str, Any] = {}
     for parameter, domain in payload.items():
         parameters[str(parameter)] = _build_domain(domain)
-    return SearchSpace(name=name, parameters=parameters)
+    return SearchSpace(parameters)
 
 
 def _build_domain(domain: Any) -> Any:

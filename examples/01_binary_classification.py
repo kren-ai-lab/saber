@@ -271,7 +271,7 @@ def _(
 ):
     DEMO_CHECKS = {
         "five_folds": result.n_splits == 5,
-        "complete_oof": result.metadata["oof_complete"] is True,
+        "complete_oof": result.oof_prediction is not None,
         "all_metrics_present": set(metrics) == set(result.aggregate_metrics),
         "sample_weights_exercised": dataset.sample_weight is not None,
         "threshold_report_complete": len(threshold_report) == 17,

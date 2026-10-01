@@ -101,8 +101,8 @@ def _(
     seeds=(42,) if DEMO_TEST else (42,123)
     tuning=TuningConfig(optimizer="grid",refit_metric="mcc",n_jobs=1)
     search_spaces={
-        "logistic_regression":SearchSpace("logreg",{"C":Categorical([0.1,1.0,3.0]),"solver":Categorical(["lbfgs"])}),
-        "random_forest_classifier":SearchSpace("rf",{"n_estimators":Categorical([40,80] if DEMO_TEST else [80,160]),"max_depth":Categorical([4,8])}),
+        "logistic_regression":SearchSpace({"C":Categorical([0.1,1.0,3.0]),"solver":Categorical(["lbfgs"])}),
+        "random_forest_classifier":SearchSpace({"n_estimators":Categorical([40,80] if DEMO_TEST else [80,160]),"max_depth":Categorical([4,8])}),
     }
     bench=benchmark(
         datasets={"representation_A":rep_a,"representation_B":rep_b},

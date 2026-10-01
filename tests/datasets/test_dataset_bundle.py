@@ -33,10 +33,9 @@ def test_dataframe_feature_names_are_preserved():
     assert dataset.feature_schema.dtypes == ("float64", "float64")
 
 
-def test_generated_sample_ids_are_explicitly_reported():
+def test_sample_ids_are_generated_when_missing():
     dataset = DatasetBundle(X=np.eye(3), y=[0, 1, 0])
     assert dataset.sample_ids == (0, 1, 2)
-    assert dataset.generated_sample_ids is True
 
 
 def test_nan_features_are_allowed_for_future_fold_safe_imputation():

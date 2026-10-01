@@ -101,7 +101,7 @@ def validate(
             **outputs,
             positive_class=positive_class,
             sample_ids=np.asarray(evaluation_data.sample_ids, dtype=object),
-            metadata={"algorithm": spec.name, "provider": spec.provider},
+            metadata={"algorithm": spec.name},
         )
         evaluation = evaluate_prediction(
             evaluation_data.y,
@@ -119,17 +119,12 @@ def validate(
                 metrics=evaluation.metrics,
                 estimator=pipeline if return_estimators else None,
                 fit_seconds=float(fit_seconds),
-                metadata={
-                    "partition_metadata": dict(split.metadata),
-                    "n_train": resolved.train.n_samples,
-                    "n_evaluation": evaluation_data.n_samples,
-                },
             )
         )
 
     fold_tuple = tuple(folds)
     aggregate_metrics = {name: stats["mean"] for name, stats in aggregate_fold_metrics(fold_tuple).items()}
-    oof_prediction, oof_metadata = _build_oof_prediction(
+    oof_prediction = _build_oof_prediction(
         dataset=dataset,
         folds=fold_tuple,
         task=spec.task,
@@ -143,10 +138,8 @@ def validate(
         aggregate_metrics=aggregate_metrics,
         oof_prediction=oof_prediction,
         metadata={
-            "partition_source": plan.metadata.get("source", "external"),
             "partition_fingerprint": plan.fingerprint,
             "dataset_fingerprint": dataset.fingerprint,
-            **oof_metadata,
         },
     )
 
@@ -156,19 +149,13 @@ def _build_oof_prediction(
     dataset: DatasetBundle,
     folds: tuple[FoldValidationResult, ...],
     task: TaskType,
-) -> tuple[PredictionResult | None, dict[str, Any]]:
+) -> PredictionResult | None:
     ids = [sample_id for fold in folds for sample_id in fold.evaluation_ids]
     if len(ids) != len(set(ids)):
-        return None, {
-            "oof_available": False,
-            "oof_reason": "held-out sample IDs repeat across splits",
-        }
+        return None
 
     if not ids:
-        return None, {
-            "oof_available": False,
-            "oof_reason": "no held-out predictions",
-        }
+        return None
 
     prediction_by_id: dict[Any, tuple[FoldValidationResult, int]] = {}
     for fold in folds:
@@ -198,7 +185,7 @@ def _build_oof_prediction(
         attribute="decision_scores",
     )
 
-    result = PredictionResult(
+    return PredictionResult(
         task=task,
         predictions=predictions,
         probabilities=probabilities,
@@ -206,14 +193,7 @@ def _build_oof_prediction(
         classes=classes,
         positive_class=positive_class,
         sample_ids=np.asarray(ordered_ids, dtype=object),
-        metadata={"kind": "out_of_fold"},
     )
-    return result, {
-        "oof_available": True,
-        "oof_n_samples": len(ordered_ids),
-        "oof_coverage": float(len(ordered_ids) / dataset.n_samples),
-        "oof_complete": len(ordered_ids) == dataset.n_samples,
-    }
 
 
 def _consistent_classes(folds: tuple[FoldValidationResult, ...]) -> np.ndarray | None:

@@ -47,7 +47,7 @@ def test_grid_tuning_uses_pipeline_explicit_folds_and_multiple_metrics() -> None
             n_jobs=1,
         ),
         partition_plan=_three_fold_plan(dataset),
-        search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
+        search_space=SearchSpace({"C": [0.1, 1.0]}),
         metrics=("accuracy", "balanced_accuracy"),
         random_state=42,
     )
@@ -57,7 +57,6 @@ def test_grid_tuning_uses_pipeline_explicit_folds_and_multiple_metrics() -> None
     assert set(result.best_scores) == {"accuracy", "balanced_accuracy"}
     assert "C" in result.best_params
     assert "estimator__C" not in result.best_params
-    assert result.metadata["n_splits"] == 3
     assert result.metadata["partition_fingerprint"] == result.partition_plan.fingerprint
 
 
@@ -79,13 +78,10 @@ def test_holdout_validation_protects_final_test_from_search_and_refit() -> None:
         algorithm="logistic_regression",
         config=TuningConfig(optimizer="grid", n_jobs=1),
         partition_plan=plan,
-        search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
+        search_space=SearchSpace({"C": [0.1, 1.0]}),
         metrics=("accuracy",),
     )
 
-    assert result.metadata["n_search_samples"] == 30
-    assert result.metadata["protected_samples"] == 10
-    assert result.metadata["evaluation_roles"] == ("validation",)
     assert result.best_model.named_steps["scaler"].mean_[0] == pytest.approx(14.5)
 
 
@@ -96,7 +92,7 @@ def test_unpartitioned_tuning_never_falls_back_to_internal_splitter() -> None:
             dataset=dataset,
             algorithm="logistic_regression",
             config=TuningConfig(optimizer="grid"),
-            search_space=SearchSpace("lr", {"C": [1.0]}),
+            search_space=SearchSpace({"C": [1.0]}),
             metrics=("accuracy",),
         )
 
@@ -104,7 +100,7 @@ def test_unpartitioned_tuning_never_falls_back_to_internal_splitter() -> None:
 def test_random_tuning_consumes_continuous_log_space_reproducibly() -> None:
     dataset = _classification_dataset()
     plan = _three_fold_plan(dataset)
-    space = SearchSpace("lr", {"C": LogFloat(1e-3, 10.0)})
+    space = SearchSpace({"C": LogFloat(1e-3, 10.0)})
     config = TuningConfig(
         optimizer="random",
         n_jobs=1,
@@ -129,7 +125,9 @@ def test_random_tuning_consumes_continuous_log_space_reproducibly() -> None:
         random_state=123,
     )
     assert first.best_params == second.best_params
-    assert first.best_score == pytest.approx(second.best_score)
+    assert first.best_scores[str(first.refit_metric)] == pytest.approx(
+        second.best_scores[str(second.refit_metric)]
+    )
 
 
 def test_halving_grid_reports_requested_secondary_metrics() -> None:
@@ -143,7 +141,7 @@ def test_halving_grid_reports_requested_secondary_metrics() -> None:
             n_jobs=1,
         ),
         partition_plan=_three_fold_plan(dataset),
-        search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
+        search_space=SearchSpace({"C": [0.1, 1.0]}),
         metrics=("accuracy", "balanced_accuracy"),
         random_state=42,
     )
@@ -162,12 +160,12 @@ def test_refit_false_keeps_best_configuration_without_fitted_model() -> None:
             n_jobs=1,
         ),
         partition_plan=_three_fold_plan(dataset),
-        search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
+        search_space=SearchSpace({"C": [0.1, 1.0]}),
         metrics=("accuracy",),
     )
     assert result.best_model is None
     assert result.best_params
-    assert np.isfinite(result.best_score)
+    assert np.isfinite(result.best_scores[str(result.refit_metric)])
 
 
 def test_sample_weights_are_propagated_for_supported_estimator() -> None:
@@ -177,7 +175,7 @@ def test_sample_weights_are_propagated_for_supported_estimator() -> None:
         algorithm="logistic_regression",
         config=TuningConfig(optimizer="grid", n_jobs=1),
         partition_plan=_three_fold_plan(dataset),
-        search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
+        search_space=SearchSpace({"C": [0.1, 1.0]}),
         metrics=("accuracy",),
     )
     X, y, weights = np.asarray(dataset.X), dataset.y, dataset.sample_weight
@@ -196,7 +194,7 @@ def test_sample_weights_are_rejected_when_estimator_does_not_support_them() -> N
             algorithm="knn_classifier",
             config=TuningConfig(optimizer="grid", n_jobs=1),
             partition_plan=_three_fold_plan(dataset),
-            search_space=SearchSpace("knn_classifier", {"n_neighbors": [3, 5]}),
+            search_space=SearchSpace({"n_neighbors": [3, 5]}),
             metrics=("accuracy",),
         )
 
@@ -210,12 +208,12 @@ def test_failed_candidate_is_explicit_in_history() -> None:
             algorithm="logistic_regression",
             config=TuningConfig(optimizer="grid", n_jobs=1),
             partition_plan=_three_fold_plan(dataset),
-            search_space=SearchSpace("lr", {"C": [-1.0, 1.0]}),
+            search_space=SearchSpace({"C": [-1.0, 1.0]}),
             metrics=("accuracy",),
         )
     assert result.failures
     assert result.failures[0]["status"] == "failed"
-    assert np.isfinite(result.best_score)
+    assert np.isfinite(result.best_scores[str(result.refit_metric)])
     assert result.best_params["C"] == 1.0
 
 
@@ -225,9 +223,7 @@ def test_regression_loss_scores_are_reported_in_natural_direction(optimizer) -> 
     ids = [f"sample_{i}" for i in range(60)]
     dataset = DatasetBundle(X=X, y=y, sample_ids=ids)
     plan = _three_fold_plan(dataset)
-    space = SearchSpace(
-        "ridge", {"alpha": [0.1, 1.0]} if optimizer == "grid" else {"alpha": LogFloat(0.1, 1.0)}
-    )
+    space = SearchSpace({"alpha": [0.1, 1.0]} if optimizer == "grid" else {"alpha": LogFloat(0.1, 1.0)})
     result = tune(
         dataset=dataset,
         algorithm="ridge_regressor",
@@ -245,16 +241,18 @@ def test_regression_loss_scores_are_reported_in_natural_direction(optimizer) -> 
         partition_plan=plan,
         metrics=("rmse", "r2"),
     )
-    assert result.best_score > 0
-    assert result.best_score == pytest.approx(selected.aggregate_metrics["rmse"])
+    assert result.best_scores[str(result.refit_metric)] > 0
+    assert result.best_scores[str(result.refit_metric)] == pytest.approx(selected.aggregate_metrics["rmse"])
     assert result.best_scores == pytest.approx(selected.aggregate_metrics)
     history = result.history_frame().filter(pl.col("status") == "complete")
     column = "metric__rmse__mean" if optimizer == "grid" else "score"
-    assert history[column].min() == pytest.approx(result.best_score)
+    assert history[column].min() == pytest.approx(result.best_scores[str(result.refit_metric)])
     assert (history[column] > 0).all()
     if optimizer == "grid":
         best_row = history.filter(pl.col("metric__rmse__rank") == 1)
-        assert best_row["metric__rmse__mean"].item() == pytest.approx(result.best_score)
+        assert best_row["metric__rmse__mean"].item() == pytest.approx(
+            result.best_scores[str(result.refit_metric)]
+        )
 
 
 def test_classification_scores_keep_their_sign() -> None:
@@ -265,7 +263,7 @@ def test_classification_scores_keep_their_sign() -> None:
         algorithm="logistic_regression",
         config=TuningConfig(optimizer="grid", n_jobs=1),
         partition_plan=plan,
-        search_space=SearchSpace("lr", {"C": [0.01, 1.0]}),
+        search_space=SearchSpace({"C": [0.01, 1.0]}),
         metrics=("mcc", "accuracy"),
     )
     selected = validate(
@@ -275,10 +273,12 @@ def test_classification_scores_keep_their_sign() -> None:
         partition_plan=plan,
         metrics=("mcc", "accuracy"),
     )
-    assert result.best_score > 0
-    assert result.best_score == pytest.approx(selected.aggregate_metrics["mcc"])
+    assert result.best_scores[str(result.refit_metric)] > 0
+    assert result.best_scores[str(result.refit_metric)] == pytest.approx(selected.aggregate_metrics["mcc"])
     assert result.best_scores == pytest.approx(selected.aggregate_metrics)
-    assert result.history_frame()["metric__mcc__mean"].max() == pytest.approx(result.best_score)
+    assert result.history_frame()["metric__mcc__mean"].max() == pytest.approx(
+        result.best_scores[str(result.refit_metric)]
+    )
 
 
 def test_optimization_history_exports_as_flat_dataframe() -> None:
@@ -292,7 +292,7 @@ def test_optimization_history_exports_as_flat_dataframe() -> None:
             n_jobs=1,
         ),
         partition_plan=_three_fold_plan(dataset),
-        search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
+        search_space=SearchSpace({"C": [0.1, 1.0]}),
         metrics=("accuracy", "balanced_accuracy"),
     )
     frame = result.history_frame()
@@ -318,7 +318,7 @@ def test_protected_test_rows_do_not_influence_search_or_selection() -> None:
             algorithm="logistic_regression",
             config=TuningConfig(optimizer="grid", n_jobs=1),
             partition_plan=plan,
-            search_space=SearchSpace("lr", {"C": [0.01, 0.1, 1.0, 10.0]}),
+            search_space=SearchSpace({"C": [0.01, 0.1, 1.0, 10.0]}),
             metrics=("accuracy",),
         )
 
@@ -351,7 +351,7 @@ def test_binary_tuning_scores_match_evaluation_of_the_positive_class(positive_cl
         algorithm="logistic_regression",
         config=TuningConfig(optimizer="grid", refit_metric="f1", n_jobs=1),
         partition_plan=plan,
-        search_space=SearchSpace("lr", {"C": [1.0]}),
+        search_space=SearchSpace({"C": [1.0]}),
         positive_class=positive_class,
         metrics=metrics,
     )
@@ -374,7 +374,7 @@ def test_tuning_rejects_positive_class_outside_the_binary_target() -> None:
             algorithm="logistic_regression",
             config=TuningConfig(optimizer="grid", n_jobs=1),
             partition_plan=_three_fold_plan(dataset),
-            search_space=SearchSpace("lr", {"C": [1.0]}),
+            search_space=SearchSpace({"C": [1.0]}),
             positive_class="missing",
             metrics=("f1",),
         )

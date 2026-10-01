@@ -28,7 +28,6 @@ class FoldValidationResult:
     metrics: dict[str, float]
     estimator: Any | None
     fit_seconds: float
-    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)

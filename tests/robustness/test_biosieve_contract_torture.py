@@ -139,7 +139,6 @@ def test_validation_engine_can_consume_biosieve_generated_memberships_end_to_end
     assert result.partition_plan.metadata["source"] == "biosieve"
     assert result.partition_plan.metadata["biosieve_version"] == "0.1.2-test"
     assert result.oof_prediction is not None
-    assert result.metadata["oof_complete"] is True
 
 
 def test_biosieve_empty_fold_output_is_rejected(

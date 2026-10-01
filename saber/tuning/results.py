@@ -21,20 +21,18 @@ if TYPE_CHECKING:
 class OptimizationResult:
     """Stores the result of a hyperparameter optimization process.
 
-    ``best_score`` (for ``refit_metric``), ``best_scores`` and the history
-    report each metric in its natural direction (e.g. RMSE is positive, lower
+    ``best_scores`` (``best_scores[refit_metric]`` is the selection score) and
+    the history report each metric in its natural direction (e.g. RMSE is positive, lower
     is better); ranks in the history keep 1 as the best candidate.
     """
 
     algorithm: str
-    best_score: float
     best_params: dict[str, Any]
     best_model: Any = None
     spec: AlgorithmSpec | None = None
     optimizer: str | None = None
     history: list[dict[str, Any]] = field(default_factory=list)
     study: Any = None
-    refit: bool | None = None
     metrics: tuple[str, ...] = field(default_factory=tuple)
     refit_metric: str | None = None
     best_scores: dict[str, float] = field(default_factory=dict)
@@ -45,18 +43,15 @@ class OptimizationResult:
 
     def __post_init__(self) -> None:
         """Normalize numeric fields and validate that the best score is finite."""
-        self.best_score = float(self.best_score)
         self.metrics = tuple(self.metrics)
         self.best_scores = {name: float(value) for name, value in self.best_scores.items()}
         self.metadata = dict(self.metadata)
-        if self.refit_metric is not None and self.refit_metric not in self.best_scores:
-            self.best_scores[self.refit_metric] = self.best_score
-        if not np.isfinite(self.best_score):
+        if self.refit_metric in self.best_scores and not np.isfinite(self.best_scores[self.refit_metric]):
             raise NonFiniteScoreError(
                 algorithm=self.algorithm,
-                metric=self.refit_metric or "unknown",
+                metric=self.refit_metric,
                 optimizer=self.optimizer or "unknown",
-                score=self.best_score,
+                score=self.best_scores[self.refit_metric],
             )
 
     @property
@@ -91,10 +86,8 @@ class OptimizationResult:
             "partition_fingerprint": self.metadata.get("partition_fingerprint"),
             "optimizer": self.optimizer,
             "refit_metric": self.refit_metric,
-            "best_score": self.best_score,
             "best_params": dict(self.best_params),
             "metrics": dict(self.best_scores),
             "n_candidates": len(self.history),
             "n_failures": len(self.failures),
-            "refit": self.refit,
         }

@@ -19,4 +19,6 @@ def test_best_index_skips_non_finite_candidates():
 
 def test_optimization_result_rejects_non_finite_best_score():
     with pytest.raises(NonFiniteScoreError):
-        OptimizationResult(algorithm="ridge", best_score=float("nan"), best_params={})
+        OptimizationResult(
+            algorithm="ridge", refit_metric="r2", best_scores={"r2": float("nan")}, best_params={}
+        )

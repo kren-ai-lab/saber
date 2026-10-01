@@ -83,7 +83,7 @@ def _(DEMO_TEST, DatasetBundle, PartitionPlan, make_classification, np):
 
 @app.cell
 def _(Categorical, SearchSpace, TuningConfig, dataset, pl, plan, tune):
-    space=SearchSpace("logreg_grid",{
+    space=SearchSpace({
         "C":Categorical([0.03,0.1,0.3,1.0,3.0]),
         "class_weight":Categorical([None,"balanced"]),
         "solver":Categorical(["lbfgs"]),
@@ -148,7 +148,7 @@ def _(comparison, complete, mo, np, opt, pl, plt, score_col, tuned):
 @app.cell
 def _(FIGURE_COUNT, comparison, complete, np, opt, test_ids, top, tuned):
     DEMO_CHECKS={
-        "test_protected": opt.metadata["protected_samples"]==len(test_ids),
+        "test_protected": set(tuned.oof_prediction.sample_ids)==set(test_ids),
         "ten_candidates": len(complete)==10,
         "multi_metric": set(opt.metrics)=={"mcc","roc_auc","balanced_accuracy"},
         "top_report": len(top)==5,

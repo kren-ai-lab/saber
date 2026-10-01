@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from time import perf_counter
 from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
@@ -103,7 +102,7 @@ def tune(
     plan = resolve_partition_plan(dataset=dataset, partition_plan=partition_plan)
     plan.validate_against(dataset, require_complete=require_complete)
 
-    search_dataset, cv, evaluation_roles = build_explicit_cv(
+    search_dataset, cv = build_explicit_cv(
         dataset=dataset,
         plan=plan,
         evaluation_role=evaluation_role,
@@ -158,7 +157,6 @@ def tune(
     )
 
     fit_params = spec.sample_weight_fit_params(search_dataset.sample_weight)
-    start = perf_counter()
 
     runner = _run_optuna if config.optimizer == "optuna" else _run_sklearn
     result = runner(
@@ -187,13 +185,6 @@ def tune(
             "dataset_fingerprint": dataset.fingerprint,
             "search_dataset_fingerprint": search_dataset.fingerprint,
             "partition_fingerprint": plan.fingerprint,
-            "partition_source": plan.metadata.get("source", "external"),
-            "evaluation_roles": evaluation_roles,
-            "n_splits": len(cv),
-            "n_search_samples": search_dataset.n_samples,
-            "n_total_samples": dataset.n_samples,
-            "protected_samples": dataset.n_samples - search_dataset.n_samples,
-            "elapsed_seconds": float(perf_counter() - start),
             "search_space": space.to_dict(),
         }
     )
@@ -325,13 +316,11 @@ def _run_sklearn(
         algorithm=spec.name,
         optimizer=optimizer,
         refit_metric=refit_metric,
-        best_score=_natural(refit_metric, best_score),
         best_params=best_params,
         best_model=best_model,
         spec=spec,
         history=history,
         study=search,
-        refit=config.refit,
         best_scores=_natural_scores(best_scores),
     )
 
@@ -487,13 +476,11 @@ def _run_optuna(
         algorithm=spec.name,
         optimizer="optuna",
         refit_metric=refit_metric,
-        best_score=_natural(refit_metric, best_score),
         best_params=best_params,
         best_model=best_model,
         spec=spec,
         history=history,
         study=study,
-        refit=config.refit,
         best_scores=_natural_scores(best_scores),
     )
 

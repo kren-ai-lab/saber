@@ -83,7 +83,7 @@ def _(
     ids=[f"optimizer_{i:04d}" for i in range(len(y))]
     dataset=DatasetBundle(X=X,y=y,sample_ids=ids,feature_names=[f"f{i}" for i in range(X.shape[1])])
     plan=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=balanced_fold_labels(y,4),dataset=dataset)
-    space=SearchSpace("logreg_shared",{"C":Categorical([0.03,0.1,0.3,1.0,3.0,10.0]),"class_weight":Categorical([None,"balanced"]),"solver":Categorical(["lbfgs"])})
+    space=SearchSpace({"C":Categorical([0.03,0.1,0.3,1.0,3.0,10.0]),"class_weight":Categorical([None,"balanced"]),"solver":Categorical(["lbfgs"])})
     return dataset, plan, space
 
 

@@ -160,7 +160,7 @@ def _(FIGURE_COUNT, fold_metrics, metrics, np, oof, per_class, result):
     DEMO_CHECKS = {
         "five_folds": result.n_splits == 5,
         "global_multiclass": len(oof.classes) == 3,
-        "complete_oof": result.metadata["oof_complete"] is True,
+        "complete_oof": result.oof_prediction is not None,
         "extended_metrics": set(metrics) == set(result.aggregate_metrics),
         "canonical_f1_weighted": np.isclose(result.aggregate_metrics["f1"], fold_metrics.get_column("f1").mean()),
         "class_report_has_all_classes": all(

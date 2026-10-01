@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from hashlib import sha256
 from time import perf_counter
 from typing import TYPE_CHECKING, Any
@@ -122,6 +122,7 @@ def benchmark(
 
     return BenchmarkResult(
         runs=tuple(runs),
+        targets=_targets_by_id(next(iter(benchmark_datasets.values()))),
         metadata={
             "n_datasets": len(benchmark_datasets),
             "n_partition_scenarios": len(partition_scenarios),
@@ -141,7 +142,6 @@ class _Partition:
 
     label: str
     plan: PartitionPlan
-    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,16 +167,12 @@ def _resolve_partitions(
         raise BenchmarkContractError(
             "Unpartitioned benchmark data require a PartitionPlan or BioSievePartitionConfig."
         )
-    reference_label, reference = next(iter(datasets.items()))
+    reference = next(iter(datasets.values()))
     if isinstance(partitions, BioSievePartitionConfig):
         plan = resolve_partition_plan(dataset=reference, partition_plan=partitions)
         plan.validate_against(reference, require_complete=require_complete)
         label = str(plan.metadata.get("strategy") or partitions.strategy)
-        metadata = {
-            "source": "biosieve",
-            "partitioning_reference": reference_label,
-        }
-        return (_Partition(label=label, plan=plan, metadata=metadata),)
+        return (_Partition(label=label, plan=plan),)
 
     normalized = _normalize_partitions(partitions)
     known_fingerprints = {dataset.fingerprint for dataset in datasets.values()}
@@ -218,7 +214,6 @@ def _run_one(
     start = perf_counter()
     provider = None if algorithm_spec is None else algorithm_spec.provider
     task = None if algorithm_spec is None else algorithm_spec.task
-    targets = _targets_by_id(dataset)
     identity = {
         "run_id": run_id,
         "representation": label,
@@ -228,7 +223,6 @@ def _run_one(
         "task": task,
         "mode": mode,
         "seed": seed,
-        "targets": targets,
     }
     fingerprints = {
         "dataset_fingerprint": dataset.fingerprint,
@@ -294,7 +288,7 @@ def _run_one(
             optimization=optimization,
             elapsed_seconds=float(elapsed),
             parameters={**algorithm_spec.default_params, **model_params, **best_params},
-            metadata={**fingerprints, "partition_metadata": dict(partition.metadata)},
+            metadata=fingerprints,
         )
     except Exception as exc:  # noqa: BLE001  # any run failure becomes a failed BenchmarkRun, not a crash
         default_params = {} if algorithm_spec is None else algorithm_spec.default_params

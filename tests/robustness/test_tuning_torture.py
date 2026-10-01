@@ -53,7 +53,7 @@ def test_all_sklearn_tuning_backends_respect_explicit_cv(optimizer, monkeypatch)
         return search_class(*args, **kwargs)
 
     monkeypatch.setattr(module, name, recording_search)
-    space = SearchSpace("lr", {"C": Categorical([0.2, 1.0])})
+    space = SearchSpace({"C": Categorical([0.2, 1.0])})
     config = TuningConfig(
         optimizer=optimizer,
         refit_metric="accuracy",
@@ -74,7 +74,7 @@ def test_all_sklearn_tuning_backends_respect_explicit_cv(optimizer, monkeypatch)
             random_state=4,
         )
     assert result.best_model is not None
-    assert np.isfinite(result.best_score)
+    assert np.isfinite(result.best_scores[str(result.refit_metric)])
     ids = np.asarray(dataset.sample_ids)
     (cv,) = received_cv
     assert [(set(ids[train]), set(ids[test])) for train, test in cv] == [
@@ -90,7 +90,7 @@ def test_tuning_rejects_regression_metric_for_classifier():
             algorithm="logistic_regression",
             config=TuningConfig(optimizer="grid", refit_metric="rmse"),
             partition_plan=_cv(dataset),
-            search_space=SearchSpace("lr", {"C": [1.0]}),
+            search_space=SearchSpace({"C": [1.0]}),
             metrics=("rmse",),
         )
 
@@ -106,7 +106,7 @@ def test_tuning_rejects_binary_roc_auc_for_multiclass_problem():
             algorithm="logistic_regression",
             config=TuningConfig(optimizer="grid", refit_metric="roc_auc"),
             partition_plan=_cv(dataset),
-            search_space=SearchSpace("lr", {"C": [1.0]}),
+            search_space=SearchSpace({"C": [1.0]}),
             metrics=("roc_auc",),
         )
 
@@ -119,7 +119,7 @@ def test_grid_rejects_unbounded_continuous_domain_that_cannot_be_enumerated():
             algorithm="logistic_regression",
             config=TuningConfig(optimizer="grid", refit_metric="accuracy"),
             partition_plan=_cv(dataset),
-            search_space=SearchSpace("lr", {"C": Float(0.01, 2.0)}),
+            search_space=SearchSpace({"C": Float(0.01, 2.0)}),
             metrics=("accuracy",),
         )
 
@@ -137,7 +137,7 @@ def test_all_invalid_grid_candidates_raise_nonfinite_score_error():
                 error_score=np.nan,
             ),
             partition_plan=_cv(dataset),
-            search_space=SearchSpace("lr", {"C": Categorical([-1.0, -2.0])}),
+            search_space=SearchSpace({"C": Categorical([-1.0, -2.0])}),
             metrics=("accuracy",),
         )
 
@@ -159,6 +159,6 @@ def test_tuning_rejects_any_explicit_training_fold_with_single_class_before_sear
             algorithm="logistic_regression",
             config=TuningConfig(optimizer="grid", refit_metric="accuracy"),
             partition_plan=plan,
-            search_space=SearchSpace("lr", {"C": [1.0]}),
+            search_space=SearchSpace({"C": [1.0]}),
             metrics=("accuracy",),
         )

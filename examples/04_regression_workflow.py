@@ -139,7 +139,7 @@ def _(fold_metrics, mo, np, oof, plt, report, y):
 @app.cell
 def _(FIGURE_COUNT, dataset, metrics, np, quartile_error, result, worst):
     DEMO_CHECKS={
-        "complete_oof": result.metadata["oof_complete"] is True,
+        "complete_oof": result.oof_prediction is not None,
         "all_metrics": set(metrics)==set(result.aggregate_metrics),
         "missing_values_exercised": np.isnan(dataset.X).any(),
         "quartile_report": len(quartile_error)==4,

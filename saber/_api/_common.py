@@ -67,8 +67,5 @@ def predict_model(
         **outputs,
         positive_class=model.positive_class if positive_class is None else positive_class,
         sample_ids=None if sample_ids is None else np.asarray(sample_ids),
-        metadata={
-            "algorithm": model.spec.name,
-            "provider": model.spec.provider,
-        },
+        metadata={"algorithm": model.spec.name},
     )

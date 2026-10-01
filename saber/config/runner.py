@@ -150,7 +150,7 @@ def _run_tune(config: WorkflowConfig) -> WorkflowExecution:
     result = tune(
         **_search_kwargs(config, dataset, extras),
         config=build_tuning_config(payload["tuning"]),
-        search_space=build_search_space(payload["algorithm"], payload.get("search_space")),
+        search_space=build_search_space(payload.get("search_space")),
         metrics=tuple(payload["metrics"]),
     )
     summary = _summary(config, result)
@@ -183,8 +183,7 @@ def _run_benchmark(config: WorkflowConfig) -> WorkflowExecution:
     search_spaces = None
     if "search_spaces" in payload:
         search_spaces = {
-            str(algorithm): build_search_space(str(algorithm), space)
-            for algorithm, space in payload["search_spaces"].items()
+            str(algorithm): build_search_space(space) for algorithm, space in payload["search_spaces"].items()
         }
 
     result = benchmark(

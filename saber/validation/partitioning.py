@@ -73,7 +73,7 @@ def build_explicit_cv(
     plan: PartitionPlan,
     evaluation_role: EvaluationRole = "auto",
     require_complete: bool = True,
-) -> tuple[DatasetBundle, tuple[tuple[np.ndarray, np.ndarray], ...], tuple[str, ...]]:
+) -> tuple[DatasetBundle, tuple[tuple[np.ndarray, np.ndarray], ...]]:
     """Build explicit sklearn-compatible CV indices from a PartitionPlan.
 
     Only samples participating in training or the chosen evaluation role are
@@ -83,7 +83,7 @@ def build_explicit_cv(
     """
     plan.validate_against(dataset, require_complete=require_complete)
 
-    memberships: list[tuple[tuple[Any, ...], tuple[Any, ...], str]] = []
+    memberships: list[tuple[tuple[Any, ...], tuple[Any, ...]]] = []
     used_ids: set[Any] = set()
 
     for split in plan.splits:
@@ -92,14 +92,14 @@ def build_explicit_cv(
             split.name,
             require_complete=require_complete,
         )
-        role, evaluation_data = resolve_evaluation_dataset(
+        _, evaluation_data = resolve_evaluation_dataset(
             resolved,
             requested=evaluation_role,
             plan_kind=plan.kind,
         )
         train_ids = tuple(resolved.train.resolved_sample_ids)
         evaluation_ids = tuple(evaluation_data.sample_ids)
-        memberships.append((train_ids, evaluation_ids, role))
+        memberships.append((train_ids, evaluation_ids))
         used_ids.update(train_ids)
         used_ids.update(evaluation_ids)
 
@@ -108,14 +108,12 @@ def build_explicit_cv(
     id_to_index = {sample_id: index for index, sample_id in enumerate(search_dataset.resolved_sample_ids)}
 
     cv: list[tuple[np.ndarray, np.ndarray]] = []
-    roles: list[str] = []
-    for train_ids, evaluation_ids, role in memberships:
+    for train_ids, evaluation_ids in memberships:
         train_index = np.asarray([id_to_index[sample_id] for sample_id in train_ids], dtype=int)
         evaluation_index = np.asarray(
             [id_to_index[sample_id] for sample_id in evaluation_ids],
             dtype=int,
         )
         cv.append((train_index, evaluation_index))
-        roles.append(role)
 
-    return search_dataset, tuple(cv), tuple(roles)
+    return search_dataset, tuple(cv)

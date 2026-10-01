@@ -191,13 +191,10 @@ class SearchSpace:
     Plain lists and tuples are interpreted as finite categorical domains.
     """
 
-    name: str
     parameters: dict[str, ParameterDomain]
 
     def __post_init__(self) -> None:
-        """Validate the space name and coerce/validate every parameter domain."""
-        if not self.name.strip():
-            raise ValueError("SearchSpace.name cannot be empty.")
+        """Validate and coerce every parameter domain."""
         self.parameters = dict(self.parameters)
         for name, domain in self.parameters.items():
             if not str(name).strip():
@@ -212,7 +209,7 @@ class SearchSpace:
                 serialized[name] = list(domain)
             else:
                 serialized[name] = _coerce_domain(domain).to_dict()
-        return {"name": self.name, "parameters": serialized}
+        return {"parameters": serialized}
 
     def to_grid(self, *, prefix: str = "") -> dict[str, list[Any]]:
         """Translate the logical search space to sklearn grid domains."""

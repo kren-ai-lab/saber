@@ -137,7 +137,7 @@ def _(fold_df, mo, np, plt, y):
 def _(FIGURE_COUNT, LIVE_BIOSIEVE, fold_df, np, result):
     DEMO_CHECKS={
         "five_splits":result.n_splits==5,
-        "complete_oof":result.metadata["oof_complete"] is True,
+        "complete_oof":result.oof_prediction is not None,
         "source_explicit":result.partition_plan.metadata.get("source") in {"biosieve","demo_prepartitioned_fallback"},
         "fold_diagnostics":len(fold_df)==5,
         "finite_metrics":np.isfinite(fold_df.select(["mcc","balanced_accuracy","f1","roc_auc","pr_auc"]).to_numpy()).all(),

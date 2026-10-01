@@ -93,11 +93,7 @@ class LoadedModelArtifact:
             **outputs,
             positive_class=(self.positive_class if positive_class is None else positive_class),
             sample_ids=ids,
-            metadata={
-                "artifact_path": str(self.path),
-                "algorithm": self.algorithm,
-                "provider": self.provenance.get("provider"),
-            },
+            metadata={"algorithm": self.algorithm},
         )
 
 

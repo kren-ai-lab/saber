@@ -142,8 +142,6 @@ def test_repeated_heldout_membership_disables_oof_instead_of_merging_predictions
         require_complete=False,
     )
     assert result.oof_prediction is None
-    assert result.metadata["oof_available"] is False
-    assert "repeat" in result.metadata["oof_reason"]
 
 
 def test_incomplete_external_plan_reports_partial_oof_coverage_when_allowed():
@@ -164,8 +162,7 @@ def test_incomplete_external_plan_reports_partial_oof_coverage_when_allowed():
         require_complete=False,
     )
     assert result.oof_prediction is not None
-    assert result.metadata["oof_complete"] is False
-    assert result.metadata["oof_coverage"] == pytest.approx(5 / 30)
+    assert result.oof_prediction.n_samples == 5
 
 
 def test_multiclass_cv_with_string_labels_returns_complete_oof():

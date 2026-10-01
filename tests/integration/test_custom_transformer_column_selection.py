@@ -82,7 +82,7 @@ def test_train_validate_tune_predict_and_artifact_round_trip_with_named_column_s
         ),
         partition_plan=_fold_plan(dataset),
         preprocessing=preprocessing,
-        search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
+        search_space=SearchSpace({"C": [0.1, 1.0]}),
         metrics=("accuracy",),
         random_state=7,
     )

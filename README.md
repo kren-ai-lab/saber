@@ -96,7 +96,6 @@ tuned = saber.tune(
     algorithm="svc",
     partition_plan=plan,
     search_space=SearchSpace(
-        name="svc",
         parameters={"C": LogFloat(1e-3, 1e2), "kernel": Categorical(["linear", "rbf"])},
     ),
     config=TuningConfig(optimizer="random", n_trials=20),

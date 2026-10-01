@@ -139,6 +139,15 @@ First public release, published on PyPI as `saberlib`.
     (`algorithms`), `task`, `dataset_fingerprint`, `partition_fingerprint` (validate/tune) and
     `metrics` (validate fold means, tune selection scores, evaluate scores); `saber run --json`
     adds `"status": "ok"`.
-  - `OptimizationResult.best_score`, `best_scores`, the history and `optimization_history.csv`
+  - `OptimizationResult.best_scores`, the history and `optimization_history.csv`
     report metrics in their natural direction (RMSE is positive); selection is unchanged.
     `display_score`, `display_scores` and `metric` (always `refit_metric`) were removed.
+  - Write-only metadata was removed: `ValidationResult.metadata` keeps only the dataset and
+    partition fingerprints (OOF availability is `oof_prediction is not None`), `FoldValidationResult.metadata`
+    is gone, `OptimizationResult.metadata` drops its count, timing and partition-source keys, and
+    `PredictionResult.metadata` keeps only `algorithm`. `DatasetBundle.generated_sample_ids` was removed.
+  - `OptimizationResult.best_score` and `refit` were removed: use `best_scores[refit_metric]` and
+    `best_model is not None`. `to_dict()` carries them as `metrics` and `refit_metric`.
+  - `BenchmarkRun.targets` moved to `BenchmarkResult.targets` (stored once; all representations
+    share the same targets).
+  - `SearchSpace.name` was removed (it repeated the algorithm name): `SearchSpace(parameters)`.

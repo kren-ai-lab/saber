@@ -42,7 +42,7 @@ def test_optuna_uses_typed_space_pipeline_and_multiple_metrics() -> None:
             n_jobs=1,
         ),
         partition_plan=plan,
-        search_space=SearchSpace("lr", {"C": LogFloat(1e-3, 10.0)}),
+        search_space=SearchSpace({"C": LogFloat(1e-3, 10.0)}),
         metrics=("accuracy", "balanced_accuracy"),
         random_state=42,
     )
@@ -59,7 +59,7 @@ def test_seeded_optuna_is_reproducible() -> None:
         n_trials=4,
         n_jobs=1,
     )
-    space = SearchSpace("lr", {"C": LogFloat(1e-3, 10.0)})
+    space = SearchSpace({"C": LogFloat(1e-3, 10.0)})
     first = tune(
         dataset=dataset,
         algorithm="logistic_regression",
@@ -79,7 +79,9 @@ def test_seeded_optuna_is_reproducible() -> None:
         random_state=91,
     )
     assert first.best_params == second.best_params
-    assert first.best_score == pytest.approx(second.best_score)
+    assert first.best_scores[str(first.refit_metric)] == pytest.approx(
+        second.best_scores[str(second.refit_metric)]
+    )
 
 
 def test_optuna_storage_can_resume_existing_study(tmp_path) -> None:
@@ -93,7 +95,7 @@ def test_optuna_storage_can_resume_existing_study(tmp_path) -> None:
         "optuna_study_name": "phase5-resume",
         "optuna_load_if_exists": True,
     }
-    space = SearchSpace("lr", {"C": LogFloat(1e-3, 10.0)})
+    space = SearchSpace({"C": LogFloat(1e-3, 10.0)})
     first = tune(
         dataset=dataset,
         algorithm="logistic_regression",
@@ -132,7 +134,7 @@ def test_optuna_failed_trials_are_counted_as_failures() -> None:
                 n_jobs=1,
             ),
             partition_plan=plan,
-            search_space=SearchSpace("lr", {"C": [-1.0, 1.0]}),
+            search_space=SearchSpace({"C": [-1.0, 1.0]}),
             metrics=("accuracy",),
             random_state=1,
         )
