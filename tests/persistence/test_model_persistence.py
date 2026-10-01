@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification
 
-from saber import MODEL_REGISTRY
+from saber import get_algorithm
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.exceptions import (
     ArtifactIntegrityError,
@@ -21,8 +21,8 @@ from saber.exceptions import (
 from saber.persistence import (
     ARTIFACT_SCHEMA_VERSION,
     inspect_artifact,
-    load_model_artifact,
-    save_model_artifact,
+    load_model,
+    save_model,
     verify_artifact,
 )
 from saber.persistence import load as load_module
@@ -55,7 +55,7 @@ def _fitted_fixture():
         test_ids=dataset.sample_ids[50:],
         dataset_fingerprint=dataset.fingerprint,
     )
-    spec = MODEL_REGISTRY.get("logistic_regression")
+    spec = get_algorithm("logistic_regression")
     estimator = spec.build_estimator(random_state=42)
     pipeline = build_model_pipeline(
         spec=spec,
@@ -72,7 +72,7 @@ def test_model_artifact_round_trip_preserves_predictions_and_probabilities(tmp_p
     expected_prediction = pipeline.predict(to_numpy(dataset.X))
     expected_probability = pipeline.predict_proba(to_numpy(dataset.X))
 
-    save_model_artifact(
+    save_model(
         artifact_path,
         model=pipeline,
         algorithm="logistic_regression",
@@ -86,13 +86,16 @@ def test_model_artifact_round_trip_preserves_predictions_and_probabilities(tmp_p
         positive_class=1,
     )
 
-    loaded = load_model_artifact(artifact_path)
+    loaded = load_model(artifact_path)
     result = loaded.predict_result(dataset.X, sample_ids=dataset.sample_ids)
 
     np.testing.assert_array_equal(result.predictions, expected_prediction)
     assert result.probabilities is not None
     np.testing.assert_allclose(result.probabilities, expected_probability)
     assert result.positive_class == 1
+    np.testing.assert_array_equal(result.classes, pipeline.classes_)
+    assert result.decision_scores is not None
+    np.testing.assert_allclose(result.decision_scores, pipeline.decision_function(to_numpy(dataset.X)))
     assert loaded.provenance["positive_class"] == 1
     assert loaded.feature_schema.fingerprint == dataset.feature_schema.fingerprint
     assert loaded.provenance["dataset_fingerprint"] == dataset.fingerprint
@@ -104,14 +107,14 @@ def test_model_artifact_round_trip_preserves_predictions_and_probabilities(tmp_p
 def test_feature_schema_mismatch_is_detected_before_prediction(tmp_path):
     dataset, _, pipeline = _fitted_fixture()
     artifact_path = tmp_path / "model_artifact"
-    save_model_artifact(
+    save_model(
         artifact_path,
         model=pipeline,
         algorithm="logistic_regression",
         task="classification",
         dataset=dataset,
     )
-    loaded = load_model_artifact(artifact_path)
+    loaded = load_model(artifact_path)
     wrong_order = dataset.X[list(reversed(dataset.X.columns))]
 
     with pytest.raises(FeatureSchemaMismatchError):
@@ -121,7 +124,7 @@ def test_feature_schema_mismatch_is_detected_before_prediction(tmp_path):
 def test_corrupted_model_is_rejected_before_deserialization(tmp_path, monkeypatch):
     dataset, _, pipeline = _fitted_fixture()
     artifact_path = tmp_path / "model_artifact"
-    save_model_artifact(
+    save_model(
         artifact_path,
         model=pipeline,
         algorithm="logistic_regression",
@@ -133,13 +136,13 @@ def test_corrupted_model_is_rejected_before_deserialization(tmp_path, monkeypatc
     monkeypatch.setattr(load_module.joblib, "load", _forbidden_joblib_load)
 
     with pytest.raises(ArtifactIntegrityError, match="Checksum mismatch"):
-        load_model_artifact(artifact_path)
+        load_model(artifact_path)
 
 
 def test_model_artifact_requires_schema_and_protects_existing_path(tmp_path):
     _, _, pipeline = _fitted_fixture()
     with pytest.raises(PersistenceError, match="dataset or feature_schema"):
-        save_model_artifact(
+        save_model(
             tmp_path / "missing_schema",
             model=pipeline,
             algorithm="logistic_regression",
@@ -148,7 +151,7 @@ def test_model_artifact_requires_schema_and_protects_existing_path(tmp_path):
 
     dataset, _, pipeline = _fitted_fixture()
     artifact_path = tmp_path / "model_artifact"
-    save_model_artifact(
+    save_model(
         artifact_path,
         model=pipeline,
         algorithm="logistic_regression",
@@ -156,7 +159,7 @@ def test_model_artifact_requires_schema_and_protects_existing_path(tmp_path):
         dataset=dataset,
     )
     with pytest.raises(PersistenceError, match="already exists"):
-        save_model_artifact(
+        save_model(
             artifact_path,
             model=pipeline,
             algorithm="logistic_regression",
@@ -180,7 +183,7 @@ def test_model_artifact_rejects_partition_from_another_dataset(tmp_path):
         dataset_fingerprint=foreign.fingerprint,
     )
     with pytest.raises(DatasetFingerprintMismatchError, match="fingerprint"):
-        save_model_artifact(
+        save_model(
             tmp_path / "bad_partition",
             model=pipeline,
             algorithm="logistic_regression",
@@ -198,7 +201,7 @@ def test_round_trip_works_in_fresh_python_process(tmp_path):
     np.save(expected_path, pipeline.predict(to_numpy(dataset.X)))
     dataset.X.write_csv(data_path)
 
-    save_model_artifact(
+    save_model(
         artifact_path,
         model=pipeline,
         algorithm="logistic_regression",
@@ -210,8 +213,8 @@ def test_round_trip_works_in_fresh_python_process(tmp_path):
     code = f"""
 import numpy as np
 import pandas as pd
-from saber.persistence import load_model_artifact
-artifact = load_model_artifact(r'{artifact_path}')
+from saber.persistence import load_model
+artifact = load_model(r'{artifact_path}')
 X = pd.read_csv(r'{data_path}')
 expected = np.load(r'{expected_path}')
 observed = artifact.predict(X)
@@ -235,7 +238,7 @@ print('PHASE7_SUBPROCESS_OK')
 def test_inspect_does_not_need_to_load_joblib(tmp_path, monkeypatch):
     dataset, _, pipeline = _fitted_fixture()
     artifact_path = tmp_path / "model_artifact"
-    save_model_artifact(
+    save_model(
         artifact_path,
         model=pipeline,
         algorithm="logistic_regression",

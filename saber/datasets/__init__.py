@@ -2,7 +2,6 @@
 
 from saber.datasets.biosieve import (
     BioSievePartitionConfig,
-    available_biosieve_strategies,
     partition_with_biosieve,
 )
 from saber.datasets.folds import (
@@ -22,7 +21,6 @@ __all__ = [
     "PartitionPlan",
     "PartitionSplit",
     "ResolvedPartition",
-    "available_biosieve_strategies",
     "load_partition_plan",
     "partition_plan_from_frame",
     "partition_with_biosieve",

@@ -90,10 +90,16 @@ def missing_mask(values: np.ndarray) -> np.ndarray:
     return np.zeros(values.shape, dtype=bool)
 
 
-def cell_value(value: Any) -> Any:
-    """Return a result-table cell: NumPy scalars as Python, nested values as stable JSON."""
+def python_scalar(value: Any) -> Any:
+    """Return NumPy scalars as Python scalars; other values unchanged."""
     if isinstance(value, np.generic):
         return value.item()
+    return value
+
+
+def cell_value(value: Any) -> Any:
+    """Return a result-table cell: NumPy scalars as Python, nested values as stable JSON."""
+    value = python_scalar(value)
     if isinstance(value, (dict, list, tuple, set, frozenset)):
         return stable_json_dumps(value)
     return value

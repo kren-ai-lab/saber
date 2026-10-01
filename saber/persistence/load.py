@@ -35,7 +35,7 @@ def inspect_artifact(
     return ArtifactManifest.from_dict(read_json(manifest_path))
 
 
-def load_model_artifact(
+def load_model(
     path: str | Path,
     *,
     verify: bool = True,
@@ -78,7 +78,7 @@ def load_model_artifact(
     )
 
 
-def load_benchmark_artifact(
+def load_benchmark(
     path: str | Path,
     *,
     verify: bool = True,

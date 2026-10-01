@@ -10,7 +10,7 @@ from sklearn.preprocessing import StandardScaler
 import saber
 from saber.core.search_space import SearchSpace
 from saber.datasets import DatasetBundle, PartitionPlan
-from saber.persistence import load_model_artifact, save_model_artifact
+from saber.persistence import load_model, save_model
 from saber.preprocessing import PreprocessingConfig
 from saber.tuning import TuningConfig
 
@@ -89,14 +89,14 @@ def test_train_validate_tune_predict_and_artifact_round_trip_with_named_column_s
     assert tune_result.best_model is not None
 
     artifact_path = tmp_path / "model"
-    save_model_artifact(
+    save_model(
         artifact_path,
         model=train_result.model,
         algorithm="logistic_regression",
         task="classification",
         dataset=dataset,
     )
-    loaded = load_model_artifact(artifact_path)
+    loaded = load_model(artifact_path)
     loaded_prediction = loaded.predict_result(dataset.X, sample_ids=dataset.sample_ids)
     np.testing.assert_array_equal(loaded_prediction.predictions, prediction.predictions)
     assert loaded_prediction.probabilities is not None

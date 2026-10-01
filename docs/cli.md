@@ -1,34 +1,23 @@
 # Command-line interface
 
-Each workflow command takes a [YAML or JSON config](configuration.md) and runs it through the same code as the Python API.
-
-## Discover commands
+`saber run` takes a [YAML or JSON config](configuration.md) and runs it through the same code as the Python API.
 
 ```bash
 saber --help
-saber doctor
+saber --version
 ```
 
-## Run workflows
+## Run a workflow
 
 ```bash
 saber run experiment.yaml
-saber train train.yaml
-saber evaluate evaluate.yaml
-saber validate validate.yaml
-saber tune tune.yaml
-saber optimize tune.yaml
-saber benchmark benchmark.yaml
-saber predict predict.yaml
+saber run experiment.yaml --dry-run
+saber run experiment.yaml --json
 ```
 
-Every workflow command supports:
-
 ```text
---dry-run       validate and show what would execute
---json          machine-readable summary
---quiet         suppress normal human-oriented output
---no-progress   disable Rich progress/spinner output
+--dry-run   validate and show what would execute
+--json      machine-readable summary
 ```
 
 ## Model discovery
@@ -38,19 +27,10 @@ saber models list
 saber models list --task classification
 saber models list --provider sklearn
 saber models list --tag baseline
-saber models search forest
-saber models show random_forest
+saber models show random_forest_classifier
 ```
 
 Use `--json` for programmatic discovery.
-
-## Configuration utilities
-
-```bash
-saber config validate experiment.yaml
-saber config show experiment.yaml
-saber config normalize experiment.yaml -o normalized.yaml
-```
 
 ## Artifacts
 
@@ -58,15 +38,6 @@ saber config normalize experiment.yaml -o normalized.yaml
 saber artifact inspect artifacts/model
 saber artifact verify artifacts/model
 ```
-
-## Runtime diagnostics
-
-```bash
-saber doctor
-saber doctor --json
-```
-
-This reports Python, saber, scikit-learn, BioSieve, XGBoost, LightGBM, and Optuna availability/version information where applicable.
 
 ## Exit codes
 

@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
 
 class SaberError(Exception):
     """Base exception for saber."""
@@ -11,30 +16,19 @@ class RegistryError(SaberError):
     """Base registry exception."""
 
 
-class AlgorithmAlreadyRegisteredError(RegistryError):
-    """Raised when an algorithm is already registered."""
-
-    def __init__(
-        self,
-        name: str,
-    ) -> None:
-        """Initialize the error with the already-registered algorithm name."""
-        super().__init__(
-            f"Algorithm '{name}' is already registered.",
-        )
-
-
 class AlgorithmNotFoundError(RegistryError):
     """Raised when an algorithm cannot be found."""
 
     def __init__(
         self,
         name: str,
+        available: Sequence[str] = (),
     ) -> None:
         """Initialize the error with the not-found algorithm name."""
-        super().__init__(
-            f"Algorithm '{name}' was not found in the registry.",
-        )
+        message = f"Algorithm '{name}' was not found."
+        if available:
+            message += f" Available algorithms: {', '.join(available)}."
+        super().__init__(message)
 
 
 class MetricError(SaberError, ValueError):
@@ -178,7 +172,3 @@ class ArtifactCompatibilityError(PersistenceError):
 
 class ConfigurationError(SaberError, ValueError):
     """Raised when a declarative workflow configuration is invalid."""
-
-
-class PublicAPIError(SaberError, RuntimeError):
-    """Raised at the stable public API boundary for orchestration failures."""

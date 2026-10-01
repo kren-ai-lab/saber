@@ -70,7 +70,7 @@ def test_yaml_train_artifact_predict_roundtrip(tmp_path):
         """  sample_id: sample_id\nalgorithm: logistic_regression\nrandom_state: 42\nartifact:\n"""
         """  path: artifact\n"""
     )
-    assert main(["train", str(train_config)]) == EXIT_OK
+    assert main(["run", str(train_config)]) == EXIT_OK
 
     pred_frame = frame.copy()
     pred_frame.insert(0, "sample_id", ids)
@@ -80,7 +80,7 @@ def test_yaml_train_artifact_predict_roundtrip(tmp_path):
         """schema_version: "1.0"\nworkflow: predict\nartifact: artifact\ndataset:\n  path: predict.csv\n"""
         """  sample_id: sample_id\noutput:\n  path: predictions.csv\n"""
     )
-    assert main(["predict", str(predict_config)]) == EXIT_OK
+    assert main(["run", str(predict_config)]) == EXIT_OK
     predictions = pd.read_csv(tmp_path / "predictions.csv")
     assert len(predictions) == 40
     assert predictions["sample_id"].tolist() == ids

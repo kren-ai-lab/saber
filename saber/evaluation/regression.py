@@ -67,8 +67,3 @@ def evaluate_regression(
         values["spearman"] = float(spearman_value)
 
     return values
-
-
-def metric_names() -> tuple[str, ...]:
-    """Return available metric names."""
-    return REGRESSION_METRICS

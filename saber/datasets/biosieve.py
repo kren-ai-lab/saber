@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from importlib import import_module
-from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -17,6 +16,8 @@ import polars as pl
 
 from saber.datasets.folds import PartitionPlan, PartitionSplit
 from saber.exceptions import OptionalDependencyError, PartitionIntegrationError
+from saber.persistence.environment import package_version
+from saber.utils.tabular import python_scalar
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -102,11 +103,6 @@ class BioSievePartitionConfig:
             )
         object.__setattr__(self, "strategy", strategy)
         object.__setattr__(self, "params", dict(self.params))
-
-
-def available_biosieve_strategies() -> tuple[str, ...]:
-    """Return BioSieve strategies supported by this adapter."""
-    return tuple(sorted(_STRATEGIES))
 
 
 def partition_with_biosieve(
@@ -364,21 +360,13 @@ def _frame_ids(frame: Any, *, id_col: str, role: str) -> tuple[Any, ...]:
     series = frame[id_col]
     to_list = getattr(series, "to_list", None)
     values = to_list() if callable(to_list) else list(series)
-    return tuple(_python_scalar(value) for value in values)
+    return tuple(python_scalar(value) for value in values)
 
 
 def _biosieve_version() -> str:
+    if (installed := package_version("biosieve")) is not None:
+        return installed
     try:
-        return version("biosieve")
-    except PackageNotFoundError:
-        try:
-            module = import_module("biosieve")
-            return str(getattr(module, "__version__", "unknown"))
-        except ImportError:
-            return "unknown"
-
-
-def _python_scalar(value: Any) -> Any:
-    if isinstance(value, np.generic):
-        return value.item()
-    return value
+        return str(getattr(import_module("biosieve"), "__version__", "unknown"))
+    except ImportError:
+        return "unknown"

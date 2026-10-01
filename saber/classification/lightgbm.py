@@ -1,6 +1,6 @@
 """saber.classification.lightgbm_models.
 
-LightGBM classification models and registry wiring.
+LightGBM classification model specs.
 """
 
 from __future__ import annotations
@@ -12,19 +12,15 @@ from saber.core.capabilities import (
     EstimatorRequirements,
     infer_estimator_capabilities,
 )
-from saber.core.registry import MODEL_REGISTRY
 from saber.core.specs import AlgorithmSpec
 
-_ALIASES: dict[str, tuple[str, ...]] = {"lgbm_classifier": ("lightgbm_classifier",)}
-
-
 # ============================================================
-# Registration
+# Specs
 # ============================================================
 
 
-def register_lightgbm_classification_models() -> None:
-    """Register all LightGBM classification models."""
+def _build_specs() -> tuple[AlgorithmSpec, ...]:
+    """Build all LightGBM classification models."""
     models = [
         (
             "lgbm_classifier",
@@ -42,24 +38,22 @@ def register_lightgbm_classification_models() -> None:
             task="classification",
             name=name,
             estimator_cls=model_cls,
-            aliases=_ALIASES.get(name, ()),
             capabilities=infer_estimator_capabilities(
                 model_cls,
                 native_missing_values=True,
             ),
             requirements=EstimatorRequirements(scaling="not_required"),
-            supports_cv=True,
             search_space=search_space,
             tags=tags,
         )
 
         specs.append(spec)
 
-    MODEL_REGISTRY.register_many(specs)
+    return tuple(specs)
 
 
 # ============================================================
-# Auto-registration
+# Catalog
 # ============================================================
 
-register_lightgbm_classification_models()
+SPECS: tuple[AlgorithmSpec, ...] = _build_specs()

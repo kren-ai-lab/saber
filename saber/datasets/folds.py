@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from collections import Counter
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, get_args
 
 import numpy as np
 
@@ -13,6 +12,7 @@ from saber.exceptions import (
     DatasetFingerprintMismatchError,
     PartitionValidationError,
 )
+from saber.utils.tabular import python_scalar
 
 if TYPE_CHECKING:
     from saber.datasets.schemas import DatasetBundle
@@ -35,9 +35,9 @@ class PartitionSplit:
         if not self.name.strip():
             raise PartitionValidationError("Partition split names cannot be empty.")
 
-        train_ids = tuple(_to_python_scalar(value) for value in self.train_ids)
-        validation_ids = tuple(_to_python_scalar(value) for value in self.validation_ids)
-        test_ids = tuple(_to_python_scalar(value) for value in self.test_ids)
+        train_ids = tuple(python_scalar(value) for value in self.train_ids)
+        validation_ids = tuple(python_scalar(value) for value in self.validation_ids)
+        test_ids = tuple(python_scalar(value) for value in self.test_ids)
 
         object.__setattr__(self, "train_ids", train_ids)
         object.__setattr__(self, "validation_ids", validation_ids)
@@ -74,16 +74,6 @@ class PartitionSplit:
     def all_ids(self) -> tuple[Any, ...]:
         """Return the union of train, validation, and test identifiers."""
         return self.train_ids + self.validation_ids + self.test_ids
-
-    def ids_for(self, role: str) -> tuple[Any, ...]:
-        """Return the identifiers for the given role."""
-        if role == "train":
-            return self.train_ids
-        if role in {"validation", "val"}:
-            return self.validation_ids
-        if role == "test":
-            return self.test_ids
-        raise PartitionValidationError("role must be 'train', 'validation', or 'test'.")
 
     def to_dict(self) -> dict[str, Any]:
         """Return the split as a plain JSON-serializable dictionary."""
@@ -135,8 +125,7 @@ class PartitionPlan:
         if not splits:
             raise PartitionValidationError("PartitionPlan must contain at least one split.")
 
-        valid_kinds = {"holdout", "cross_validation", "predefined", "external"}
-        if self.kind not in valid_kinds:
+        if self.kind not in get_args(PartitionKind):
             raise PartitionValidationError(f"Unsupported partition kind '{self.kind}'.")
 
         names = [split.name for split in splits]
@@ -335,13 +324,6 @@ class PartitionPlan:
             metadata=plan_metadata,
         )
 
-    def validation_counts(self) -> Counter[Any]:
-        """Return how often each sample appears in validation roles."""
-        counts: Counter[Any] = Counter()
-        for split in self.splits:
-            counts.update(split.validation_ids)
-        return counts
-
 
 def _validate_unique_ids(values: tuple[Any, ...], *, split: str, role: str) -> None:
     for value in values:
@@ -361,9 +343,3 @@ def _validate_unique_ids(values: tuple[Any, ...], *, split: str, role: str) -> N
 
     if len(unique) != len(values):
         raise PartitionValidationError(f"Split '{split}' role '{role}' contains duplicate sample IDs.")
-
-
-def _to_python_scalar(value: Any) -> Any:
-    if isinstance(value, np.generic):
-        return value.item()
-    return value

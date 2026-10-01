@@ -10,7 +10,7 @@ from saber import train
 from saber.cli.main import EXIT_CONFIG, EXIT_OK, main
 from saber.config import run_config
 from saber.datasets import DatasetBundle, PartitionPlan
-from saber.persistence import save_model_artifact
+from saber.persistence import save_model
 from saber.utils.tabular import read_table
 
 
@@ -46,16 +46,10 @@ def _workflow_files(tmp_path):
     return path, bundle
 
 
-def test_cli_config_validation_and_wrong_workflow(tmp_path):
-    path, _ = _workflow_files(tmp_path)
-    assert main(["config", "validate", str(path)]) == EXIT_OK
-    assert main(["train", str(path)]) == EXIT_CONFIG
-
-
-def test_cli_validate_uses_same_config_runner(tmp_path):
+def test_cli_run_uses_same_config_runner(tmp_path):
     path, _ = _workflow_files(tmp_path)
     direct = run_config(path)
-    assert main(["validate", str(path)]) == EXIT_OK
+    assert main(["run", str(path)]) == EXIT_OK
     summary = json.loads((tmp_path / "cli_results" / "summary.json").read_text())
     assert summary["aggregate_metrics"] == direct.summary["aggregate_metrics"]
     assert summary["workflow"] == "validate"
@@ -66,7 +60,7 @@ def test_cli_artifact_inspection_and_verification(tmp_path):
     _, bundle = _workflow_files(tmp_path)
     trained = train(dataset=bundle, algorithm="logistic_regression", random_state=42)
     artifact = tmp_path / "artifact"
-    save_model_artifact(
+    save_model(
         artifact,
         model=trained.model,
         algorithm=trained.spec.name,
@@ -78,19 +72,9 @@ def test_cli_artifact_inspection_and_verification(tmp_path):
     assert main(["artifact", "inspect", str(artifact), "--json"]) == EXIT_OK
 
 
-def test_cli_optimize_is_thin_alias_for_tune_config(tmp_path):
-    path, _ = _workflow_files(tmp_path)
-    payload = yaml.safe_load(path.read_text())
-    payload["workflow"] = "tune"
-    payload["tuning"] = {
-        "optimizer": "grid",
-        "metrics": ["accuracy"],
-        "refit_metric": "accuracy",
-    }
-    payload["search_space"] = {"C": [0.1, 1.0]}
-    payload.pop("metrics", None)
-    payload.pop("random_state", None)
-    payload.pop("output", None)
-    tune_path = tmp_path / "tune.yaml"
-    tune_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
-    assert main(["optimize", str(tune_path)]) == EXIT_OK
+def test_cli_error_exit_codes(tmp_path):
+    bad = tmp_path / "bad.yaml"
+    bad.write_text("workflow: nope\n", encoding="utf-8")
+    assert main(["run", str(bad)]) == EXIT_CONFIG
+    assert main(["artifact", "verify", str(tmp_path / "missing")]) != EXIT_OK
+    assert main(["models", "show", "no_such_model"]) != EXIT_OK

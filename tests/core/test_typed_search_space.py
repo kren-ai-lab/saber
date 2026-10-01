@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-
 import numpy as np
 import pytest
 from optuna.trial import FixedTrial
@@ -66,24 +64,6 @@ def test_log_float_supports_random_and_optuna_but_not_grid() -> None:
     assert np.all(values > 0)
     sampled = space.sample_optuna(FixedTrial({"C": 0.1}))
     assert sampled["C"] == pytest.approx(0.1)
-
-
-def test_typed_search_space_json_roundtrip(tmp_path) -> None:
-    path = tmp_path / "space.json"
-    original = SearchSpace(
-        "typed",
-        {
-            "legacy": [1, 2],
-            "kind": Categorical(["a", "b"]),
-            "depth": Integer(1, 5, step=2),
-            "rate": Float(0.1, 0.5, step=0.2),
-            "C": LogFloat(1e-4, 1e2),
-        },
-    )
-    original.to_json(path)
-    restored = SearchSpace.from_json(path)
-    assert restored.to_dict() == original.to_dict()
-    assert json.loads(path.read_text())["parameters"]["C"]["type"] == "log_float"
 
 
 def test_parameter_prefixing_for_pipeline_backends() -> None:

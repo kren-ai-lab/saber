@@ -1,103 +1,37 @@
-"""Tests for the canonical algorithm registry."""
+"""Static algorithm catalog."""
 
 from __future__ import annotations
 
 import pytest
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression, Ridge
 
-from saber.core.registry import AlgorithmRegistry
-from saber.core.specs import AlgorithmSpec
-from saber.exceptions import AlgorithmAlreadyRegisteredError, AlgorithmNotFoundError
+from saber._optional import is_dependency_available
+from saber.core.registry import ALGORITHMS, get_algorithm
+from saber.exceptions import AlgorithmNotFoundError
 
 
-def _spec(name: str = "random_forest", aliases: tuple[str, ...] = ("rf",)) -> AlgorithmSpec:
-    estimator = RandomForestClassifier if name == "random_forest" else LogisticRegression
-    return AlgorithmSpec(
-        provider="sklearn",
-        task="classification",
-        name=name,
-        estimator_cls=estimator,
-        aliases=aliases,
-        tags=("classification", "tree" if name == "random_forest" else "linear"),
-        supports_cv=True,
-    )
+def test_get_algorithm_unknown_name_lists_available() -> None:
+    with pytest.raises(AlgorithmNotFoundError, match="not_a_model") as excinfo:
+        get_algorithm("not_a_model")
+    assert "random_forest_classifier" in str(excinfo.value)
 
 
-def test_register_get_alias_and_exists() -> None:
-    registry = AlgorithmRegistry()
-    registry.register(_spec())
-
-    assert registry.count() == 1
-    assert registry.get("random_forest").name == "random_forest"
-    assert registry.get("rf").name == "random_forest"
-    assert registry.exists("rf")
-    assert not registry.exists("missing")
+def test_catalog_keys_match_spec_names_and_are_read_only() -> None:
+    assert all(name == spec.name for name, spec in ALGORITHMS.items())
+    with pytest.raises(TypeError):
+        ALGORITHMS["x"] = get_algorithm("random_forest_classifier")  # type: ignore[index]
 
 
-def test_duplicate_names_and_aliases_are_rejected() -> None:
-    registry = AlgorithmRegistry()
-    registry.register(_spec())
-
-    with pytest.raises(AlgorithmAlreadyRegisteredError):
-        registry.register(_spec())
-    with pytest.raises(AlgorithmAlreadyRegisteredError):
-        registry.register(_spec("logistic_regression", aliases=("rf",)))
-
-
-def test_filtering_uses_provider_task_and_tags() -> None:
-    registry = AlgorithmRegistry()
-    other = AlgorithmSpec(
-        provider="other",
-        task="regression",
-        name="ridge",
-        estimator_cls=Ridge,
-        tags=("regression", "linear"),
-    )
-    registry.register_many([_spec(), _spec("logistic_regression", aliases=("logreg",)), other])
-
-    assert {spec.name for spec in registry.filter(task="classification")} == {
-        "random_forest",
-        "logistic_regression",
-    }
-    assert {spec.name for spec in registry.filter(provider="sklearn")} == {
-        "random_forest",
-        "logistic_regression",
-    }
-    assert [spec.name for spec in registry.filter(task="regression", tags=("linear",))] == ["ridge"]
-    assert [spec.name for spec in registry.filter(tags=("tree",))] == ["random_forest"]
-    assert registry.get_by_provider("sklearn") == registry.filter(provider="sklearn")
-    assert registry.providers() == {"sklearn", "other"}
+def test_sklearn_specs_present() -> None:
+    for name, task in (
+        ("random_forest_classifier", "classification"),
+        ("random_forest_regressor", "regression"),
+    ):
+        spec = get_algorithm(name)
+        assert spec.provider == "sklearn"
+        assert spec.task == task
 
 
-def test_registry_metadata_factory_and_summary() -> None:
-    registry = AlgorithmRegistry()
-    registry.register(_spec())
-
-    metadata = registry.describe("rf")
-    estimator = registry.build_estimator("rf", random_state=23, n_estimators=5)
-    summary = registry.summary()
-
-    assert metadata["provider"] == "sklearn"
-    assert metadata["has_estimator_factory"] is True
-    assert estimator.random_state == 23
-    assert estimator.n_estimators == 5
-    assert summary["providers"] == {"sklearn": 1}
-    assert summary["available_providers"] == ["sklearn"]
-    assert "backends" not in summary
-
-
-def test_remove_clear_and_missing_errors() -> None:
-    registry = AlgorithmRegistry()
-    registry.register(_spec())
-
-    registry.remove("rf")
-    assert registry.count() == 0
-    with pytest.raises(AlgorithmNotFoundError):
-        registry.get("rf")
-    with pytest.raises(AlgorithmNotFoundError):
-        registry.remove("rf")
-
-    registry.register(_spec())
-    registry.clear()
-    assert len(registry) == 0
+@pytest.mark.parametrize("provider", ["xgboost", "lightgbm"])
+def test_optional_providers_present_iff_installed(provider: str) -> None:
+    present = any(spec.provider == provider for spec in ALGORITHMS.values())
+    assert present == is_dependency_available(provider)

@@ -1,7 +1,6 @@
 """Saber exception hierarchy."""
 
 from saber.exceptions.base import (
-    AlgorithmAlreadyRegisteredError,
     AlgorithmNotFoundError,
     ArtifactCompatibilityError,
     ArtifactIntegrityError,
@@ -24,14 +23,12 @@ from saber.exceptions.base import (
     PersistenceError,
     PredictionContractError,
     PreprocessingContractError,
-    PublicAPIError,
     RegistryError,
     SaberError,
     ValidationContractError,
 )
 
 __all__ = [
-    "AlgorithmAlreadyRegisteredError",
     "AlgorithmNotFoundError",
     "ArtifactCompatibilityError",
     "ArtifactIntegrityError",
@@ -54,7 +51,6 @@ __all__ = [
     "PersistenceError",
     "PredictionContractError",
     "PreprocessingContractError",
-    "PublicAPIError",
     "RegistryError",
     "SaberError",
     "ValidationContractError",

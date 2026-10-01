@@ -6,7 +6,6 @@ import os
 import shutil
 import tempfile
 from contextlib import contextmanager
-from importlib import metadata as importlib_metadata
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -14,7 +13,7 @@ import joblib
 
 from saber.exceptions import PersistenceError
 from saber.persistence.checksums import write_checksums
-from saber.persistence.environment import environment_snapshot
+from saber.persistence.environment import environment_snapshot, package_version
 from saber.persistence.metadata import ArtifactManifest
 from saber.utils.serialization import write_json
 
@@ -27,7 +26,7 @@ if TYPE_CHECKING:
     from saber.datasets import DatasetBundle, FeatureSchema, PartitionPlan
 
 
-def save_model_artifact(
+def save_model(
     path: str | Path,
     *,
     model: Any,
@@ -48,9 +47,7 @@ def save_model_artifact(
     if task not in {"classification", "regression"}:
         raise PersistenceError("task must be 'classification' or 'regression'.")
     if dataset is None and feature_schema is None:
-        raise PersistenceError(
-            "save_model_artifact requires dataset or feature_schema for inference validation."
-        )
+        raise PersistenceError("save_model requires dataset or feature_schema for inference validation.")
     schema = dataset.feature_schema if dataset is not None else feature_schema
     if schema is None:
         raise PersistenceError("Feature schema could not be resolved.")
@@ -114,7 +111,7 @@ def save_model_artifact(
 
         manifest = ArtifactManifest(
             artifact_type="model",
-            saber_version=_saber_version(),
+            saber_version=package_version("saberlib"),
             files=files,
             metadata={
                 "algorithm": algorithm,
@@ -131,7 +128,7 @@ def save_model_artifact(
     return target
 
 
-def save_benchmark_artifact(
+def save_benchmark(
     path: str | Path,
     result: BenchmarkResult,
     *,
@@ -184,7 +181,7 @@ def save_benchmark_artifact(
 
         manifest = ArtifactManifest(
             artifact_type="benchmark",
-            saber_version=_saber_version(),
+            saber_version=package_version("saberlib"),
             files=files,
             metadata={
                 "n_runs": result.n_runs,
@@ -231,15 +228,3 @@ def _atomic_artifact_directory(target: Path, *, overwrite: bool) -> Iterator[Pat
         if temp.exists():
             shutil.rmtree(temp, ignore_errors=True)
         raise
-
-
-def _saber_version() -> str | None:
-    try:
-        return importlib_metadata.version("saberlib")
-    except importlib_metadata.PackageNotFoundError:
-        try:
-            from saber import __version__  # noqa: PLC0415  # avoids a circular import with saber.__init__
-        except Exception:  # noqa: BLE001  # any import failure means the version is unavailable
-            return None
-        else:
-            return __version__

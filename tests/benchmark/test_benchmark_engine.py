@@ -8,12 +8,11 @@ import pytest
 from polars.testing import assert_frame_equal
 from sklearn.datasets import make_classification, make_regression
 
-from saber import MODEL_REGISTRY
 from saber.benchmark import (
     BenchmarkConfig,
     BenchmarkDataset,
-    BenchmarkEngine,
     BenchmarkPartition,
+    benchmark,
 )
 from saber.core.search_space import SearchSpace
 from saber.datasets import DatasetBundle, PartitionPlan
@@ -58,7 +57,7 @@ def _small_benchmark():
     """1 representation x 1 partition scenario, with a tuned run and a failing model."""
     dataset = _classification_dataset()
     plan = _safe_holdout(dataset)
-    return BenchmarkEngine(MODEL_REGISTRY).run(
+    return benchmark(
         datasets={"roxy": dataset},
         algorithms=("logistic_regression", "not_a_model"),
         config=BenchmarkConfig(
@@ -189,9 +188,9 @@ def test_result_frames_are_polars_and_keep_their_columns() -> None:
 
 def test_benchmark_runs_algorithm_matrix_with_baseline_and_repeated_seeds() -> None:
     dataset = _classification_dataset()
-    result = BenchmarkEngine(MODEL_REGISTRY).run(
+    result = benchmark(
         datasets=dataset,
-        algorithms=("logistic_regression", "decision_tree"),
+        algorithms=("logistic_regression", "decision_tree_classifier"),
         config=BenchmarkConfig(
             metrics=("accuracy", "balanced_accuracy"),
             seeds=(3, 7),
@@ -206,7 +205,7 @@ def test_benchmark_runs_algorithm_matrix_with_baseline_and_repeated_seeds() -> N
     assert {run.algorithm for run in result.successes} == {
         "dummy_classifier",
         "logistic_regression",
-        "decision_tree",
+        "decision_tree_classifier",
     }
     for run in result.successes:
         assert run.oof_prediction is not None
@@ -223,7 +222,7 @@ def test_benchmark_multiple_representations_reuse_identical_partition_membership
     )
     plan = _cv_plan(roxy)
 
-    result = BenchmarkEngine(MODEL_REGISTRY).run(
+    result = benchmark(
         datasets=(
             BenchmarkDataset("roxy", roxy, representation="roxy"),
             BenchmarkDataset("sylphy", sylphy, representation="sylphy"),
@@ -257,7 +256,7 @@ def test_representation_benchmark_rejects_target_mismatch() -> None:
         sample_ids=np.asarray(first.sample_ids).copy(),
     )
     with pytest.raises(BenchmarkContractError, match="identical targets"):
-        BenchmarkEngine(MODEL_REGISTRY).run(
+        benchmark(
             datasets={"first": first, "second": second},
             algorithms=("logistic_regression",),
             config=BenchmarkConfig(metrics=("accuracy",), include_baselines=False),
@@ -267,7 +266,7 @@ def test_representation_benchmark_rejects_target_mismatch() -> None:
 
 def test_multiple_partition_scenarios_are_explicit_in_long_form_tables() -> None:
     dataset = _classification_dataset()
-    result = BenchmarkEngine(MODEL_REGISTRY).run(
+    result = benchmark(
         datasets={"roxy": dataset},
         algorithms=("logistic_regression",),
         config=BenchmarkConfig(metrics=("accuracy", "mcc"), include_baselines=False),
@@ -286,7 +285,7 @@ def test_multiple_partition_scenarios_are_explicit_in_long_form_tables() -> None
 
 def test_failed_algorithm_does_not_invalidate_successful_runs() -> None:
     dataset = _classification_dataset()
-    result = BenchmarkEngine(MODEL_REGISTRY).run(
+    result = benchmark(
         datasets=dataset,
         algorithms=("logistic_regression", "not_a_model"),
         config=BenchmarkConfig(metrics=("accuracy",), include_baselines=False),
@@ -298,9 +297,8 @@ def test_failed_algorithm_does_not_invalidate_successful_runs() -> None:
     assert result.failures[0].algorithm == "not_a_model"
     assert result.failures[0].error is not None
     assert "AlgorithmNotFoundError" in result.failures[0].error
-    assert (
-        result.failures_frame()["error"][0]
-        == "AlgorithmNotFoundError: Algorithm 'not_a_model' was not found in the registry."
+    assert result.failures_frame()["error"][0].startswith(
+        "AlgorithmNotFoundError: Algorithm 'not_a_model' was not found."
     )
     assert set(result.runs_frame()["status"]) == {"complete", "failed"}
 
@@ -308,7 +306,7 @@ def test_failed_algorithm_does_not_invalidate_successful_runs() -> None:
 def test_fail_fast_raises_after_recordable_run_failure() -> None:
     dataset = _classification_dataset()
     with pytest.raises(BenchmarkContractError, match="AlgorithmNotFoundError"):
-        BenchmarkEngine(MODEL_REGISTRY).run(
+        benchmark(
             datasets=dataset,
             algorithms=("logistic_regression", "not_a_model"),
             config=BenchmarkConfig(
@@ -324,18 +322,17 @@ def test_seeded_benchmark_is_score_reproducible() -> None:
     dataset = _classification_dataset()
     kwargs = {
         "datasets": dataset,
-        "algorithms": ("random_forest",),
+        "algorithms": ("random_forest_classifier",),
         "config": BenchmarkConfig(
             metrics=("accuracy", "mcc"),
             seeds=(123,),
             include_baselines=False,
         ),
         "partitions": _cv_plan(dataset),
-        "model_params": {"random_forest": {"n_estimators": 20}},
+        "model_params": {"random_forest_classifier": {"n_estimators": 20}},
     }
-    engine = BenchmarkEngine(MODEL_REGISTRY)
-    first = engine.run(**kwargs)
-    second = engine.run(**kwargs)
+    first = benchmark(**kwargs)
+    second = benchmark(**kwargs)
     assert_frame_equal(
         first.aggregate_metrics_frame().drop("elapsed_seconds"),
         second.aggregate_metrics_frame().drop("elapsed_seconds"),
@@ -349,7 +346,7 @@ def test_seeded_benchmark_is_score_reproducible() -> None:
 
 def test_predictions_frame_retains_truth_predictions_and_probabilities() -> None:
     dataset = _classification_dataset()
-    result = BenchmarkEngine(MODEL_REGISTRY).run(
+    result = benchmark(
         datasets={"roxy": dataset},
         algorithms=("logistic_regression",),
         config=BenchmarkConfig(metrics=("accuracy",), include_baselines=False),
@@ -365,7 +362,7 @@ def test_predictions_frame_retains_truth_predictions_and_probabilities() -> None
 
 def test_tuned_cv_is_rejected_without_destroying_untuned_result() -> None:
     dataset = _classification_dataset()
-    result = BenchmarkEngine(MODEL_REGISTRY).run(
+    result = benchmark(
         datasets=dataset,
         algorithms=("logistic_regression",),
         config=BenchmarkConfig(
@@ -397,7 +394,7 @@ def test_regression_benchmark_includes_dummy_regressor_baseline() -> None:
         random_state=4,
     )
     dataset = DatasetBundle(X=X, y=y, sample_ids=[f"r{i}" for i in range(60)])
-    result = BenchmarkEngine(MODEL_REGISTRY).run(
+    result = benchmark(
         datasets=dataset,
         algorithms=("ridge_regressor",),
         config=BenchmarkConfig(metrics=("rmse", "r2"), include_baselines=True),
@@ -416,7 +413,7 @@ def test_partition_from_unrelated_dataset_fingerprint_is_rejected() -> None:
     unrelated = _classification_dataset(seed=99)
     foreign_plan = _cv_plan(unrelated)
     with pytest.raises(BenchmarkContractError, match="fingerprint"):
-        BenchmarkEngine(MODEL_REGISTRY).run(
+        benchmark(
             datasets=dataset,
             algorithms=("logistic_regression",),
             config=BenchmarkConfig(metrics=("accuracy",), include_baselines=False),
@@ -426,7 +423,7 @@ def test_partition_from_unrelated_dataset_fingerprint_is_rejected() -> None:
 
 def test_metric_rows_link_to_configuration_and_prediction_rows_by_run_id() -> None:
     dataset = _classification_dataset()
-    result = BenchmarkEngine(MODEL_REGISTRY).run(
+    result = benchmark(
         datasets=dataset,
         algorithms=("logistic_regression",),
         config=BenchmarkConfig(metrics=("accuracy",), include_baselines=False),
@@ -442,7 +439,7 @@ def test_metric_rows_link_to_configuration_and_prediction_rows_by_run_id() -> No
 
 def test_tuned_benchmark_exports_annotated_optimization_history() -> None:
     dataset = _classification_dataset()
-    result = BenchmarkEngine(MODEL_REGISTRY).run(
+    result = benchmark(
         datasets=dataset,
         algorithms=("logistic_regression",),
         config=BenchmarkConfig(
@@ -464,7 +461,7 @@ def test_tuned_benchmark_exports_annotated_optimization_history() -> None:
 def test_mixed_tuned_and_untuned_holdout_use_same_protected_test() -> None:
     dataset = _classification_dataset()
     plan = _safe_holdout(dataset)
-    result = BenchmarkEngine(MODEL_REGISTRY).run(
+    result = benchmark(
         datasets=BenchmarkDataset("roxy", dataset, representation="roxy"),
         algorithms=("logistic_regression",),
         config=BenchmarkConfig(

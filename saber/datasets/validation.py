@@ -9,7 +9,7 @@ import polars as pl
 from sklearn.utils.multiclass import type_of_target
 
 from saber.exceptions import DatasetValidationError
-from saber.utils.tabular import as_frame, missing_mask
+from saber.utils.tabular import as_frame, missing_mask, python_scalar
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -82,7 +82,7 @@ def validate_target(y: Any, *, n_samples: int) -> np.ndarray:
         raise DatasetValidationError("y cannot contain infinite target values.")
 
     for value in values:
-        scalar = _to_python_scalar(value)
+        scalar = python_scalar(value)
         if not isinstance(scalar, (str, int, float, bool)):
             raise DatasetValidationError("y must contain scalar str/int/float/bool target values.")
 
@@ -114,7 +114,7 @@ def validate_sample_ids(sample_ids: Sequence[Any], *, n_samples: int) -> tuple[A
         n_samples=n_samples,
         name="sample_ids",
     )
-    ids = tuple(_to_python_scalar(value) for value in values)
+    ids = tuple(python_scalar(value) for value in values)
 
     try:
         unique_count = len(set(ids))
@@ -145,7 +145,7 @@ def validate_groups(groups: Any, *, n_samples: int) -> tuple[Any, ...]:
         n_samples=n_samples,
         name="groups",
     )
-    groups_tuple = tuple(_to_python_scalar(value) for value in values)
+    groups_tuple = tuple(python_scalar(value) for value in values)
 
     for group in groups_tuple:
         if not isinstance(group, (str, int, float, bool)):
@@ -212,12 +212,6 @@ def validate_target_for_task(y: Any, task: str) -> str:
         return "regression"
 
     raise DatasetValidationError("task must be either 'classification' or 'regression'.")
-
-
-def _to_python_scalar(value: Any) -> Any:
-    if isinstance(value, np.generic):
-        return value.item()
-    return value
 
 
 def _type_class(value: Any) -> type:

@@ -1,6 +1,10 @@
 """Stable high-level Python API."""
 
-from saber.api.artifacts import (
+from saber.api.evaluate import evaluate
+from saber.api.predict import predict
+from saber.api.train import train
+from saber.benchmark import benchmark
+from saber.persistence import (
     inspect_artifact,
     load_benchmark,
     load_model,
@@ -8,11 +12,8 @@ from saber.api.artifacts import (
     save_model,
     verify_artifact,
 )
-from saber.api.benchmark import benchmark
-from saber.api.evaluate import evaluate, validate
-from saber.api.predict import predict
-from saber.api.train import train
-from saber.api.tune import optimize, tune
+from saber.tuning import tune
+from saber.validation import validate
 
 __all__ = [
     "benchmark",
@@ -20,7 +21,6 @@ __all__ = [
     "inspect_artifact",
     "load_benchmark",
     "load_model",
-    "optimize",
     "predict",
     "save_benchmark",
     "save_model",

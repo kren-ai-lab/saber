@@ -85,9 +85,9 @@ def _(
     ids=[f"report_{i:04d}" for i in range(len(y))]
     dataset=DatasetBundle(X=X,y=y,sample_ids=ids,feature_names=[f"f{i}" for i in range(X.shape[1])])
     plan=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=balanced_fold_labels(y,5),dataset_fingerprint=dataset.fingerprint)
-    bench=benchmark(datasets={"prepared":dataset},algorithms=("logistic_regression","random_forest","svc"),partitions={"fivefold":plan},
+    bench=benchmark(datasets={"prepared":dataset},algorithms=("logistic_regression","random_forest_classifier","svc"),partitions={"fivefold":plan},
                     config=BenchmarkConfig(metrics=("mcc","balanced_accuracy","f1","roc_auc"),seeds=(42,) if DEMO_TEST else (42,123,777),modes=("untuned",),include_baselines=True),
-                    model_params={"random_forest":{"n_estimators":45 if DEMO_TEST else 120,"max_depth":7}})
+                    model_params={"random_forest_classifier":{"n_estimators":45 if DEMO_TEST else 120,"max_depth":7}})
     assert not bench.failures
     metrics=bench.aggregate_metrics_frame(); runs=bench.runs_frame(); preds=bench.predictions_frame()
     return dataset, metrics, preds, runs

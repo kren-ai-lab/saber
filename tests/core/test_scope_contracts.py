@@ -23,9 +23,9 @@ importlib.util.find_spec = core_only_find_spec
 
 import saber
 
-assert saber.MODEL_REGISTRY.providers() == {"sklearn"}
-assert "xgb_classifier" not in saber.MODEL_REGISTRY
-assert "lgbm_classifier" not in saber.MODEL_REGISTRY
+assert {spec.provider for spec in saber.ALGORITHMS.values()} == {"sklearn"}
+assert "xgb_classifier" not in saber.ALGORITHMS
+assert "lgbm_classifier" not in saber.ALGORITHMS
 """
 
     completed = subprocess.run(  # noqa: S603

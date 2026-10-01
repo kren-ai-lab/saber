@@ -8,12 +8,11 @@ import numpy as np
 import pytest
 
 import saber.validation.partitioning as partitioning_module
-from saber import MODEL_REGISTRY
 from saber.datasets import DatasetBundle
 from saber.datasets import biosieve as adapter
 from saber.datasets.biosieve import BioSievePartitionConfig, partition_with_biosieve
 from saber.exceptions import PartitionIntegrationError, PartitionValidationError
-from saber.validation import ValidationEngine
+from saber.validation import validate
 
 
 class FakeSeries:
@@ -132,7 +131,7 @@ def test_validation_engine_can_consume_biosieve_generated_memberships_end_to_end
         )
 
     monkeypatch.setattr(partitioning_module, "partition_with_biosieve", fake_partition)
-    result = ValidationEngine(MODEL_REGISTRY).run(
+    result = validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partitioning=BioSievePartitionConfig(strategy="stratified_kfold", params={"n_splits": 3}),

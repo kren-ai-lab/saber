@@ -5,8 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from saber.api._common import fit_dataset
-from saber.core.registry import MODEL_REGISTRY, AlgorithmRegistry
-from saber.persistence import save_model_artifact
+from saber.persistence import save_model
 from saber.preprocessing import PreprocessingConfig
 
 if TYPE_CHECKING:
@@ -24,7 +23,6 @@ def train(
     preprocessing: PreprocessingConfig | Any | None = None,
     random_state: int | None = None,
     model_params: Mapping[str, Any] | None = None,
-    registry: AlgorithmRegistry = MODEL_REGISTRY,
     artifact_path: str | Path | None = None,
     partition_plan: PartitionPlan | None = None,
     artifact_overwrite: bool = False,
@@ -39,14 +37,15 @@ def train(
     result = fit_dataset(
         dataset=dataset,
         algorithm=algorithm,
-        registry=registry,
         preprocessing=preprocessing,
         random_state=random_state,
         model_params=model_params,
     )
 
+    result.positive_class = positive_class
+
     if artifact_path is not None:
-        save_model_artifact(
+        save_model(
             artifact_path,
             model=result.model,
             algorithm=result.spec.name,
@@ -60,7 +59,7 @@ def train(
                 "preprocessing": _preprocessing_metadata(preprocessing),
             },
             positive_class=positive_class,
-            metadata={**dict(metadata or {}), "public_api": True},
+            metadata=dict(metadata or {}),
             overwrite=artifact_overwrite,
         )
 

@@ -12,7 +12,7 @@ import yaml
 from sklearn.datasets import make_classification
 
 import saber
-from saber.cli.main import EXIT_CONFIG, EXIT_OK, _doctor_payload, main
+from saber.cli.main import EXIT_CONFIG, EXIT_OK, main
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.utils.tabular import read_table
 
@@ -109,7 +109,7 @@ def _benchmark_config(tmp_path: Path) -> Path:
 
 def test_benchmark_human_output_renders_metric_table(tmp_path, capsys):
     config = _benchmark_config(tmp_path)
-    assert main(["benchmark", str(config)]) == EXIT_OK
+    assert main(["run", str(config)]) == EXIT_OK
     output = capsys.readouterr().out
     assert "Aggregate results (preview)" in output
     assert "logistic_regression" in output
@@ -118,7 +118,7 @@ def test_benchmark_human_output_renders_metric_table(tmp_path, capsys):
 def test_dry_run_validates_without_creating_outputs(tmp_path, capsys, monkeypatch):
     config = _validate_config(tmp_path)
     monkeypatch.setattr(cli_main, "run_config", _forbidden_run_config)
-    assert main(["validate", str(config), "--dry-run"]) == EXIT_OK
+    assert main(["run", str(config), "--dry-run"]) == EXIT_OK
     output = capsys.readouterr().out
     assert "execution plan" in output.lower()
     assert "No workflow was executed" in output
@@ -131,7 +131,7 @@ def _forbidden_run_config(*_args, **_kwargs):
 
 def test_workflow_json_mode_is_machine_readable(tmp_path, capsys):
     config = _validate_config(tmp_path)
-    assert main(["validate", str(config), "--json"]) == EXIT_OK
+    assert main(["run", str(config), "--json"]) == EXIT_OK
     output = capsys.readouterr().out
     payload = json.loads(output)
     assert payload["summary"]["workflow"] == "validate"
@@ -140,29 +140,11 @@ def test_workflow_json_mode_is_machine_readable(tmp_path, capsys):
     assert "metrics" in payload["outputs"]
 
 
-def test_quiet_mode_executes_without_normal_output(tmp_path, capsys):
-    config = _validate_config(tmp_path)
-    assert main(["validate", str(config), "--quiet"]) == EXIT_OK
-    captured = capsys.readouterr()
-    assert captured.out == ""
-    assert (tmp_path / "results" / "summary.json").exists()
-
-
-def test_config_show_renders_execution_plan(tmp_path, capsys):
-    config = _validate_config(tmp_path)
-    assert main(["config", "show", str(config)]) == EXIT_OK
-    output = capsys.readouterr().out
-    assert "Workflow" in output
-    assert "logistic_regression" in output
-    assert "accuracy" in output
-
-
-def test_models_search_and_tag_filter(capsys):
-    assert main(["models", "search", "forest", "--task", "classification", "--json"]) == EXIT_OK
+def test_models_list_filters(capsys):
+    assert main(["models", "list", "--task", "classification", "--json"]) == EXIT_OK
     rows = json.loads(capsys.readouterr().out)
     assert rows
     assert all(row["task"] == "classification" for row in rows)
-    assert any("forest" in row["name"] for row in rows)
 
     assert main(["models", "list", "--tag", "baseline", "--json"]) == EXIT_OK
     baselines = json.loads(capsys.readouterr().out)
@@ -176,35 +158,7 @@ def test_model_show_human_output_includes_capabilities(capsys):
     assert "sample_weight" in output
 
 
-def test_doctor_payload_and_cli(capsys):
-    payload = _doctor_payload()
-    names = {item["name"] for item in payload["components"]}
-    assert {"saber", "python", "scikit-learn", "biosieve", "xgboost", "lightgbm", "optuna"} <= names
-
-    assert main(["doctor", "--json"]) == EXIT_OK
-    rendered = json.loads(capsys.readouterr().out)
-    assert rendered["components"][0]["name"] == "saber"
-
-
-def test_wrong_workflow_still_uses_configuration_exit_code(tmp_path):
-    config = _validate_config(tmp_path)
-    assert main(["train", str(config), "--dry-run"]) == EXIT_CONFIG
-
-
-COMMANDS = (
-    "run",
-    "train",
-    "evaluate",
-    "validate",
-    "tune",
-    "optimize",
-    "benchmark",
-    "predict",
-    "models",
-    "artifact",
-    "config",
-    "doctor",
-)
+COMMANDS = ("run", "models", "artifact")
 
 
 def _cli(*args: str) -> subprocess.CompletedProcess[str]:
@@ -224,10 +178,10 @@ def test_top_level_help_lists_every_command():
         assert command in completed.stdout
 
 
-def test_workflow_help_lists_workflow_options():
-    completed = _cli("benchmark", "--help")
+def test_run_help_lists_options():
+    completed = _cli("run", "--help")
     assert completed.returncode == 0
-    for option in ("--dry-run", "--json", "--quiet", "--no-progress"):
+    for option in ("--dry-run", "--json"):
         assert option in completed.stdout
 
 

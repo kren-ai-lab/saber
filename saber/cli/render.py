@@ -138,10 +138,7 @@ def render_model(console: Console, metadata: Mapping[str, Any]) -> None:
     for key in ("task", "estimator", "description"):
         if metadata.get(key) is not None:
             basics.add_row(key.replace("_", " ").title(), str(metadata[key]))
-    aliases = metadata.get("aliases") or ()
     tags = metadata.get("tags") or ()
-    if aliases:
-        basics.add_row("Aliases", ", ".join(str(value) for value in aliases))
     if tags:
         basics.add_row("Tags", ", ".join(str(value) for value in tags))
     console.print(Panel(basics, title=title, border_style="cyan"))
@@ -157,8 +154,7 @@ def render_model(console: Console, metadata: Mapping[str, Any]) -> None:
 
     defaults = metadata.get("default_params") or {}
     search = "available" if metadata.get("has_search_space") else "not defined"
-    cv_supported = _yes_no(metadata.get("supports_cv", False))
-    footer = f"Default params: {len(defaults)}  •  Search space: {search}  •  CV: {cv_supported}"
+    footer = f"Default params: {len(defaults)}  •  Search space: {search}"
     console.print(footer)
 
 
@@ -174,22 +170,6 @@ def render_artifact(console: Console, payload: Mapping[str, Any], path: str) -> 
     files = payload.get("files", {})
     table.add_row("Files", str(len(files)))
     console.print(Panel(table, title="Artifact", border_style="cyan"))
-
-
-def render_doctor(console: Console, payload: Mapping[str, Any]) -> None:
-    """Render the environment/dependency status table for `saber doctor`."""
-    table = Table(title="saber doctor", header_style="bold cyan")
-    table.add_column("Component")
-    table.add_column("Status")
-    table.add_column("Version / detail")
-    for item in payload.get("components", []):
-        available = bool(item.get("available"))
-        table.add_row(
-            str(item.get("name")),
-            "[green]available[/green]" if available else "[yellow]not installed[/yellow]",
-            str(item.get("version") or item.get("detail") or "-"),
-        )
-    console.print(table)
 
 
 def _render_validation(console: Console, result: ValidationResult) -> None:

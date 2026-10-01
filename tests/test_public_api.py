@@ -157,3 +157,20 @@ def test_saber_works_without_pandas():
     )
     assert completed.returncode == 0, completed.stderr
     assert completed.stdout.strip() == "ok"
+
+
+def test_train_positive_class_matches_loaded_artifact(tmp_path) -> None:
+    X, y = make_classification(n_samples=60, n_features=5, random_state=3)  # pyrefly: ignore[bad-unpacking]
+    dataset = DatasetBundle(X=X, y=y)
+    trained = saber.train(
+        dataset=dataset, algorithm="logistic_regression", positive_class=0, artifact_path=tmp_path / "m"
+    )
+    loaded = saber.load_model(tmp_path / "m")
+    in_memory = saber.predict(trained, dataset=dataset)
+    from_disk = saber.predict(loaded, dataset=dataset)
+    assert in_memory.positive_class == from_disk.positive_class == 0
+    np.testing.assert_allclose(in_memory.positive_probabilities(), from_disk.positive_probabilities())
+    assert (
+        saber.evaluate(dataset=dataset, model=trained).metrics
+        == saber.evaluate(dataset=dataset, model=loaded).metrics
+    )

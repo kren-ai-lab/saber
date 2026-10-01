@@ -105,11 +105,11 @@ def _(
     seeds = (42,) if DEMO_TEST else (42,123,777)
     bench = benchmark(
         datasets={"compact":compact, "expanded_noisy":expanded, "compressed":compressed},
-        algorithms=("logistic_regression", "random_forest", "svc"),
+        algorithms=("logistic_regression", "random_forest_classifier", "svc"),
         partitions={"prepared_4fold":plan},
         config=BenchmarkConfig(metrics=("mcc","balanced_accuracy","f1","roc_auc"),
                                seeds=seeds, modes=("untuned",), include_baselines=True),
-        model_params={"random_forest":{"n_estimators":50 if DEMO_TEST else 120,"max_depth":7}},
+        model_params={"random_forest_classifier":{"n_estimators":50 if DEMO_TEST else 120,"max_depth":7}},
     )
     assert not bench.failures
     metrics = bench.aggregate_metrics_frame(); runs = bench.runs_frame(); preds = bench.predictions_frame()

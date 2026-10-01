@@ -95,10 +95,10 @@ def _(
 def _(BenchmarkConfig, DEMO_TEST, benchmark, pl, plan_a, plan_b, rep1, rep2, rep3):
     seeds=(42,) if DEMO_TEST else (42,123)
     bench=benchmark(datasets={"rep_core":rep1,"rep_expanded":rep2,"rep_nonlinear":rep3},
-                    algorithms=("logistic_regression","random_forest","svc"),
+                    algorithms=("logistic_regression","random_forest_classifier","svc"),
                     partitions={"balanced":plan_a,"feature_blocked":plan_b},
                     config=BenchmarkConfig(metrics=("mcc","balanced_accuracy","f1","roc_auc"),seeds=seeds,modes=("untuned",),include_baselines=True),
-                    model_params={"random_forest":{"n_estimators":45 if DEMO_TEST else 110,"max_depth":7}})
+                    model_params={"random_forest_classifier":{"n_estimators":45 if DEMO_TEST else 110,"max_depth":7}})
     assert not bench.failures
     metrics=bench.aggregate_metrics_frame(); runs=bench.runs_frame(); folds=bench.fold_metrics_frame()
     mcc=metrics.filter(pl.col("metric")=="mcc")

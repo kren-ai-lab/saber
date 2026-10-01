@@ -92,14 +92,6 @@ def test_predefined_fold_assignments_become_explicit_memberships():
     assert plan.n_splits == 3
     assert plan.get_split("fold_0").validation_ids == ("a", "b")
     assert plan.get_split("fold_0").train_ids == ("c", "d", "e", "f")
-    assert plan.validation_counts() == {
-        "a": 1,
-        "b": 1,
-        "c": 1,
-        "d": 1,
-        "e": 1,
-        "f": 1,
-    }
     plan.validate_against(dataset)
 
 

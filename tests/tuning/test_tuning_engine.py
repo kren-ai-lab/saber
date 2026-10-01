@@ -8,12 +8,11 @@ from sklearn.base import clone
 from sklearn.datasets import make_classification, make_regression
 from sklearn.pipeline import Pipeline
 
-from saber import MODEL_REGISTRY
 from saber.core.search_space import LogFloat, SearchSpace
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.exceptions import ValidationContractError
-from saber.tuning import TuningConfig, TuningEngine
-from saber.validation import ValidationEngine
+from saber.tuning import TuningConfig, tune
+from saber.validation import validate
 
 
 def _classification_dataset(n: int = 60, *, sample_weight: bool = False):
@@ -38,7 +37,7 @@ def _three_fold_plan(dataset: DatasetBundle) -> PartitionPlan:
 
 def test_grid_tuning_uses_pipeline_explicit_folds_and_multiple_metrics() -> None:
     dataset = _classification_dataset()
-    result = TuningEngine(MODEL_REGISTRY).run(
+    result = tune(
         dataset=dataset,
         algorithm="logistic_regression",
         config=TuningConfig(
@@ -74,7 +73,7 @@ def test_holdout_validation_protects_final_test_from_search_and_refit() -> None:
         dataset_fingerprint=dataset.fingerprint,
     )
 
-    result = TuningEngine(MODEL_REGISTRY).run(
+    result = tune(
         dataset=dataset,
         algorithm="logistic_regression",
         config=TuningConfig(optimizer="grid", metrics=("accuracy",), n_jobs=1),
@@ -91,7 +90,7 @@ def test_holdout_validation_protects_final_test_from_search_and_refit() -> None:
 def test_unpartitioned_tuning_never_falls_back_to_internal_splitter() -> None:
     dataset = _classification_dataset()
     with pytest.raises(ValidationContractError, match="BioSievePartitionConfig"):
-        TuningEngine(MODEL_REGISTRY).run(
+        tune(
             dataset=dataset,
             algorithm="logistic_regression",
             config=TuningConfig(optimizer="grid", metrics=("accuracy",)),
@@ -110,15 +109,14 @@ def test_random_tuning_consumes_continuous_log_space_reproducibly() -> None:
         n_jobs=1,
         n_iter=4,
     )
-    engine = TuningEngine(MODEL_REGISTRY)
-    first = engine.run(
+    first = tune(
         dataset=dataset,
         algorithm="logistic_regression",
         config=config,
         partition_plan=plan,
         search_space=space,
     )
-    second = engine.run(
+    second = tune(
         dataset=dataset,
         algorithm="logistic_regression",
         config=config,
@@ -131,7 +129,7 @@ def test_random_tuning_consumes_continuous_log_space_reproducibly() -> None:
 
 def test_halving_grid_reports_requested_secondary_metrics() -> None:
     dataset = _classification_dataset()
-    result = TuningEngine(MODEL_REGISTRY).run(
+    result = tune(
         dataset=dataset,
         algorithm="logistic_regression",
         config=TuningConfig(
@@ -150,7 +148,7 @@ def test_halving_grid_reports_requested_secondary_metrics() -> None:
 
 def test_refit_false_keeps_best_configuration_without_fitted_model() -> None:
     dataset = _classification_dataset()
-    result = TuningEngine(MODEL_REGISTRY).run(
+    result = tune(
         dataset=dataset,
         algorithm="logistic_regression",
         config=TuningConfig(
@@ -169,7 +167,7 @@ def test_refit_false_keeps_best_configuration_without_fitted_model() -> None:
 
 def test_sample_weights_are_propagated_for_supported_estimator() -> None:
     dataset = _classification_dataset(sample_weight=True)
-    result = TuningEngine(MODEL_REGISTRY).run(
+    result = tune(
         dataset=dataset,
         algorithm="logistic_regression",
         config=TuningConfig(optimizer="grid", metrics=("accuracy",), n_jobs=1),
@@ -187,12 +185,12 @@ def test_sample_weights_are_propagated_for_supported_estimator() -> None:
 def test_sample_weights_are_rejected_when_estimator_does_not_support_them() -> None:
     dataset = _classification_dataset(sample_weight=True)
     with pytest.raises(ValidationContractError, match="sample-weight support"):
-        TuningEngine(MODEL_REGISTRY).run(
+        tune(
             dataset=dataset,
-            algorithm="knn",
+            algorithm="knn_classifier",
             config=TuningConfig(optimizer="grid", metrics=("accuracy",), n_jobs=1),
             partition_plan=_three_fold_plan(dataset),
-            search_space=SearchSpace("knn", {"n_neighbors": [3, 5]}),
+            search_space=SearchSpace("knn_classifier", {"n_neighbors": [3, 5]}),
         )
 
 
@@ -200,7 +198,7 @@ def test_failed_candidate_is_explicit_in_history() -> None:
     dataset = _classification_dataset()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        result = TuningEngine(MODEL_REGISTRY).run(
+        result = tune(
             dataset=dataset,
             algorithm="logistic_regression",
             config=TuningConfig(optimizer="grid", metrics=("accuracy",), n_jobs=1),
@@ -217,7 +215,7 @@ def test_regression_loss_scores_keep_natural_display_direction() -> None:
     X, y = make_regression(n_samples=60, n_features=5, random_state=42)  # pyrefly: ignore[bad-unpacking]
     ids = [f"sample_{i}" for i in range(60)]
     dataset = DatasetBundle(X=X, y=y, sample_ids=ids)
-    result = TuningEngine(MODEL_REGISTRY).run(
+    result = tune(
         dataset=dataset,
         algorithm="ridge_regressor",
         config=TuningConfig(optimizer="grid", metrics=("rmse", "r2"), refit_metric="rmse", n_jobs=1),
@@ -231,7 +229,7 @@ def test_regression_loss_scores_keep_natural_display_direction() -> None:
 
 def test_optimization_history_exports_as_flat_dataframe() -> None:
     dataset = _classification_dataset()
-    result = TuningEngine(MODEL_REGISTRY).run(
+    result = tune(
         dataset=dataset,
         algorithm="logistic_regression",
         config=TuningConfig(
@@ -253,7 +251,7 @@ def test_protected_test_rows_do_not_influence_search_or_selection() -> None:
     X, y = make_classification(n_samples=60, n_features=6, n_informative=4, random_state=1)
     ids = [f"sample_{i}" for i in range(60)]
 
-    def tune(features):
+    def run_tune(features):
         dataset = DatasetBundle(X=features, y=y, sample_ids=ids)
         plan = PartitionPlan.holdout(
             train_ids=ids[:30],
@@ -261,7 +259,7 @@ def test_protected_test_rows_do_not_influence_search_or_selection() -> None:
             test_ids=ids[45:],
             dataset_fingerprint=dataset.fingerprint,
         )
-        return TuningEngine(MODEL_REGISTRY).run(
+        return tune(
             dataset=dataset,
             algorithm="logistic_regression",
             config=TuningConfig(optimizer="grid", metrics=("accuracy",), n_jobs=1),
@@ -271,7 +269,7 @@ def test_protected_test_rows_do_not_influence_search_or_selection() -> None:
 
     shifted_test = X.copy()
     shifted_test[45:] = 1e6
-    base, shifted = tune(X), tune(shifted_test)
+    base, shifted = run_tune(X), run_tune(shifted_test)
 
     assert shifted.best_params == base.best_params
     assert shifted.history_frame().equals(base.history_frame())
@@ -293,7 +291,7 @@ def test_binary_tuning_scores_match_evaluation_of_the_positive_class(positive_cl
     plan = _three_fold_plan(dataset)
     metrics = ("precision", "recall", "f1", "roc_auc")
 
-    tuned = TuningEngine(MODEL_REGISTRY).run(
+    tuned = tune(
         dataset=dataset,
         algorithm="logistic_regression",
         config=TuningConfig(optimizer="grid", metrics=metrics, refit_metric="f1", n_jobs=1),
@@ -301,7 +299,7 @@ def test_binary_tuning_scores_match_evaluation_of_the_positive_class(positive_cl
         search_space=SearchSpace("lr", {"C": [1.0]}),
         positive_class=positive_class,
     )
-    validated = ValidationEngine(MODEL_REGISTRY).run(
+    validated = validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,
@@ -315,7 +313,7 @@ def test_binary_tuning_scores_match_evaluation_of_the_positive_class(positive_cl
 def test_tuning_rejects_positive_class_outside_the_binary_target() -> None:
     dataset = _classification_dataset()
     with pytest.raises(ValidationContractError, match="positive_class"):
-        TuningEngine(MODEL_REGISTRY).run(
+        tune(
             dataset=dataset,
             algorithm="logistic_regression",
             config=TuningConfig(optimizer="grid", metrics=("f1",), n_jobs=1),

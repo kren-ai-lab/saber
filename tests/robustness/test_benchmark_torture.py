@@ -4,8 +4,7 @@ import numpy as np
 import pytest
 from sklearn.datasets import make_classification
 
-from saber import MODEL_REGISTRY
-from saber.benchmark import BenchmarkConfig, BenchmarkEngine
+from saber.benchmark import BenchmarkConfig, benchmark
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.exceptions import BenchmarkContractError
 
@@ -29,7 +28,7 @@ def test_representation_with_missing_sample_id_fails_before_runs():
     assert base.sample_ids is not None
     second = DatasetBundle(X=np.asarray(base.X)[:-1], y=base.y[:-1], sample_ids=base.sample_ids[:-1])
     with pytest.raises(BenchmarkContractError, match="same sample IDs"):
-        BenchmarkEngine(MODEL_REGISTRY).run(
+        benchmark(
             datasets={"a": base, "b": second},
             algorithms=("logistic_regression",),
             config=BenchmarkConfig(metrics=("accuracy",), include_baselines=False),
@@ -40,7 +39,7 @@ def test_representation_with_missing_sample_id_fails_before_runs():
 def test_mixed_classification_and_regression_algorithms_are_rejected_globally():
     dataset = _classification()
     with pytest.raises(BenchmarkContractError, match="mix supervised tasks"):
-        BenchmarkEngine(MODEL_REGISTRY).run(
+        benchmark(
             datasets=dataset,
             algorithms=("logistic_regression", "ridge_regressor"),
             config=BenchmarkConfig(metrics=("accuracy",), include_baselines=False),

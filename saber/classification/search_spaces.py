@@ -42,7 +42,7 @@ SGD_CLASSIFIER = SearchSpace(
 # ============================================================
 
 DECISION_TREE = SearchSpace(
-    name="decision_tree",
+    name="decision_tree_classifier",
     parameters={
         "max_depth": [3, 5, 10, 20, None],
         "min_samples_split": [2, 5, 10],
@@ -51,7 +51,7 @@ DECISION_TREE = SearchSpace(
 )
 
 EXTRA_TREE = SearchSpace(
-    name="extra_tree",
+    name="extra_tree_classifier",
     parameters={
         "max_depth": [3, 5, 10, 20, None],
         "min_samples_split": [2, 5, 10],
@@ -60,7 +60,7 @@ EXTRA_TREE = SearchSpace(
 )
 
 RANDOM_FOREST = SearchSpace(
-    name="random_forest",
+    name="random_forest_classifier",
     parameters={
         "n_estimators": [100, 200, 500],
         "max_depth": [3, 5, 10, 20, None],
@@ -71,7 +71,7 @@ RANDOM_FOREST = SearchSpace(
 )
 
 EXTRA_TREES = SearchSpace(
-    name="extra_trees",
+    name="extra_trees_classifier",
     parameters={
         "n_estimators": [100, 200, 500],
         "max_depth": [3, 5, 10, 20, None],
@@ -87,7 +87,7 @@ EXTRA_TREES = SearchSpace(
 # ============================================================
 
 GRADIENT_BOOSTING = SearchSpace(
-    name="gradient_boosting",
+    name="gradient_boosting_classifier",
     parameters={
         "n_estimators": [100, 200, 500],
         "learning_rate": [0.01, 0.05, 0.1],
@@ -97,7 +97,7 @@ GRADIENT_BOOSTING = SearchSpace(
 )
 
 ADABOOST = SearchSpace(
-    name="adaboost",
+    name="adaboost_classifier",
     parameters={
         "n_estimators": [50, 100, 200, 500],
         "learning_rate": [0.01, 0.05, 0.1, 1.0],
@@ -105,7 +105,7 @@ ADABOOST = SearchSpace(
 )
 
 HIST_GRADIENT_BOOSTING = SearchSpace(
-    name="hist_gradient_boosting",
+    name="hist_gradient_boosting_classifier",
     parameters={
         "learning_rate": [0.01, 0.05, 0.1],
         "max_depth": [3, 5, 10, None],
@@ -114,7 +114,7 @@ HIST_GRADIENT_BOOSTING = SearchSpace(
 )
 
 BAGGING = SearchSpace(
-    name="bagging",
+    name="bagging_classifier",
     parameters={
         "n_estimators": [10, 50, 100, 200],
     },
@@ -155,7 +155,7 @@ NU_SVC = SearchSpace(
 # ============================================================
 
 KNN = SearchSpace(
-    name="knn",
+    name="knn_classifier",
     parameters={
         "n_neighbors": [3, 5, 7, 11, 15],
         "weights": ["uniform", "distance"],
@@ -164,7 +164,7 @@ KNN = SearchSpace(
 )
 
 RADIUS_NEIGHBORS = SearchSpace(
-    name="radius_neighbors",
+    name="radius_neighbors_classifier",
     parameters={
         "radius": [0.5, 1.0, 2.0, 5.0],
         "weights": ["uniform", "distance"],
@@ -201,7 +201,7 @@ QDA = SearchSpace(
 # ============================================================
 
 GAUSSIAN_PROCESS = SearchSpace(
-    name="gaussian_process",
+    name="gaussian_process_classifier",
     parameters={},
 )
 

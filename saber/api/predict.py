@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from saber.api._common import prediction_from_model
 from saber.core.results import TrainResult
-from saber.persistence import LoadedModelArtifact, load_model_artifact
+from saber.persistence import LoadedModelArtifact, load_model
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -29,7 +29,7 @@ def predict(
     """Generate a structured PredictionResult from a fitted/persisted model."""
     active = model
     if isinstance(model, (str, Path)):
-        active = load_model_artifact(model, strict_environment=strict_environment)
+        active = load_model(model, strict_environment=strict_environment)
 
     if dataset is not None:
         X = dataset.X

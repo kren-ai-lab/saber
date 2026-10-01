@@ -1,6 +1,6 @@
 """saber.classification.sklearn.
 
-Scikit-learn classification models and registry wiring.
+Scikit-learn classification model specs.
 """
 
 from __future__ import annotations
@@ -51,18 +51,7 @@ from saber.core.capabilities import (
     EstimatorRequirements,
     infer_estimator_capabilities,
 )
-from saber.core.registry import MODEL_REGISTRY
 from saber.core.specs import AlgorithmSpec
-
-_ALIASES: dict[str, tuple[str, ...]] = {
-    "dummy_classifier": ("classification_baseline",),
-    "logistic_regression": ("logreg", "lr_classifier"),
-    "random_forest": ("rf_classifier", "rf_clf"),
-    "extra_trees": ("extra_trees_classifier",),
-    "svc": ("svm_classifier",),
-    "knn": ("knn_classifier",),
-    "decision_tree": ("decision_tree_classifier",),
-}
 
 _DEFAULT_PARAMS: dict[str, dict[str, object]] = {
     "dummy_classifier": {"strategy": "prior"},
@@ -79,12 +68,12 @@ _SCALING_RECOMMENDED = {
     "svc",
     "linear_svc",
     "nu_svc",
-    "knn",
-    "radius_neighbors",
+    "knn_classifier",
+    "radius_neighbors_classifier",
     "nearest_centroid",
     "ridge_classifier",
     "sgd_classifier",
-    "gaussian_process",
+    "gaussian_process_classifier",
 }
 
 
@@ -96,12 +85,12 @@ def _requirements_for(name: str) -> EstimatorRequirements:
 
 
 # ============================================================
-# Registration
+# Specs
 # ============================================================
 
 
-def register_sklearn_classification_models() -> None:
-    """Register all scikit-learn classification models."""
+def _build_specs() -> tuple[AlgorithmSpec, ...]:
+    """Build all scikit-learn classification models."""
     models = [
         ("dummy_classifier", DummyClassifier, ("classification", "baseline", "dummy"), None),
         (
@@ -111,19 +100,19 @@ def register_sklearn_classification_models() -> None:
             search_spaces.LOGISTIC_REGRESSION,
         ),
         (
-            "random_forest",
+            "random_forest_classifier",
             RandomForestClassifier,
             ("classification", "random_forest", "ensemble", "bagging"),
             search_spaces.RANDOM_FOREST,
         ),
         (
-            "extra_trees",
+            "extra_trees_classifier",
             ExtraTreesClassifier,
             ("classification", "extra_trees", "tree", "bagging"),
             search_spaces.EXTRA_TREES,
         ),
         (
-            "gradient_boosting",
+            "gradient_boosting_classifier",
             GradientBoostingClassifier,
             ("classification", "gradient_boosting", "tree", "boosting"),
             search_spaces.GRADIENT_BOOSTING,
@@ -131,9 +120,14 @@ def register_sklearn_classification_models() -> None:
         ("svc", SVC, ("classification", "svc", "svm"), search_spaces.SVC_SPACE),
         ("linear_svc", LinearSVC, ("classification", "svc", "linear_svm"), search_spaces.LINEAR_SVC),
         ("nu_svc", NuSVC, ("classification", "svc", "nu_svc"), search_spaces.NU_SVC),
-        ("knn", KNeighborsClassifier, ("classification", "knn", "distance_based"), search_spaces.KNN),
         (
-            "radius_neighbors",
+            "knn_classifier",
+            KNeighborsClassifier,
+            ("classification", "knn", "distance_based"),
+            search_spaces.KNN,
+        ),
+        (
+            "radius_neighbors_classifier",
             RadiusNeighborsClassifier,
             ("classification", "radius_neighbors", "distance_based"),
             search_spaces.RADIUS_NEIGHBORS,
@@ -145,31 +139,31 @@ def register_sklearn_classification_models() -> None:
             search_spaces.NEAREST_CENTROID,
         ),
         (
-            "decision_tree",
+            "decision_tree_classifier",
             DecisionTreeClassifier,
             ("classification", "decision_tree", "tree"),
             search_spaces.DECISION_TREE,
         ),
         (
-            "extra_tree",
+            "extra_tree_classifier",
             ExtraTreeClassifier,
             ("classification", "extra_tree", "tree"),
             search_spaces.EXTRA_TREE,
         ),
         (
-            "adaboost",
+            "adaboost_classifier",
             AdaBoostClassifier,
             ("classification", "adaboost", "tree", "boosting"),
             search_spaces.ADABOOST,
         ),
         (
-            "bagging",
+            "bagging_classifier",
             BaggingClassifier,
             ("classification", "bagging", "tree", "bagging"),
             search_spaces.BAGGING,
         ),
         (
-            "hist_gradient_boosting",
+            "hist_gradient_boosting_classifier",
             HistGradientBoostingClassifier,
             ("classification", "hist_gradient_boosting", "tree", "boosting"),
             search_spaces.HIST_GRADIENT_BOOSTING,
@@ -184,7 +178,7 @@ def register_sklearn_classification_models() -> None:
         ("lda", LinearDiscriminantAnalysis, ("classification", "lda", "linear"), search_spaces.LDA),
         ("qda", QuadraticDiscriminantAnalysis, ("classification", "qda", "quadratic"), search_spaces.QDA),
         (
-            "gaussian_process",
+            "gaussian_process_classifier",
             GaussianProcessClassifier,
             ("classification", "gaussian_process"),
             search_spaces.GAUSSIAN_PROCESS,
@@ -221,7 +215,7 @@ def register_sklearn_classification_models() -> None:
     for name, model_cls, tags, search_space in models:
         capabilities = infer_estimator_capabilities(
             model_cls,
-            native_missing_values=(name == "hist_gradient_boosting"),
+            native_missing_values=(name == "hist_gradient_boosting_classifier"),
         )
 
         spec = AlgorithmSpec(
@@ -229,22 +223,20 @@ def register_sklearn_classification_models() -> None:
             task="classification",
             name=name,
             tags=tags,
-            aliases=_ALIASES.get(name, ()),
             default_params=_DEFAULT_PARAMS.get(name, {}),
             estimator_cls=model_cls,
             capabilities=capabilities,
             requirements=_requirements_for(name),
-            supports_cv=True,
             search_space=search_space,
         )
 
         specs.append(spec)
 
-    MODEL_REGISTRY.register_many(specs)
+    return tuple(specs)
 
 
 # ============================================================
-# Auto-registration
+# Catalog
 # ============================================================
 
-register_sklearn_classification_models()
+SPECS: tuple[AlgorithmSpec, ...] = _build_specs()

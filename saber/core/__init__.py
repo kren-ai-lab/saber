@@ -5,7 +5,6 @@ from saber.core.capabilities import (
     EstimatorRequirements,
     infer_estimator_capabilities,
 )
-from saber.core.estimator import EstimatorFactory
 from saber.core.metrics import (
     METRIC_SPECS,
     MetricSpec,
@@ -14,20 +13,18 @@ from saber.core.metrics import (
     validate_metric,
 )
 from saber.core.prediction import PredictionResult
-from saber.core.registry import MODEL_REGISTRY, AlgorithmRegistry
+from saber.core.registry import ALGORITHMS, get_algorithm
 from saber.core.results import TrainResult
 from saber.core.search_space import Categorical, Float, Integer, LogFloat, SearchSpace
 from saber.core.specs import AlgorithmSpec
 from saber.core.task import TaskType
 
 __all__ = [
+    "ALGORITHMS",
     "METRIC_SPECS",
-    "MODEL_REGISTRY",
-    "AlgorithmRegistry",
     "AlgorithmSpec",
     "Categorical",
     "EstimatorCapabilities",
-    "EstimatorFactory",
     "EstimatorRequirements",
     "Float",
     "Integer",
@@ -37,6 +34,7 @@ __all__ = [
     "SearchSpace",
     "TaskType",
     "TrainResult",
+    "get_algorithm",
     "get_metric_spec",
     "infer_estimator_capabilities",
     "list_metric_specs",

@@ -20,7 +20,7 @@ from sklearn.metrics import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Sequence
 
 
 def _resolve_binary_classes(
@@ -396,19 +396,3 @@ def evaluate_classification(
             metrics=metrics,
         )
     raise ValueError("Classification evaluation requires fitted class semantics with at least two classes.")
-
-
-CLASSIFICATION_METRICS: dict[str, Callable[..., Any]] = {
-    "accuracy": accuracy_score,
-    "balanced_accuracy": balanced_accuracy_score,
-    "precision": precision_score,
-    "recall": recall_score,
-    "f1": f1_score,
-    "mcc": matthews_corrcoef,
-    "roc_auc": roc_auc_score,
-    "pr_auc": average_precision_score,
-    "log_loss": log_loss,
-    "brier_score": brier_score_loss,
-    "specificity": specificity_score,
-    "sensitivity": sensitivity_score,
-}

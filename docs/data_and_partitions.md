@@ -74,7 +74,7 @@ partitioning = BioSievePartitionConfig(
     strategy="stratified_kfold",
     params={"n_splits": 5, "seed": 42},
 )
-result = saber.validate(dataset=dataset, algorithm="random_forest", partitioning=partitioning)
+result = saber.validate(dataset=dataset, algorithm="random_forest_classifier", partitioning=partitioning)
 ```
 
 The resulting plan keeps BioSieve's strategy, parameters and statistics. Saber

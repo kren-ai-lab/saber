@@ -7,12 +7,11 @@ import pytest
 from sklearn.base import clone
 from sklearn.datasets import make_classification, make_regression
 
-from saber import MODEL_REGISTRY
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.datasets.biosieve import BioSievePartitionConfig
 from saber.exceptions import ValidationContractError
 from saber.preprocessing import PreprocessingConfig
-from saber.validation import ValidationEngine
+from saber.validation import validate
 from saber.validation.results import aggregate_fold_metrics
 
 
@@ -37,13 +36,14 @@ def test_validation_fits_scaler_only_on_training_partition():
         test_ids=list("ef"),
         dataset_fingerprint=dataset.fingerprint,
     )
-    result = ValidationEngine(MODEL_REGISTRY).run(
+    result = validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,
         preprocessing=PreprocessingConfig(imputation=None, scaler="standard"),
         evaluation_role="test",
         random_state=42,
+        return_estimators=True,
     )
     assert result.folds[0].estimator is not None
     scaler = result.folds[0].estimator.named_steps["scaler"]
@@ -71,13 +71,14 @@ def test_validation_fits_imputer_only_on_training_partition():
         train_ids=list("abcd"),
         test_ids=list("ef"),
     )
-    result = ValidationEngine(MODEL_REGISTRY).run(
+    result = validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,
         preprocessing=PreprocessingConfig(imputation="median", scaler=None),
         evaluation_role="test",
         random_state=42,
+        return_estimators=True,
     )
     assert result.folds[0].estimator is not None
     imputer = result.folds[0].estimator.named_steps["imputer"]
@@ -99,7 +100,7 @@ def test_predefined_folds_produce_complete_identity_preserving_oof_predictions()
         fold_assignments=assignments,
         dataset_fingerprint=dataset.fingerprint,
     )
-    result = ValidationEngine(MODEL_REGISTRY).run(
+    result = validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,
@@ -129,7 +130,7 @@ def test_regression_validation_returns_fold_and_oof_metrics():
         sample_ids=ids,
         fold_assignments=np.arange(50) % 5,
     )
-    result = ValidationEngine(MODEL_REGISTRY).run(
+    result = validate(
         dataset=dataset,
         algorithm="ridge_regressor",
         partition_plan=plan,
@@ -144,7 +145,7 @@ def test_unpartitioned_data_require_explicit_biosieve_configuration():
     X, y = make_classification(n_samples=30, n_features=5, random_state=2)
     dataset = DatasetBundle(X=X, y=y)
     with pytest.raises(ValidationContractError, match="BioSievePartitionConfig"):
-        ValidationEngine(MODEL_REGISTRY).run(
+        validate(
             dataset=dataset,
             algorithm="logistic_regression",
         )
@@ -158,7 +159,7 @@ def test_partition_plan_and_biosieve_configuration_are_mutually_exclusive():
         test_ids=range(20, 30),
     )
     with pytest.raises(ValidationContractError, match="not both"):
-        ValidationEngine(MODEL_REGISTRY).run(
+        validate(
             dataset=dataset,
             algorithm="logistic_regression",
             partition_plan=plan,
@@ -173,11 +174,12 @@ def test_sample_weights_are_forwarded_aligned_with_the_training_fold():
     dataset = DatasetBundle(X=X, y=y, sample_ids=ids, sample_weight=weights)
     # Train on a non-prefix block so a misaligned weight slice would be detected.
     plan = PartitionPlan.holdout(train_ids=ids[10:], test_ids=ids[:10])
-    result = ValidationEngine(MODEL_REGISTRY).run(
+    result = validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,
         evaluation_role="test",
+        return_estimators=True,
     )
     fitted = result.folds[0].estimator
     assert fitted is not None
@@ -202,7 +204,7 @@ def test_sample_weights_fail_for_estimator_without_weight_support():
         test_ids=dataset.sample_ids[30:],
     )
     with pytest.raises(ValidationContractError, match="sample-weight support"):
-        ValidationEngine(MODEL_REGISTRY).run(
+        validate(
             dataset=dataset,
             algorithm="knn_classifier",
             partition_plan=plan,
@@ -219,7 +221,7 @@ def test_holdout_auto_role_prefers_validation_over_final_test():
         validation_ids=ids[30:40],
         test_ids=ids[40:],
     )
-    result = ValidationEngine(MODEL_REGISTRY).run(
+    result = validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,
@@ -249,7 +251,7 @@ def test_cross_validation_auto_role_uses_biosieve_style_test_fold():
         )
     plan = PartitionPlan(splits=tuple(splits), kind="cross_validation")
 
-    result = ValidationEngine(MODEL_REGISTRY).run(
+    result = validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,
@@ -274,3 +276,27 @@ def test_fold_aggregation_skips_non_finite_values_and_uses_sample_std():
     assert means == pytest.approx({"accuracy": 0.8, "roc_auc": 0.9})
     assert summary["accuracy"] == pytest.approx({"mean": 0.8, "std": 0.2, "min": 0.6, "max": 1.0, "n": 3.0})
     assert summary["roc_auc"] == pytest.approx({"mean": 0.9, "std": 0.0, "min": 0.9, "max": 0.9, "n": 1.0})
+
+
+def test_oof_prediction_carries_probabilities_decision_scores_and_classes():
+    X, y = make_classification(n_samples=60, n_features=6, random_state=3)
+    ids = [f"s{i}" for i in range(60)]
+    dataset = DatasetBundle(X=X, y=y, sample_ids=ids)
+    plan = PartitionPlan.from_predefined_folds(
+        sample_ids=ids,
+        fold_assignments=np.arange(60) % 3,
+        dataset_fingerprint=dataset.fingerprint,
+    )
+    result = validate(
+        dataset=dataset,
+        algorithm="logistic_regression",
+        partition_plan=plan,
+        metrics=("accuracy",),
+        random_state=3,
+    )
+    oof = result.oof_prediction
+    assert oof is not None
+    assert oof.probabilities is not None
+    assert oof.probabilities.shape == (60, 2)
+    assert oof.decision_scores is not None
+    np.testing.assert_array_equal(oof.classes, [0, 1])

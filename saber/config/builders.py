@@ -6,6 +6,15 @@ from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 from saber.benchmark import BenchmarkConfig
+from saber.config.schema import (
+    BENCHMARK_KEYS,
+    DATASET_KEYS,
+    PARTITION_KEYS,
+    PARTITIONING_KEYS,
+    PREPROCESSING_KEYS,
+    TUNING_KEYS,
+    validate_mapping_keys,
+)
 from saber.core import Categorical, Float, Integer, LogFloat, SearchSpace
 from saber.datasets import (
     BioSievePartitionConfig,
@@ -27,23 +36,12 @@ if TYPE_CHECKING:
 def load_dataset(
     config: WorkflowConfig,
     payload: Mapping[str, Any],
-    *,
-    require_target: bool = True,
 ) -> DatasetBundle:
     """Load one prepared numeric tabular dataset from CSV/TSV."""
-    allowed = {
-        "path",
-        "target",
-        "sample_id",
-        "features",
-        "groups",
-        "sample_weight",
-        "sep",
-    }
-    _reject_unknown(payload, allowed, "dataset")
+    validate_mapping_keys(payload, DATASET_KEYS, "dataset")
     if "path" not in payload:
         raise ConfigurationError("Dataset config requires 'path'.")
-    if require_target and "target" not in payload:
+    if "target" not in payload:
         raise ConfigurationError("Labeled workflows require dataset.target.")
 
     path = config.resolve_path(payload["path"])
@@ -96,8 +94,7 @@ def load_prediction_frame(
     payload: Mapping[str, Any],
 ) -> tuple[pl.DataFrame, tuple[Any, ...] | None]:
     """Load features/sample IDs for prediction without requiring a target."""
-    allowed = {"path", "target", "sample_id", "features", "groups", "sample_weight", "sep"}
-    _reject_unknown(payload, allowed, "dataset")
+    validate_mapping_keys(payload, DATASET_KEYS, "dataset")
     if "path" not in payload:
         raise ConfigurationError("Prediction dataset config requires 'path'.")
     path = config.resolve_path(payload["path"])
@@ -125,8 +122,7 @@ def build_preprocessing(payload: Mapping[str, Any] | None) -> PreprocessingConfi
     """Build a PreprocessingConfig from a validated preprocessing payload."""
     if payload is None:
         return PreprocessingConfig()
-    allowed = {"imputation", "scaler", "fill_value"}
-    _reject_unknown(payload, allowed, "preprocessing")
+    validate_mapping_keys(payload, PREPROCESSING_KEYS, "preprocessing")
     return PreprocessingConfig(
         imputation=payload.get("imputation", "auto"),
         scaler=payload.get("scaler", "auto"),
@@ -144,24 +140,13 @@ def build_partition_inputs(
     plan = None
     biosieve = None
     if partition is not None:
-        allowed = {"path", "sample_id_col", "role_col", "split_col", "fold_col", "always_train_value"}
-        _reject_unknown(partition, allowed, "partition")
+        validate_mapping_keys(partition, PARTITION_KEYS, "partition")
         if "path" not in partition:
             raise ConfigurationError("External partition config requires 'path'.")
         kwargs = {key: value for key, value in partition.items() if key != "path"}
         plan = load_partition_plan(config.resolve_path(partition["path"]), **kwargs)
     if partitioning is not None:
-        allowed = {
-            "strategy",
-            "params",
-            "id_col",
-            "label_col",
-            "group_col",
-            "seq_col",
-            "cluster_col",
-            "date_col",
-        }
-        _reject_unknown(partitioning, allowed, "partitioning")
+        validate_mapping_keys(partitioning, PARTITIONING_KEYS, "partitioning")
         if "strategy" not in partitioning:
             raise ConfigurationError("BioSieve partitioning requires 'strategy'.")
         biosieve = BioSievePartitionConfig(**dict(partitioning))
@@ -170,27 +155,7 @@ def build_partition_inputs(
 
 def build_tuning_config(payload: Mapping[str, Any]) -> TuningConfig:
     """Build a TuningConfig from a validated tuning payload."""
-    allowed = {
-        "optimizer",
-        "metrics",
-        "refit_metric",
-        "refit",
-        "n_jobs",
-        "random_state",
-        "n_iter",
-        "n_trials",
-        "timeout",
-        "factor",
-        "resource",
-        "max_resources",
-        "min_resources",
-        "aggressive_elimination",
-        "error_score",
-        "optuna_storage",
-        "optuna_study_name",
-        "optuna_load_if_exists",
-    }
-    _reject_unknown(payload, allowed, "tuning")
+    validate_mapping_keys(payload, TUNING_KEYS, "tuning")
     values = dict(payload)
     values["metrics"] = tuple(values.get("metrics", ()))
     return TuningConfig(**values)
@@ -198,19 +163,7 @@ def build_tuning_config(payload: Mapping[str, Any]) -> TuningConfig:
 
 def build_benchmark_config(payload: Mapping[str, Any]) -> BenchmarkConfig:
     """Build a BenchmarkConfig from a validated benchmark payload."""
-    allowed = {
-        "metrics",
-        "seeds",
-        "modes",
-        "include_baselines",
-        "fail_fast",
-        "evaluation_role",
-        "require_complete",
-        "return_estimators",
-        "tuning",
-        "metadata",
-    }
-    _reject_unknown(payload, allowed, "benchmark")
+    validate_mapping_keys(payload, BENCHMARK_KEYS, "benchmark")
     if "metrics" not in payload:
         raise ConfigurationError("Benchmark config requires 'metrics'.")
     values = dict(payload)
@@ -259,9 +212,3 @@ def _dataset_separator(payload: Mapping[str, Any], suffix: str) -> str:
     if len(separator) != 1:
         raise ConfigurationError(f"dataset.sep must be a single character; received {separator!r}.")
     return separator
-
-
-def _reject_unknown(payload: Mapping[str, Any], allowed: set[str], label: str) -> None:
-    unknown = set(payload) - allowed
-    if unknown:
-        raise ConfigurationError(f"Unknown {label} keys: {sorted(unknown)!r}.")

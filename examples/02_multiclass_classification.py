@@ -101,7 +101,7 @@ def _(DEMO_TEST, classification_report, dataset, pl, plan, validate, y):
         "precision_macro", "recall_macro", "f1_macro", "f1_micro", "mcc", "log_loss",
     )
     result = validate(
-        dataset=dataset, algorithm="random_forest", partition_plan=plan,
+        dataset=dataset, algorithm="random_forest_classifier", partition_plan=plan,
         metrics=metrics, random_state=17,
         model_params={"n_estimators": 80 if DEMO_TEST else 180, "max_depth": 7},
     )
