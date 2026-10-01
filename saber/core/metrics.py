@@ -9,6 +9,7 @@ them so every search backend can maximize a common objective.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import partial
 from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
@@ -68,8 +69,6 @@ class MetricSpec:
     positive_class_aware
         Whether a binary scorer must be computed for an explicit positive
         class (as evaluation does) instead of by class order or averaging.
-    description
-        Human-readable summary.
 
     """
 
@@ -83,7 +82,6 @@ class MetricSpec:
     response_method: ResponseMethod = "predict"
     scorer_kwargs: dict[str, Any] = field(default_factory=dict)
     problem_types: tuple[ProblemType, ...] = field(default_factory=tuple)
-    description: str | None = None
     positive_class_aware: bool = False
 
     def make_scorer(self, *, positive_class: Any | None = None) -> Any:
@@ -137,113 +135,33 @@ def _roc_auc_for_positive_class(y_true: Any, y_score: Any, *, pos_label: Any | N
     return float(roc_auc_score(np.asarray(y_true) == pos_label, y_score))
 
 
+_clf = partial(MetricSpec, task="classification", problem_types=("binary", "multiclass"))
+_reg = partial(MetricSpec, task="regression", problem_types=("regression",))
+_AVERAGED = {"average": "weighted", "zero_division": 0}
+
 _CLASSIFICATION_SPECS = (
-    MetricSpec(
-        name="accuracy",
-        task="classification",
-        score_func=accuracy_score,
-        problem_types=("binary", "multiclass"),
-        description="Fraction of correctly classified samples.",
-    ),
-    MetricSpec(
-        name="balanced_accuracy",
-        task="classification",
-        score_func=balanced_accuracy_score,
-        problem_types=("binary", "multiclass"),
-        description="Mean recall across classes.",
-    ),
-    MetricSpec(
-        name="precision",
-        task="classification",
-        score_func=precision_score,
-        scorer_kwargs={"average": "weighted", "zero_division": 0},
-        problem_types=("binary", "multiclass"),
-        description="Positive-class precision (binary); weighted across classes (multiclass).",
-        positive_class_aware=True,
-    ),
-    MetricSpec(
-        name="recall",
-        task="classification",
-        score_func=recall_score,
-        scorer_kwargs={"average": "weighted", "zero_division": 0},
-        problem_types=("binary", "multiclass"),
-        description="Positive-class recall (binary); weighted across classes (multiclass).",
-        positive_class_aware=True,
-    ),
-    MetricSpec(
-        name="f1",
-        task="classification",
-        score_func=f1_score,
-        scorer_kwargs={"average": "weighted", "zero_division": 0},
-        problem_types=("binary", "multiclass"),
-        description="Positive-class F1 (binary); weighted across classes (multiclass).",
-        positive_class_aware=True,
-    ),
-    MetricSpec(
-        name="mcc",
-        task="classification",
-        score_func=matthews_corrcoef,
-        problem_types=("binary", "multiclass"),
-        description="Matthews correlation coefficient.",
-    ),
-    MetricSpec(
+    _clf(name="accuracy", score_func=accuracy_score),
+    _clf(name="balanced_accuracy", score_func=balanced_accuracy_score),
+    _clf(name="precision", score_func=precision_score, scorer_kwargs=_AVERAGED, positive_class_aware=True),
+    _clf(name="recall", score_func=recall_score, scorer_kwargs=_AVERAGED, positive_class_aware=True),
+    _clf(name="f1", score_func=f1_score, scorer_kwargs=_AVERAGED, positive_class_aware=True),
+    _clf(name="mcc", score_func=matthews_corrcoef),
+    _clf(
         name="roc_auc",
-        task="classification",
         score_func=_roc_auc_for_positive_class,
         response_method=("decision_function", "predict_proba"),
         problem_types=("binary",),
-        description="Area under the ROC curve for binary classification.",
         positive_class_aware=True,
     ),
 )
 
 _REGRESSION_SPECS = (
-    MetricSpec(
-        name="mae",
-        task="regression",
-        score_func=mean_absolute_error,
-        greater_is_better=False,
-        problem_types=("regression",),
-        description="Mean absolute error.",
-    ),
-    MetricSpec(
-        name="mse",
-        task="regression",
-        score_func=mean_squared_error,
-        greater_is_better=False,
-        problem_types=("regression",),
-        description="Mean squared error.",
-    ),
-    MetricSpec(
-        name="rmse",
-        task="regression",
-        score_func=root_mean_squared_error,
-        greater_is_better=False,
-        problem_types=("regression",),
-        description="Root mean squared error.",
-    ),
-    MetricSpec(
-        name="median_ae",
-        task="regression",
-        score_func=median_absolute_error,
-        greater_is_better=False,
-        problem_types=("regression",),
-        description="Median absolute error.",
-    ),
-    MetricSpec(
-        name="r2",
-        task="regression",
-        score_func=r2_score,
-        problem_types=("regression",),
-        description="Coefficient of determination.",
-    ),
-    MetricSpec(
-        name="explained_variance",
-        task="regression",
-        score_func=explained_variance_score,
-        problem_types=("regression",),
-        description="Explained variance regression score.",
-    ),
+    _reg(name="mae", score_func=mean_absolute_error, greater_is_better=False),
+    _reg(name="mse", score_func=mean_squared_error, greater_is_better=False),
+    _reg(name="rmse", score_func=root_mean_squared_error, greater_is_better=False),
+    _reg(name="median_ae", score_func=median_absolute_error, greater_is_better=False),
+    _reg(name="r2", score_func=r2_score),
+    _reg(name="explained_variance", score_func=explained_variance_score),
 )
 
 METRIC_SPECS: dict[str, MetricSpec] = {
@@ -259,14 +177,6 @@ def get_metric_spec(name: str) -> MetricSpec:
         raise MetricNotFoundError(name) from exc
 
 
-def list_metric_specs(*, task: str | None = None) -> list[MetricSpec]:
-    """List metric specifications, optionally filtered by task."""
-    specs = list(METRIC_SPECS.values())
-    if task is not None:
-        specs = [spec for spec in specs if spec.task == task]
-    return sorted(specs, key=lambda spec: spec.name)
-
-
 def infer_problem_type(*, task: str, y: Sequence[Any] | np.ndarray | None = None) -> ProblemType:
     """Infer the supervised problem regime needed by metric validation."""
     if task == "regression":
@@ -279,16 +189,9 @@ def infer_problem_type(*, task: str, y: Sequence[Any] | np.ndarray | None = None
         # Problem-type validation is deferred when targets are not available.
         return "binary"
 
-    n_classes = np.unique(np.asarray(y)).size
-    if n_classes == 2:
-        return "binary"
-    if n_classes > 2:
-        return "multiclass"
-
-    # A single-class target is invalid for supervised classification, but
-    # dataset-level validation belongs to a later phase. Returning binary here
-    # keeps metric validation focused on its own contract.
-    return "binary"
+    # A single-class target is invalid, but dataset-level validation belongs
+    # to a later phase; "binary" keeps metric validation on its own contract.
+    return "multiclass" if np.unique(np.asarray(y)).size > 2 else "binary"
 
 
 def resolve_positive_class(

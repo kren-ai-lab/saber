@@ -16,6 +16,7 @@ from saber.core.registry import get_algorithm
 from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
 from saber.exceptions import BenchmarkContractError
 from saber.tuning import tune
+from saber.utils.tabular import python_scalar
 from saber.validation import validate
 from saber.validation.partitioning import resolve_partition_plan
 
@@ -218,6 +219,21 @@ def _run_one(
     provider = None if algorithm_spec is None else algorithm_spec.provider
     task = None if algorithm_spec is None else algorithm_spec.task
     targets = _targets_by_id(dataset)
+    identity = {
+        "run_id": run_id,
+        "representation": label,
+        "partition_label": partition.label,
+        "algorithm": algorithm,
+        "provider": provider,
+        "task": task,
+        "mode": mode,
+        "seed": seed,
+        "targets": targets,
+    }
+    fingerprints = {
+        "dataset_fingerprint": dataset.fingerprint,
+        "partition_fingerprint": bound_plan.fingerprint,
+    }
 
     try:
         if algorithm_spec is None:
@@ -270,54 +286,25 @@ def _run_one(
             raise BenchmarkContractError(f"Unsupported benchmark mode '{mode}'.")  # noqa: TRY301
 
         elapsed = perf_counter() - start
+        best_params = {} if optimization is None else optimization.best_params
         return BenchmarkRun(
-            run_id=run_id,
-            representation=label,
-            partition_label=partition.label,
-            algorithm=algorithm,
-            provider=provider,
-            task=task,
-            mode=mode,
-            seed=seed,
+            **identity,
             status="complete",
             validation=validation,
             optimization=optimization,
             elapsed_seconds=float(elapsed),
-            parameters=(
-                {**dict(algorithm_spec.default_params), **model_params, **optimization.best_params}
-                if optimization is not None
-                else {**dict(algorithm_spec.default_params), **model_params}
-            ),
-            targets=targets,
-            metadata={
-                "dataset_fingerprint": dataset.fingerprint,
-                "partition_fingerprint": bound_plan.fingerprint,
-                "partition_metadata": dict(partition.metadata),
-            },
+            parameters={**algorithm_spec.default_params, **model_params, **best_params},
+            metadata={**fingerprints, "partition_metadata": dict(partition.metadata)},
         )
     except Exception as exc:  # noqa: BLE001  # any run failure becomes a failed BenchmarkRun, not a crash
+        default_params = {} if algorithm_spec is None else algorithm_spec.default_params
         return BenchmarkRun(
-            run_id=run_id,
-            representation=label,
-            partition_label=partition.label,
-            algorithm=algorithm,
-            provider=provider,
-            task=task,
-            mode=mode,
-            seed=seed,
+            **identity,
             status="failed",
             elapsed_seconds=float(perf_counter() - start),
             error=f"{type(exc).__name__}: {exc}",
-            parameters=(
-                {**dict(algorithm_spec.default_params), **model_params}
-                if algorithm_spec is not None
-                else dict(model_params)
-            ),
-            targets=targets,
-            metadata={
-                "dataset_fingerprint": dataset.fingerprint,
-                "partition_fingerprint": bound_plan.fingerprint,
-            },
+            parameters={**default_params, **model_params},
+            metadata=fingerprints,
         )
 
 
@@ -428,7 +415,7 @@ def _validate_dataset_alignment(datasets: dict[str, DatasetBundle]) -> None:
 
 def _targets_by_id(dataset: DatasetBundle) -> dict[Any, Any]:
     return {
-        sample_id: target.item() if isinstance(target, np.generic) else target
+        sample_id: python_scalar(target)
         for sample_id, target in zip(dataset.resolved_sample_ids, np.asarray(dataset.y), strict=True)
     }
 

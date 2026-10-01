@@ -7,6 +7,7 @@ import sys
 from importlib import metadata
 from typing import Any
 
+from saber._version import __version__
 from saber.exceptions import ArtifactCompatibilityError
 
 _TRACKED_PACKAGES = (
@@ -28,14 +29,7 @@ def package_version(name: str) -> str | None:
     try:
         return metadata.version(name)
     except metadata.PackageNotFoundError:
-        if name == "saberlib":
-            try:
-                from saber import __version__  # noqa: PLC0415  # avoids a circular import with saber.__init__
-            except Exception:  # noqa: BLE001  # any import failure means the version is unavailable
-                return None
-            else:
-                return __version__
-        return None
+        return __version__ if name == "saberlib" else None
 
 
 def environment_snapshot() -> dict[str, Any]:
@@ -63,9 +57,9 @@ def compatibility_warnings(
 ) -> tuple[str, ...]:
     """Compare artifact environment with the active runtime.
 
-    Major/minor changes in Python, scikit-learn, or saber are considered
-    compatibility-sensitive. Other package-version changes are reported as
-    warnings but remain loadable unless ``strict`` is enabled.
+    A Python major/minor change and any tracked-package version difference or
+    absence are reported as warnings. Warnings remain loadable unless
+    ``strict`` is enabled.
     """
     current = environment_snapshot()
     warnings: list[str] = []

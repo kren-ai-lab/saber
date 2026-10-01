@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from saber._api._common import fit_dataset
+from saber.core.registry import get_algorithm
+from saber.core.results import TrainResult
+from saber.preprocessing.pipeline import build_model_pipeline, pipeline_input, preprocessing_summary
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from saber.core.results import TrainResult
     from saber.datasets import DatasetBundle
     from saber.preprocessing import PreprocessingConfig
 
@@ -29,15 +30,39 @@ def train(
     ``benchmark``; hyperparameter selection belongs to ``tune``.  Persist the
     result with :func:`saber.save_model`.
     """
-    result = fit_dataset(
-        dataset=dataset,
-        algorithm=algorithm,
+    spec = get_algorithm(algorithm)
+    dataset.validate(task=spec.task)
+
+    estimator = spec.build_estimator(random_state=random_state, **(model_params or {}))
+    pipeline = build_model_pipeline(
+        spec=spec,
+        estimator=estimator,
+        training_data=dataset,
         preprocessing=preprocessing,
-        random_state=random_state,
-        model_params=model_params,
     )
-    result.positive_class = positive_class
-    return result
+    pipeline.fit(
+        pipeline_input(pipeline, dataset.X),
+        dataset.y,
+        **spec.sample_weight_fit_params(dataset.sample_weight),
+    )
+
+    return TrainResult(
+        model=pipeline,
+        spec=spec,
+        parameters=dict(pipeline.named_steps["estimator"].get_params(deep=False)),
+        feature_schema=dataset.feature_schema,
+        positive_class=positive_class,
+        metadata={
+            "algorithm": spec.name,
+            "provider": spec.provider,
+            "task": spec.task,
+            "dataset_fingerprint": dataset.fingerprint,
+            "n_samples": dataset.n_samples,
+            "n_features": dataset.n_features,
+            "random_state": random_state,
+            "preprocessing": preprocessing_summary(preprocessing),
+        },
+    )
 
 
 __all__ = ["train"]

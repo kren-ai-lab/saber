@@ -1,7 +1,4 @@
-"""saber.classification.search_spaces.
-
-Default hyperparameter search spaces for classification models.
-"""
+"""Default hyperparameter search spaces for classification models."""
 
 from __future__ import annotations
 

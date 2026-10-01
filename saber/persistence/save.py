@@ -21,8 +21,6 @@ from saber.utils.serialization import write_json
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
 
-    import polars as pl
-
     from saber.benchmark.results import BenchmarkResult
     from saber.datasets import DatasetBundle, FeatureSchema, PartitionPlan
     from saber.tuning.results import OptimizationResult
@@ -224,13 +222,10 @@ def save_benchmark(
         }
         write_json(root / files["benchmark_metadata"], benchmark_metadata)
 
-        _write_frame(result.runs_frame(), root / files["runs"])
-        _write_frame(result.metrics_frame(), root / files["metrics"])
-        _write_frame(result.predictions_frame(), root / files["predictions"])
-        _write_frame(
-            result.optimization_history_frame(),
-            root / files["optimization_history"],
-        )
+        result.runs_frame().write_csv(root / files["runs"])
+        result.metrics_frame().write_csv(root / files["metrics"])
+        result.predictions_frame().write_csv(root / files["predictions"])
+        result.optimization_history_frame().write_csv(root / files["optimization_history"])
         if include_object:
             joblib.dump(result, root / files["benchmark_object"])
 
@@ -249,10 +244,6 @@ def save_benchmark(
         write_checksums(root)
 
     return target
-
-
-def _write_frame(frame: pl.DataFrame, path: Path) -> None:
-    frame.write_csv(path)
 
 
 @contextmanager

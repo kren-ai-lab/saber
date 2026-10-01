@@ -78,7 +78,7 @@ def validate(
 
         estimator = spec.build_estimator(
             random_state=random_state,
-            **dict(model_params or {}),
+            **(model_params or {}),
         )
         pipeline = build_model_pipeline(
             spec=spec,
@@ -93,14 +93,15 @@ def validate(
         pipeline.fit(pipeline_input(pipeline, resolved.train.X), resolved.train.y, **fit_kwargs)
         fit_seconds = perf_counter() - start
 
-        prediction = _prediction_from_pipeline(
-            pipeline,
-            spec_task=spec.task,
-            X=evaluation_data.X,
-            sample_ids=evaluation_data.sample_ids,
+        outputs = collect_model_outputs(
+            pipeline, pipeline_input(pipeline, evaluation_data.X), task=spec.task, tolerant=True
+        )
+        prediction = PredictionResult(
+            task=spec.task,
+            **outputs,
             positive_class=positive_class,
-            algorithm=spec.name,
-            provider=spec.provider,
+            sample_ids=np.asarray(evaluation_data.sample_ids, dtype=object),
+            metadata={"algorithm": spec.name, "provider": spec.provider},
         )
         evaluation = evaluate_prediction(
             evaluation_data.y,
@@ -146,31 +147,6 @@ def validate(
             "partition_fingerprint": plan.fingerprint,
             "dataset_fingerprint": dataset.fingerprint,
             **oof_metadata,
-        },
-    )
-
-
-def _prediction_from_pipeline(
-    pipeline: Any,
-    *,
-    spec_task: TaskType,
-    X: Any,
-    sample_ids: Sequence[Any],
-    positive_class: Any | None,
-    algorithm: str,
-    provider: str,
-) -> PredictionResult:
-    X = pipeline_input(pipeline, X)
-    outputs = collect_model_outputs(pipeline, X, task=spec_task, tolerant=True)
-
-    return PredictionResult(
-        task=spec_task,
-        **outputs,
-        positive_class=positive_class,
-        sample_ids=np.asarray(sample_ids, dtype=object),
-        metadata={
-            "algorithm": algorithm,
-            "provider": provider,
         },
     )
 
@@ -242,8 +218,6 @@ def _build_oof_prediction(
 
 def _consistent_classes(folds: tuple[FoldValidationResult, ...]) -> np.ndarray | None:
     values = [fold.prediction.classes for fold in folds]
-    if all(value is None for value in values):
-        return None
     if any(value is None for value in values):
         return None
     first = np.asarray(values[0])

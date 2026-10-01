@@ -18,17 +18,18 @@ from sklearn.metrics import (
 if TYPE_CHECKING:
     import numpy as np
 
-REGRESSION_METRICS = (
-    "mae",
-    "median_ae",
-    "mse",
-    "rmse",
-    "mape",
-    "r2",
-    "explained_variance",
-    "pearson",
-    "spearman",
-)
+_METRIC_FUNCS = {
+    "mae": mean_absolute_error,
+    "median_ae": median_absolute_error,
+    "mse": mean_squared_error,
+    "rmse": root_mean_squared_error,
+    "mape": mean_absolute_percentage_error,
+    "r2": r2_score,
+    "explained_variance": explained_variance_score,
+    "pearson": lambda y_true, y_pred: pearsonr(y_true, y_pred)[0],
+    "spearman": lambda y_true, y_pred: spearmanr(y_true, y_pred)[0],
+}
+REGRESSION_METRICS = tuple(_METRIC_FUNCS)
 
 
 def evaluate_regression(
@@ -43,27 +44,4 @@ def evaluate_regression(
     if unknown:
         raise ValueError(f"Unknown regression metrics: {sorted(unknown)!r}.")
 
-    values: dict[str, float] = {}
-
-    if "mae" in requested:
-        values["mae"] = float(mean_absolute_error(y_true, y_pred))
-    if "median_ae" in requested:
-        values["median_ae"] = float(median_absolute_error(y_true, y_pred))
-    if "mse" in requested:
-        values["mse"] = float(mean_squared_error(y_true, y_pred))
-    if "rmse" in requested:
-        values["rmse"] = float(root_mean_squared_error(y_true, y_pred))
-    if "mape" in requested:
-        values["mape"] = float(mean_absolute_percentage_error(y_true, y_pred))
-    if "r2" in requested:
-        values["r2"] = float(r2_score(y_true, y_pred))
-    if "explained_variance" in requested:
-        values["explained_variance"] = float(explained_variance_score(y_true, y_pred))
-    if "pearson" in requested:
-        pearson_value, _ = pearsonr(y_true, y_pred)
-        values["pearson"] = float(pearson_value)
-    if "spearman" in requested:
-        spearman_value, _ = spearmanr(y_true, y_pred)
-        values["spearman"] = float(spearman_value)
-
-    return values
+    return {name: float(fn(y_true, y_pred)) for name, fn in _METRIC_FUNCS.items() if name in requested}

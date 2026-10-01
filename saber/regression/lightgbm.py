@@ -1,7 +1,4 @@
-"""saber.regression.lightgbm.
-
-LightGBM regression model specs.
-"""
+"""LightGBM regression model specs."""
 
 from __future__ import annotations
 

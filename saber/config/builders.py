@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 import polars as pl
 
 from saber.benchmark import BenchmarkConfig
+from saber.config.schema import PARTITIONING_ROLE_COLUMNS
 from saber.core import Categorical, Float, Integer, LogFloat, SearchSpace
 from saber.datasets import (
     BioSievePartitionConfig,
@@ -122,7 +123,7 @@ def build_partitioning(
     return BioSievePartitionConfig(
         strategy=payload["strategy"],
         params=payload.get("params", {}),
-        **{key: payload[key] for key in ("seq_col", "cluster_col", "date_col") if key in payload},
+        **{key: payload[key] for key in PARTITIONING_ROLE_COLUMNS if key in payload},
         extra_columns=extra_columns or None,
     )
 

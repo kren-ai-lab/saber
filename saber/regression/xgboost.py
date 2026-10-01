@@ -1,7 +1,4 @@
-"""saber.regression.xgboost.
-
-XGBoost regression model specs.
-"""
+"""XGBoost regression model specs."""
 
 from __future__ import annotations
 

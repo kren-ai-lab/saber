@@ -1,4 +1,4 @@
-"""Core exception hierarchy for saber."""
+"""Saber exception hierarchy."""
 
 from __future__ import annotations
 
@@ -141,3 +141,30 @@ class ArtifactCompatibilityError(PersistenceError):
 
 class ConfigurationError(SaberError, ValueError):
     """Raised when a declarative workflow configuration is invalid."""
+
+
+__all__ = [
+    "AlgorithmNotFoundError",
+    "ArtifactCompatibilityError",
+    "ArtifactIntegrityError",
+    "BenchmarkContractError",
+    "ConfigurationError",
+    "DatasetError",
+    "DatasetFingerprintMismatchError",
+    "DatasetValidationError",
+    "FeatureSchemaMismatchError",
+    "MetricError",
+    "MetricIncompatibleError",
+    "MetricNotFoundError",
+    "NonFiniteScoreError",
+    "OptimizationError",
+    "OptionalDependencyError",
+    "PartitionError",
+    "PartitionIntegrationError",
+    "PartitionValidationError",
+    "PersistenceError",
+    "PredictionContractError",
+    "PreprocessingContractError",
+    "SaberError",
+    "ValidationContractError",
+]

@@ -27,51 +27,23 @@ if TYPE_CHECKING:
 _STRATEGIES: dict[str, tuple[str, str]] = {
     "random": ("biosieve.splitting.random", "RandomSplitter"),
     "stratified": ("biosieve.splitting.stratified", "StratifiedSplitter"),
-    "stratified_numeric": (
-        "biosieve.splitting.stratified_numeric",
-        "StratifiedNumericSplitter",
-    ),
+    "stratified_numeric": ("biosieve.splitting.stratified_numeric", "StratifiedNumericSplitter"),
     "group": ("biosieve.splitting.group", "GroupSplitter"),
     "time": ("biosieve.splitting.time_based", "TimeSplitter"),
     "cluster_aware": ("biosieve.splitting.cluster", "ClusterAwareSplitter"),
-    "distance_aware": (
-        "biosieve.splitting.distance_aware",
-        "DistanceAwareSplitter",
-    ),
-    "homology_aware": (
-        "biosieve.splitting.homology_aware",
-        "HomologyAwareSplitter",
-    ),
-    "random_kfold": (
-        "biosieve.splitting.random_kfold",
-        "RandomKFoldSplitter",
-    ),
-    "stratified_kfold": (
-        "biosieve.splitting.stratified_kfold",
-        "StratifiedKFoldSplitter",
-    ),
-    "group_kfold": (
-        "biosieve.splitting.group_kfold",
-        "GroupKFoldSplitter",
-    ),
+    "distance_aware": ("biosieve.splitting.distance_aware", "DistanceAwareSplitter"),
+    "homology_aware": ("biosieve.splitting.homology_aware", "HomologyAwareSplitter"),
+    "random_kfold": ("biosieve.splitting.random_kfold", "RandomKFoldSplitter"),
+    "stratified_kfold": ("biosieve.splitting.stratified_kfold", "StratifiedKFoldSplitter"),
+    "group_kfold": ("biosieve.splitting.group_kfold", "GroupKFoldSplitter"),
     "stratified_numeric_kfold": (
         "biosieve.splitting.stratified_numeric_kfold",
         "StratifiedNumericKFoldSplitter",
     ),
-    "distance_aware_kfold": (
-        "biosieve.splitting.distance_aware_kfold",
-        "DistanceAwareKFoldSplitter",
-    ),
+    "distance_aware_kfold": ("biosieve.splitting.distance_aware_kfold", "DistanceAwareKFoldSplitter"),
 }
 
-_KFOLD_STRATEGIES = {
-    "random_kfold",
-    "stratified_kfold",
-    "group_kfold",
-    "stratified_numeric_kfold",
-    "distance_aware_kfold",
-}
-
+_KFOLD_STRATEGIES = {name for name in _STRATEGIES if name.endswith("_kfold")}
 
 _ID_COL = "__saber_sample_id__"
 _LABEL_COL = "__saber_target__"
@@ -102,8 +74,6 @@ class BioSievePartitionConfig:
     def __post_init__(self) -> None:
         """Normalize the strategy name and validate that it is supported."""
         strategy = str(self.strategy).strip().lower()
-        if not strategy:
-            raise PartitionIntegrationError("BioSieve strategy cannot be empty.")
         if strategy not in _STRATEGIES:
             supported = ", ".join(sorted(_STRATEGIES))
             raise PartitionIntegrationError(
@@ -152,15 +122,13 @@ def partition_with_biosieve(
         date_col=config.date_col,
     )
 
+    if not (hasattr(active_splitter, "run_folds") or hasattr(active_splitter, "run")):
+        raise PartitionIntegrationError("BioSieve splitter must implement run(...) or run_folds(...).")
     try:
         if hasattr(active_splitter, "run_folds"):
             raw_results = list(active_splitter.run_folds(frame, columns))
-        elif hasattr(active_splitter, "run"):
-            raw_results = [active_splitter.run(frame, columns)]
         else:
-            raise PartitionIntegrationError(  # noqa: TRY301  # re-raised unchanged by the except clause below
-                "BioSieve splitter must implement run(...) or run_folds(...)."
-            )
+            raw_results = [active_splitter.run(frame, columns)]
     except PartitionIntegrationError:
         raise
     except Exception as exc:
@@ -235,10 +203,12 @@ def _resolved_strategy_params(
 ) -> dict[str, Any]:
     params = dict(config.params)
 
-    if config.strategy in {"stratified", "stratified_kfold"}:
-        params.setdefault("label_col", _LABEL_COL)
-
-    if config.strategy in {"stratified_numeric", "stratified_numeric_kfold"}:
+    if config.strategy in {
+        "stratified",
+        "stratified_kfold",
+        "stratified_numeric",
+        "stratified_numeric_kfold",
+    }:
         params.setdefault("label_col", _LABEL_COL)
 
     if config.strategy in {"group", "group_kfold"}:

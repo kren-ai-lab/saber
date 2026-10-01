@@ -1,7 +1,4 @@
-"""saber.classification.lightgbm_models.
-
-LightGBM classification model specs.
-"""
+"""LightGBM classification model specs."""
 
 from __future__ import annotations
 

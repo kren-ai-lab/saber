@@ -31,7 +31,7 @@ from saber.validation.partitioning import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Callable, Mapping, Sequence
 
     from saber.core.search_space import SearchSpace
     from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
@@ -148,7 +148,7 @@ def tune(
     first_train = search_dataset.subset(tuple(search_dataset_ids[index] for index in first_train_index))
     estimator = spec.build_estimator(
         random_state=random_state,
-        **dict(model_params or {}),
+        **(model_params or {}),
     )
     pipeline = build_model_pipeline(
         spec=spec,
@@ -160,32 +160,19 @@ def tune(
     fit_params = spec.sample_weight_fit_params(search_dataset.sample_weight)
     start = perf_counter()
 
-    if config.optimizer == "optuna":
-        result = _run_optuna(
-            spec=spec,
-            pipeline=pipeline,
-            dataset=search_dataset,
-            cv=cv,
-            search_space=space,
-            scorers=scorers,
-            refit_metric=refit_metric,
-            config=config,
-            random_state=random_state,
-            fit_params=fit_params,
-        )
-    else:
-        result = _run_sklearn(
-            spec=spec,
-            pipeline=pipeline,
-            dataset=search_dataset,
-            cv=cv,
-            search_space=space,
-            scorers=scorers,
-            refit_metric=refit_metric,
-            config=config,
-            random_state=random_state,
-            fit_params=fit_params,
-        )
+    runner = _run_optuna if config.optimizer == "optuna" else _run_sklearn
+    result = runner(
+        spec=spec,
+        pipeline=pipeline,
+        dataset=search_dataset,
+        cv=cv,
+        search_space=space,
+        scorers=scorers,
+        refit_metric=refit_metric,
+        config=config,
+        random_state=random_state,
+        fit_params=fit_params,
+    )
 
     result.partition_plan = plan
     result.metrics = metrics
@@ -237,32 +224,11 @@ def _run_sklearn(
         "error_score": config.error_score,
     }
 
-    try:
-        grid_parameters = (
-            search_space.to_grid(prefix="estimator__") if optimizer in {"grid", "halving_grid"} else None
-        )
-        random_parameters = (
-            search_space.to_random(prefix="estimator__")
-            if optimizer in {"random", "halving_random"}
-            else None
-        )
-    except ValueError as exc:
-        raise ValidationContractError(
-            f"Search space for optimizer '{optimizer}' is incompatible: {exc}"
-        ) from exc
-
     if optimizer == "grid":
-        if grid_parameters is None:  # always set above whenever optimizer is "grid"
-            raise AssertionError("grid optimizer resolved no grid_parameters.")
-        search = GridSearchCV(
-            param_grid=grid_parameters,
-            **common,
-        )
+        search = GridSearchCV(param_grid=_space_params(search_space.to_grid, optimizer), **common)
     elif optimizer == "random":
-        if random_parameters is None:  # always set above whenever optimizer is "random"
-            raise AssertionError("random optimizer resolved no random_parameters.")
         search = RandomizedSearchCV(
-            param_distributions=random_parameters,
+            param_distributions=_space_params(search_space.to_random, optimizer),
             n_iter=config.n_iter,
             random_state=random_state,
             **common,
@@ -272,10 +238,6 @@ def _run_sklearn(
         # single scoring objective. We optimize the explicit refit metric,
         # then evaluate the selected configuration with all requested
         # metrics on the same explicit folds.
-        single_common = dict(common)
-        single_common["scoring"] = scorers[refit_metric]
-        single_common["refit"] = config.refit
-
         # Deferred: enables the experimental halving search API only when it is used.
         from sklearn.experimental import enable_halving_search_cv  # noqa: F401, PLC0415
 
@@ -286,28 +248,26 @@ def _run_sklearn(
         )
 
         halving_common = {
-            **single_common,
+            **common,
+            "scoring": scorers[refit_metric],
+            "refit": config.refit,
             "factor": config.factor,
             "resource": config.resource,
             "max_resources": config.max_resources,
-            "min_resources": config.min_resources,
             "aggressive_elimination": config.aggressive_elimination,
         }
         if optimizer == "halving_grid":
             search = HalvingGridSearchCV(
-                param_grid=grid_parameters,
+                param_grid=_space_params(search_space.to_grid, optimizer),
+                min_resources=config.min_resources,
                 **halving_common,
             )
         else:
-            min_resources = config.min_resources
-            if min_resources == "exhaust":
-                # HalvingRandomSearchCV uses "smallest" as its canonical
-                # automatic lower-resource policy.
-                min_resources = "smallest"
-            halving_common["min_resources"] = min_resources
             search = HalvingRandomSearchCV(
-                param_distributions=random_parameters,
+                param_distributions=_space_params(search_space.to_random, optimizer),
                 random_state=random_state,
+                # HalvingRandomSearchCV's canonical automatic lower-resource policy is "smallest".
+                min_resources="smallest" if config.min_resources == "exhaust" else config.min_resources,
                 **halving_common,
             )
     else:
@@ -353,12 +313,6 @@ def _run_sklearn(
         )
         best_scores[refit_metric] = best_score
 
-    best_score = _ensure_finite(
-        best_score,
-        algorithm=spec.name,
-        metric=refit_metric,
-        optimizer=optimizer,
-    )
     _validate_best_scores(
         best_scores,
         algorithm=spec.name,
@@ -477,9 +431,9 @@ def _run_optuna(
     )
 
     completed = [
-        trial
+        (float(trial.value), trial)
         for trial in study.trials
-        if trial.state == TrialState.COMPLETE and trial.value is not None and np.isfinite(float(trial.value))
+        if trial.state == TrialState.COMPLETE and trial.value is not None and np.isfinite(trial.value)
     ]
     if not completed:
         raise NonFiniteScoreError(
@@ -489,13 +443,7 @@ def _run_optuna(
             score=float("nan"),
         )
 
-    best_trial = max(completed, key=_finite_trial_value)
-    best_score = _ensure_finite(
-        _finite_trial_value(best_trial),
-        algorithm=spec.name,
-        metric=refit_metric,
-        optimizer="optuna",
-    )
+    best_score, best_trial = max(completed, key=lambda item: item[0])
     best_params = dict(best_trial.params)
     pipeline_params = {f"estimator__{name}": value for name, value in best_params.items()}
     selected = pipeline.set_params(**pipeline_params)
@@ -550,16 +498,13 @@ def _run_optuna(
     )
 
 
-def _finite_trial_value(trial: Any) -> float:
-    """Return an optuna trial's objective value, already known to be finite/non-None.
-
-    Only called on trials from the ``completed`` list, which is filtered to
-    ``trial.value is not None`` above; optuna's stubs still type ``value`` as
-    optional, so this narrows it back for callers.
-    """
-    if trial.value is None:
-        raise AssertionError("Trial is missing an objective value.")
-    return float(trial.value)
+def _space_params(build: Callable[..., Any], optimizer: str) -> Any:
+    try:
+        return build(prefix="estimator__")
+    except ValueError as exc:
+        raise ValidationContractError(
+            f"Search space for optimizer '{optimizer}' is incompatible: {exc}"
+        ) from exc
 
 
 def _best_index(
@@ -579,18 +524,6 @@ def _best_index(
         )
     candidates = np.where(finite)[0]
     return int(candidates[np.argmax(values[finite])])
-
-
-def _ensure_finite(score: float, *, algorithm: str, metric: str, optimizer: str) -> float:
-    value = float(score)
-    if not np.isfinite(value):
-        raise NonFiniteScoreError(
-            algorithm=algorithm,
-            metric=metric,
-            optimizer=optimizer,
-            score=value,
-        )
-    return value
 
 
 def _validate_best_scores(

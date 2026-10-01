@@ -1,7 +1,4 @@
-"""saber.classification.xgboost_models.
-
-XGBoost classification model specs.
-"""
+"""XGBoost classification model specs."""
 
 from __future__ import annotations
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, get_args
 
 if TYPE_CHECKING:
     from saber.tuning import TuningConfig
@@ -36,7 +36,7 @@ class BenchmarkConfig:
             raise ValueError("BenchmarkConfig.seeds must contain at least one seed.")
         if not modes:
             raise ValueError("BenchmarkConfig.modes must contain at least one mode.")
-        invalid = set(modes) - {"untuned", "tuned"}
+        invalid = set(modes) - set(get_args(BenchmarkMode))
         if invalid:
             raise ValueError(f"Unsupported benchmark modes: {sorted(invalid)!r}.")
         if "tuned" in modes and self.tuning is None:

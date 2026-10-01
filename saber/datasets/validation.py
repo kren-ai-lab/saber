@@ -70,9 +70,6 @@ def validate_target(y: Any, *, n_samples: int) -> np.ndarray:
         raise DatasetValidationError(
             f"X and y are misaligned: X has {n_samples} samples but y has {len(values)}."
         )
-    if len(values) == 0:
-        raise DatasetValidationError("y must contain at least one target value.")
-
     if missing_mask(values).any():
         raise DatasetValidationError("y cannot contain missing target values.")
 
@@ -116,19 +113,14 @@ def validate_sample_ids(sample_ids: Sequence[Any], *, n_samples: int) -> tuple[A
     )
     ids = tuple(python_scalar(value) for value in values)
 
-    try:
-        unique_count = len(set(ids))
-    except TypeError as exc:
-        raise DatasetValidationError("sample_ids must contain hashable scalar values.") from exc
-
-    if unique_count != len(ids):
-        raise DatasetValidationError("sample_ids must be unique.")
-
     for sample_id in ids:
         if not isinstance(sample_id, (str, int, float, bool)):
             raise DatasetValidationError("sample_ids must use scalar str/int/float/bool identifiers.")
 
-    classes = {_type_class(sample_id) for sample_id in ids}
+    if len(set(ids)) != len(ids):
+        raise DatasetValidationError("sample_ids must be unique.")
+
+    classes = {type(sample_id) for sample_id in ids}
     if len(classes) > 1:
         found = ", ".join(sorted(cls.__name__ for cls in classes))
         raise DatasetValidationError(
@@ -212,12 +204,3 @@ def validate_target_for_task(y: Any, task: str) -> str:
         return "regression"
 
     raise DatasetValidationError("task must be either 'classification' or 'regression'.")
-
-
-def _type_class(value: Any) -> type:
-    """Classify a validated scalar into one of {bool, int, float, str}."""
-    if isinstance(value, bool):
-        return bool
-    if isinstance(value, int):
-        return int
-    return type(value)

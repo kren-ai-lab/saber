@@ -1,7 +1,4 @@
-"""saber.classification.sklearn.
-
-Scikit-learn classification model specs.
-"""
+"""Scikit-learn classification model specs."""
 
 from __future__ import annotations
 

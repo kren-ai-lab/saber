@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from saber.exceptions import ArtifactCompatibilityError
 
@@ -25,7 +25,7 @@ class ArtifactManifest:
 
     def __post_init__(self) -> None:
         """Validate the artifact type and file listing."""
-        if self.artifact_type not in {"model", "benchmark"}:
+        if self.artifact_type not in get_args(ArtifactType):
             raise ArtifactCompatibilityError(f"Unsupported artifact type '{self.artifact_type}'.")
         if not self.files:
             raise ArtifactCompatibilityError("Artifact manifest must list files.")

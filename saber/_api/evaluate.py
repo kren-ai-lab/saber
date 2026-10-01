@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from saber._api._common import load_active_model, model_task, predict_model
+from saber._api._common import load_active_model, predict_model
+from saber.core.results import TrainResult
 from saber.evaluation import EvaluationResult, evaluate_prediction
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
 
-    from saber.core.results import TrainResult
     from saber.datasets import DatasetBundle
     from saber.persistence import LoadedModelArtifact
 
@@ -25,7 +25,7 @@ def evaluate(
 ) -> EvaluationResult:
     """Evaluate one already-fitted model on a labeled prepared dataset."""
     active = load_active_model(model)
-    dataset.validate(task=model_task(active))
+    dataset.validate(task=active.spec.task if isinstance(active, TrainResult) else active.task)
     prediction = predict_model(
         active,
         dataset.X,

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import importlib.util
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from saber._optional import is_dependency_available
 from saber.classification import sklearn as _classification_sklearn
 from saber.exceptions import AlgorithmNotFoundError
 from saber.regression import sklearn as _regression_sklearn
@@ -19,13 +19,13 @@ if TYPE_CHECKING:
 def _collect_specs() -> tuple[AlgorithmSpec, ...]:
     specs = [*_classification_sklearn.SPECS, *_regression_sklearn.SPECS]
 
-    if is_dependency_available("xgboost"):
+    if importlib.util.find_spec("xgboost") is not None:
         from saber.classification import xgboost as clf_xgboost  # noqa: PLC0415  # optional extra
         from saber.regression import xgboost as reg_xgboost  # noqa: PLC0415  # optional extra
 
         specs += [*clf_xgboost.SPECS, *reg_xgboost.SPECS]
 
-    if is_dependency_available("lightgbm"):
+    if importlib.util.find_spec("lightgbm") is not None:
         from saber.classification import lightgbm as clf_lightgbm  # noqa: PLC0415  # optional extra
         from saber.regression import lightgbm as reg_lightgbm  # noqa: PLC0415  # optional extra
 

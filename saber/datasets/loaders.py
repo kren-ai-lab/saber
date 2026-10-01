@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -11,6 +10,7 @@ import polars as pl
 
 from saber.datasets.folds import PartitionPlan, PartitionSplit
 from saber.exceptions import PartitionValidationError
+from saber.utils.serialization import read_json
 from saber.utils.tabular import as_frame, read_table
 
 if TYPE_CHECKING:
@@ -151,8 +151,7 @@ def load_partition_plan(
 
     suffix = path.suffix.lower()
     if suffix == ".json":
-        with path.open("r", encoding="utf-8") as handle:
-            payload = json.load(handle)
+        payload = read_json(path)
         if not isinstance(payload, dict):
             raise PartitionValidationError("Partition JSON must contain an object payload.")
         return _bind_dataset(PartitionPlan.from_dict(payload), dataset)

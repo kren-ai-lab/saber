@@ -13,7 +13,6 @@ from saber.preprocessing import PreprocessingConfig
 from saber.tuning import TuningConfig
 
 CONFIG_SCHEMA_VERSION = "2.0"
-WORKFLOWS = {"train", "evaluate", "validate", "tune", "benchmark", "predict"}
 
 _COMMON_KEYS = {"schema_version", "workflow", "metadata", "output", "overwrite"}
 _FIT_KEYS = {"dataset", "algorithm", "model_params", "preprocessing", "positive_class", "random_state"}
@@ -71,8 +70,10 @@ class WorkflowConfig:
     def __post_init__(self) -> None:
         """Normalize and validate the workflow configuration after construction."""
         workflow = str(self.workflow).strip().lower()
-        if workflow not in WORKFLOWS:
-            raise ConfigurationError(f"Unsupported workflow '{workflow}'. Supported: {sorted(WORKFLOWS)!r}.")
+        if workflow not in _ALLOWED_KEYS:
+            raise ConfigurationError(
+                f"Unsupported workflow '{workflow}'. Supported: {sorted(_ALLOWED_KEYS)!r}."
+            )
         if self.schema_version == "1.0":
             raise ConfigurationError(
                 f"Config schema '1.0' is no longer supported; this saber build reads schema "
@@ -170,7 +171,8 @@ DATASET_KEYS = {
 PARTITION_KEYS = {"path", "sample_id_col", "role_col", "split_col", "fold_col", "always_train_value"}
 # ``extra_columns`` and the ``*_col`` keys name dataset-file columns; the loader
 # turns them into the aligned arrays of BioSievePartitionConfig.extra_columns.
-PARTITIONING_KEYS = {"strategy", "params", "extra_columns", "seq_col", "cluster_col", "date_col"}
+PARTITIONING_ROLE_COLUMNS = ("seq_col", "cluster_col", "date_col")
+PARTITIONING_KEYS = {"strategy", "params", "extra_columns", *PARTITIONING_ROLE_COLUMNS}
 PREPROCESSING_KEYS = _field_names(PreprocessingConfig) - {"transformer"}
 TUNING_KEYS = _field_names(TuningConfig)
 # The top-level ``metadata`` is the benchmark's metadata.

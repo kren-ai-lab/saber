@@ -1,7 +1,4 @@
-"""saber.regression.search_spaces.
-
-Default hyperparameter search spaces for regression models.
-"""
+"""Default hyperparameter search spaces for regression models."""
 
 from __future__ import annotations
 

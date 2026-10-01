@@ -338,12 +338,5 @@ def _validate_unique_ids(values: tuple[Any, ...], *, split: str, role: str) -> N
         if isinstance(value, float) and not np.isfinite(value):
             raise PartitionValidationError(f"Split '{split}' role '{role}' contains a non-finite sample ID.")
 
-    try:
-        unique = set(values)
-    except TypeError as exc:
-        raise PartitionValidationError(
-            f"Split '{split}' role '{role}' contains non-hashable sample IDs."
-        ) from exc
-
-    if len(unique) != len(values):
+    if len(set(values)) != len(values):
         raise PartitionValidationError(f"Split '{split}' role '{role}' contains duplicate sample IDs.")

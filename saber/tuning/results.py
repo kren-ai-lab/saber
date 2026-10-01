@@ -1,4 +1,4 @@
-"""saber.tuning.results: Result objects returned by optimization methods."""
+"""Result objects returned by optimization methods."""
 
 from __future__ import annotations
 

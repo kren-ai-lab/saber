@@ -19,12 +19,17 @@ from saber.utils.serialization import to_jsonable
 from saber.validation import ValidationResult
 
 
-def render_preflight(console: Console, config: WorkflowConfig) -> None:
-    """Render a concise execution plan without duplicating workflow logic."""
-    payload = config.payload
+def _grid() -> Table:
     table = Table.grid(padding=(0, 2))
     table.add_column(style="bold cyan", no_wrap=True)
     table.add_column()
+    return table
+
+
+def render_preflight(console: Console, config: WorkflowConfig) -> None:
+    """Render a concise execution plan without duplicating workflow logic."""
+    payload = config.payload
+    table = _grid()
     table.add_row("Workflow", config.workflow)
     if config.source is not None:
         table.add_row("Config", str(config.source))
@@ -48,9 +53,8 @@ def render_preflight(console: Console, config: WorkflowConfig) -> None:
     elif "partition_plan" in payload:
         table.add_row("Partition plan", str(payload["partition_plan"]["path"]))
 
-    metrics = _configured_metrics(config)
-    if metrics:
-        table.add_row("Metrics", ", ".join(metrics))
+    if metrics := payload.get("metrics"):
+        table.add_row("Metrics", ", ".join(str(value) for value in metrics))
 
     for key in ("model", "artifact", "output"):
         if key in payload:
@@ -118,9 +122,7 @@ def render_model_list(console: Console, rows: Sequence[Mapping[str, Any]]) -> No
 def render_model(console: Console, metadata: Mapping[str, Any]) -> None:
     """Render detailed metadata for a single registered model."""
     title = f"{metadata.get('name')}  [{metadata.get('provider')}]"
-    basics = Table.grid(padding=(0, 2))
-    basics.add_column(style="bold cyan")
-    basics.add_column()
+    basics = _grid()
     for key in ("task", "estimator", "description"):
         if metadata.get(key) is not None:
             basics.add_row(key.replace("_", " ").title(), str(metadata[key]))
@@ -146,9 +148,7 @@ def render_model(console: Console, metadata: Mapping[str, Any]) -> None:
 
 def render_artifact(console: Console, payload: Mapping[str, Any], path: str) -> None:
     """Render a summary panel for a persisted model artifact."""
-    table = Table.grid(padding=(0, 2))
-    table.add_column(style="bold cyan")
-    table.add_column()
+    table = _grid()
     table.add_row("Path", path)
     for key in ("artifact_type", "schema_version", "created_at", "saber_version"):
         if key in payload:
@@ -159,9 +159,7 @@ def render_artifact(console: Console, payload: Mapping[str, Any], path: str) -> 
 
 
 def _render_validation(console: Console, result: ValidationResult) -> None:
-    overview = Table.grid(padding=(0, 2))
-    overview.add_column(style="bold cyan")
-    overview.add_column()
+    overview = _grid()
     overview.add_row("Algorithm", result.algorithm)
     overview.add_row("Task", result.task)
     overview.add_row("Splits", str(result.n_splits))
@@ -176,9 +174,7 @@ def _render_validation(console: Console, result: ValidationResult) -> None:
 
 
 def _render_optimization(console: Console, result: OptimizationResult) -> None:
-    overview = Table.grid(padding=(0, 2))
-    overview.add_column(style="bold cyan")
-    overview.add_column()
+    overview = _grid()
     overview.add_row("Algorithm", result.algorithm)
     overview.add_row("Optimizer", str(result.optimizer))
     overview.add_row("Refit metric", str(result.refit_metric))
@@ -200,9 +196,7 @@ def _render_optimization(console: Console, result: OptimizationResult) -> None:
 
 
 def _render_benchmark(console: Console, result: BenchmarkResult) -> None:
-    overview = Table.grid(padding=(0, 2))
-    overview.add_column(style="bold cyan")
-    overview.add_column()
+    overview = _grid()
     overview.add_row("Runs", str(result.n_runs))
     overview.add_row("Successful", str(len(result.successes)))
     overview.add_row("Failed", str(len(result.failures)))
@@ -215,18 +209,12 @@ def _render_benchmark(console: Console, result: BenchmarkResult) -> None:
         [pl.col("metric"), pl.col("score").fill_nan(None)], descending=[False, True], nulls_last=True
     ).head(16)
     table = Table(title="Aggregate results (preview)", header_style="bold cyan")
-    for column in ("representation", "partition", "algorithm", "mode", "seed", "metric", "score"):
+    columns = ("representation", "partition", "algorithm", "mode", "seed", "metric", "score")
+    for column in columns:
         table.add_column(column.replace("_", " ").title())
     for row in preview.iter_rows(named=True):
-        table.add_row(
-            str(row["representation"]),
-            str(row["partition"]),
-            str(row["algorithm"]),
-            str(row["mode"]),
-            str(row["seed"]),
-            str(row["metric"]),
-            _format_number(row["score"]),
-        )
+        cells = [str(row[column]) for column in columns[:-1]]
+        table.add_row(*cells, _format_number(row["score"]))
     console.print(table)
     if len(frame) > len(preview):
         console.print(f"[dim]Showing {len(preview)} of {len(frame)} aggregate metric rows.[/dim]")
@@ -287,10 +275,6 @@ def _render_outputs(console: Console, outputs: Mapping[str, str]) -> None:
     for name, path in sorted(outputs.items()):
         table.add_row(name, path)
     console.print(table)
-
-
-def _configured_metrics(config: WorkflowConfig) -> list[str]:
-    return [str(value) for value in config.payload.get("metrics", ())]
 
 
 def _display_value(value: Any) -> str:

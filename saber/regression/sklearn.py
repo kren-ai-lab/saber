@@ -1,7 +1,4 @@
-"""saber.regression.sklearn.
-
-Scikit-learn based regression algorithms and registry wiring.
-"""
+"""Scikit-learn based regression algorithms and registry wiring."""
 
 from __future__ import annotations
 

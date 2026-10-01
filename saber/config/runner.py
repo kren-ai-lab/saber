@@ -19,6 +19,7 @@ from saber.config.builders import (
     load_prediction_frame,
 )
 from saber.config.io import load_config
+from saber.config.schema import PARTITIONING_ROLE_COLUMNS
 from saber.exceptions import ConfigurationError
 from saber.persistence import load_model, save_benchmark, save_model
 from saber.tuning import tune
@@ -100,23 +101,37 @@ def _run_evaluate(config: WorkflowConfig) -> WorkflowExecution:
     return WorkflowExecution(config, result, summary, outputs)
 
 
+def _evaluation_role(payload: Mapping[str, Any]) -> EvaluationRole:
+    # Config-supplied strings are validated downstream by
+    # resolve_evaluation_dataset, which raises ValidationContractError for
+    # anything other than "auto"/"validation"/"test".
+    return cast("EvaluationRole", str(payload.get("evaluation_role", "auto")))
+
+
+def _search_kwargs(
+    config: WorkflowConfig, dataset: DatasetBundle, extras: Mapping[str, list[Any]]
+) -> dict[str, Any]:
+    """Keyword arguments shared by the validate and tune workflows."""
+    payload = config.payload
+    return {
+        "dataset": dataset,
+        "algorithm": payload["algorithm"],
+        "model_params": payload.get("model_params"),
+        "preprocessing": build_preprocessing(payload.get("preprocessing")),
+        "partition_plan": _partition_plan(config, extras),
+        "evaluation_role": _evaluation_role(payload),
+        "require_complete": payload.get("require_complete", True),
+        "positive_class": payload.get("positive_class"),
+        "random_state": payload.get("random_state"),
+    }
+
+
 def _run_validate(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
     dataset, extras = load_dataset(config, payload["dataset"], extra_columns=_extra_column_names(config))
     result = validate(
-        dataset=dataset,
-        algorithm=payload["algorithm"],
-        model_params=payload.get("model_params"),
-        preprocessing=build_preprocessing(payload.get("preprocessing")),
-        partition_plan=_partition_plan(config, extras),
+        **_search_kwargs(config, dataset, extras),
         metrics=payload.get("metrics"),
-        # Config-supplied strings are validated downstream by
-        # resolve_evaluation_dataset, which raises ValidationContractError for
-        # anything other than "auto"/"validation"/"test".
-        evaluation_role=cast("EvaluationRole", str(payload.get("evaluation_role", "auto"))),
-        require_complete=payload.get("require_complete", True),
-        positive_class=payload.get("positive_class"),
-        random_state=payload.get("random_state"),
     )
     tables = {"metrics": result.metrics_frame()}
     oof = result.oof_prediction
@@ -133,21 +148,10 @@ def _run_tune(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
     dataset, extras = load_dataset(config, payload["dataset"], extra_columns=_extra_column_names(config))
     result = tune(
-        dataset=dataset,
-        algorithm=payload["algorithm"],
-        model_params=payload.get("model_params"),
-        preprocessing=build_preprocessing(payload.get("preprocessing")),
-        partition_plan=_partition_plan(config, extras),
+        **_search_kwargs(config, dataset, extras),
         config=build_tuning_config(payload["tuning"]),
         search_space=build_search_space(payload["algorithm"], payload.get("search_space")),
         metrics=tuple(payload["metrics"]),
-        # Config-supplied strings are validated downstream by
-        # resolve_evaluation_dataset, which raises ValidationContractError for
-        # anything other than "auto"/"validation"/"test".
-        evaluation_role=cast("EvaluationRole", str(payload.get("evaluation_role", "auto"))),
-        require_complete=payload.get("require_complete", True),
-        positive_class=payload.get("positive_class"),
-        random_state=payload.get("random_state"),
     )
     summary = _summary(config, result)
     outputs: dict[str, str] = {}
@@ -192,7 +196,7 @@ def _run_benchmark(config: WorkflowConfig) -> WorkflowExecution:
         config=build_benchmark_config(payload.get("benchmark")),
         search_spaces=search_spaces,
         metrics=tuple(payload["metrics"]),
-        evaluation_role=cast("EvaluationRole", str(payload.get("evaluation_role", "auto"))),
+        evaluation_role=_evaluation_role(payload),
         require_complete=payload.get("require_complete", True),
         positive_class=payload.get("positive_class"),
     )
@@ -294,7 +298,7 @@ def _load_model(config: WorkflowConfig) -> tuple[Path, LoadedModelArtifact]:
 def _extra_column_names(config: WorkflowConfig) -> list[str]:
     partitioning = config.payload.get("partitioning", {})
     names = list(partitioning.get("extra_columns", ()))
-    role_cols = (partitioning[key] for key in ("seq_col", "cluster_col", "date_col") if key in partitioning)
+    role_cols = (partitioning[key] for key in PARTITIONING_ROLE_COLUMNS if key in partitioning)
     return names + [name for name in role_cols if name not in names]
 
 
