@@ -14,43 +14,15 @@ from saber.core.capabilities import (
 from saber.core.specs import AlgorithmSpec
 from saber.regression import search_spaces
 
-
-def _build_specs() -> tuple[AlgorithmSpec, ...]:
-    """Build all LightGBM regression models."""
-    models = [
-        (
-            "lgbm_regressor",
-            LGBMRegressor,
-            (
-                "regression",
-                "lightgbm",
-                "tree",
-                "boosting",
-            ),
-            search_spaces.LGBM_REGRESSOR,
-        ),
-    ]
-
-    specs: list[AlgorithmSpec] = []
-
-    for name, model_rgx, tags, search_space in models:
-        spec = AlgorithmSpec(
-            provider="lightgbm",
-            task="regression",
-            name=name,
-            estimator_cls=model_rgx,
-            tags=tags,
-            capabilities=infer_estimator_capabilities(
-                model_rgx,
-                native_missing_values=True,
-            ),
-            requirements=EstimatorRequirements(scaling="not_required"),
-            search_space=search_space,
-        )
-
-        specs.append(spec)
-
-    return tuple(specs)
-
-
-SPECS: tuple[AlgorithmSpec, ...] = _build_specs()
+SPECS: tuple[AlgorithmSpec, ...] = (
+    AlgorithmSpec(
+        provider="lightgbm",
+        task="regression",
+        name="lgbm_regressor",
+        estimator_cls=LGBMRegressor,
+        tags=("tree", "ensemble", "boosting"),
+        capabilities=infer_estimator_capabilities(LGBMRegressor, native_missing_values=True),
+        requirements=EstimatorRequirements(scaling="not_required"),
+        search_space=search_spaces.LGBM_REGRESSOR,
+    ),
+)

@@ -84,159 +84,143 @@ def _requirements_for(name: str) -> EstimatorRequirements:
     )
 
 
-# ============================================================
-# Specs
-# ============================================================
-
-
 def _build_specs() -> tuple[AlgorithmSpec, ...]:
     """Build all scikit-learn classification models."""
     models = [
-        ("dummy_classifier", DummyClassifier, ("classification", "baseline", "dummy"), None),
+        ("dummy_classifier", DummyClassifier, ("baseline",), None),
         (
             "logistic_regression",
             LogisticRegression,
-            ("classification", "logistic_regression"),
+            ("linear",),
             search_spaces.LOGISTIC_REGRESSION,
         ),
         (
             "random_forest_classifier",
             RandomForestClassifier,
-            ("classification", "random_forest", "ensemble", "bagging"),
+            ("tree", "ensemble", "bagging"),
             search_spaces.RANDOM_FOREST,
         ),
         (
             "extra_trees_classifier",
             ExtraTreesClassifier,
-            ("classification", "extra_trees", "tree", "bagging"),
+            ("tree", "ensemble", "bagging"),
             search_spaces.EXTRA_TREES,
         ),
         (
             "gradient_boosting_classifier",
             GradientBoostingClassifier,
-            ("classification", "gradient_boosting", "tree", "boosting"),
+            ("tree", "ensemble", "boosting"),
             search_spaces.GRADIENT_BOOSTING,
         ),
-        ("svc", SVC, ("classification", "svc", "svm"), search_spaces.SVC_SPACE),
-        ("linear_svc", LinearSVC, ("classification", "svc", "linear_svm"), search_spaces.LINEAR_SVC),
-        ("nu_svc", NuSVC, ("classification", "svc", "nu_svc"), search_spaces.NU_SVC),
+        ("svc", SVC, ("svm",), search_spaces.SVC_SPACE),
+        ("linear_svc", LinearSVC, ("linear", "svm"), search_spaces.LINEAR_SVC),
+        ("nu_svc", NuSVC, ("svm",), search_spaces.NU_SVC),
         (
             "knn_classifier",
             KNeighborsClassifier,
-            ("classification", "knn", "distance_based"),
+            ("neighbors",),
             search_spaces.KNN,
         ),
         (
             "radius_neighbors_classifier",
             RadiusNeighborsClassifier,
-            ("classification", "radius_neighbors", "distance_based"),
+            ("neighbors",),
             search_spaces.RADIUS_NEIGHBORS,
         ),
         (
             "nearest_centroid",
             NearestCentroid,
-            ("classification", "nearest_centroid", "distance_based"),
+            ("neighbors",),
             search_spaces.NEAREST_CENTROID,
         ),
         (
             "decision_tree_classifier",
             DecisionTreeClassifier,
-            ("classification", "decision_tree", "tree"),
+            ("tree",),
             search_spaces.DECISION_TREE,
         ),
         (
             "extra_tree_classifier",
             ExtraTreeClassifier,
-            ("classification", "extra_tree", "tree"),
+            ("tree",),
             search_spaces.EXTRA_TREE,
         ),
         (
             "adaboost_classifier",
             AdaBoostClassifier,
-            ("classification", "adaboost", "tree", "boosting"),
+            ("ensemble", "boosting"),
             search_spaces.ADABOOST,
         ),
         (
             "bagging_classifier",
             BaggingClassifier,
-            ("classification", "bagging", "tree", "bagging"),
+            ("ensemble", "bagging"),
             search_spaces.BAGGING,
         ),
         (
             "hist_gradient_boosting_classifier",
             HistGradientBoostingClassifier,
-            ("classification", "hist_gradient_boosting", "tree", "boosting"),
+            ("tree", "ensemble", "boosting"),
             search_spaces.HIST_GRADIENT_BOOSTING,
         ),
         (
             "ridge_classifier",
             RidgeClassifier,
-            ("classification", "ridge", "linear"),
+            ("linear",),
             search_spaces.RIDGE_CLASSIFIER,
         ),
-        ("sgd_classifier", SGDClassifier, ("classification", "sgd", "linear"), search_spaces.SGD_CLASSIFIER),
-        ("lda", LinearDiscriminantAnalysis, ("classification", "lda", "linear"), search_spaces.LDA),
-        ("qda", QuadraticDiscriminantAnalysis, ("classification", "qda", "quadratic"), search_spaces.QDA),
+        ("sgd_classifier", SGDClassifier, ("linear",), search_spaces.SGD_CLASSIFIER),
+        ("lda", LinearDiscriminantAnalysis, ("linear", "discriminant_analysis"), search_spaces.LDA),
+        ("qda", QuadraticDiscriminantAnalysis, ("discriminant_analysis",), search_spaces.QDA),
         (
             "gaussian_process_classifier",
             GaussianProcessClassifier,
-            ("classification", "gaussian_process"),
+            ("gaussian_process",),
             search_spaces.GAUSSIAN_PROCESS,
         ),
-        ("gaussian_nb", GaussianNB, ("classification", "gaussian", "naive_bayes"), search_spaces.GAUSSIAN_NB),
+        ("gaussian_nb", GaussianNB, ("naive_bayes",), search_spaces.GAUSSIAN_NB),
         (
             "bernoulli_nb",
             BernoulliNB,
-            ("classification", "bernoulli", "naive_bayes"),
+            ("naive_bayes",),
             search_spaces.BERNOULLI_NB,
         ),
         (
             "categorical_nb",
             CategoricalNB,
-            ("classification", "categorical", "naive_bayes"),
+            ("naive_bayes",),
             search_spaces.CATEGORICAL_NB,
         ),
         (
             "multinomial_nb",
             MultinomialNB,
-            ("classification", "multinomial", "naive_bayes"),
+            ("naive_bayes",),
             search_spaces.MULTINOMIAL_NB,
         ),
         (
             "complement_nb",
             ComplementNB,
-            ("classification", "complement", "naive_bayes"),
+            ("naive_bayes",),
             search_spaces.COMPLEMENT_NB,
         ),
     ]
-
-    specs: list[AlgorithmSpec] = []
-
-    for name, model_cls, tags, search_space in models:
-        capabilities = infer_estimator_capabilities(
-            model_cls,
-            native_missing_values=(name == "hist_gradient_boosting_classifier"),
-        )
-
-        spec = AlgorithmSpec(
+    return tuple(
+        AlgorithmSpec(
             provider="sklearn",
             task="classification",
             name=name,
-            tags=tags,
-            default_params=_DEFAULT_PARAMS.get(name, {}),
             estimator_cls=model_cls,
-            capabilities=capabilities,
+            default_params=_DEFAULT_PARAMS.get(name, {}),
+            tags=tags,
+            capabilities=infer_estimator_capabilities(
+                model_cls,
+                native_missing_values=(name == "hist_gradient_boosting_classifier"),
+            ),
             requirements=_requirements_for(name),
             search_space=search_space,
         )
+        for name, model_cls, tags, search_space in models
+    )
 
-        specs.append(spec)
-
-    return tuple(specs)
-
-
-# ============================================================
-# Catalog
-# ============================================================
 
 SPECS: tuple[AlgorithmSpec, ...] = _build_specs()

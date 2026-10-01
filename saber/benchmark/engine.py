@@ -99,7 +99,7 @@ def benchmark(
             )
             for algorithm in algorithm_names:
                 spec = _safe_get_spec(algorithm)
-                run_modes = ("baseline",) if _is_baseline(spec, algorithm) else config.modes
+                run_modes = ("baseline",) if _is_baseline(spec) else config.modes
                 for seed in config.seeds:
                     for mode in run_modes:
                         run = _run_one(
@@ -460,8 +460,8 @@ def _safe_get_spec(algorithm: str) -> AlgorithmSpec | None:
         return None
 
 
-def _is_baseline(spec: Any | None, algorithm: str) -> bool:
-    return bool(spec is not None and "baseline" in spec.tags) or algorithm.startswith("dummy_")
+def _is_baseline(spec: Any | None) -> bool:
+    return spec is not None and "baseline" in spec.tags
 
 
 def _bind_partition_plan(
