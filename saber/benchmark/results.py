@@ -23,7 +23,6 @@ class BenchmarkRun:
     """One algorithm x representation x partition x seed x mode execution."""
 
     run_id: str
-    dataset_label: str
     representation: str
     partition_label: str
     algorithm: str
@@ -83,7 +82,7 @@ class BenchmarkResult:
             "algorithms": list(self.metadata.get("algorithms", ())),
             "task": self.metadata.get("task"),
             "dataset_fingerprints": {
-                run.dataset_label: run.metadata.get("dataset_fingerprint") for run in self.runs
+                run.representation: run.metadata.get("dataset_fingerprint") for run in self.runs
             },
             "n_runs": self.n_runs,
             "n_successes": len(self.successes),
@@ -183,7 +182,6 @@ def _concat(frames: list[pl.DataFrame]) -> pl.DataFrame:
 def _run_identity(run: BenchmarkRun) -> dict[str, Any]:
     return {
         "run_id": run.run_id,
-        "dataset": run.dataset_label,
         "representation": run.representation,
         "partition": run.partition_label,
         "algorithm": run.algorithm,

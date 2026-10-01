@@ -131,6 +131,8 @@ First public release, published on PyPI as `saberlib`.
     `evaluation` was removed, `prediction` stays.
   - `BenchmarkResult.failures_frame()` and the benchmark artifact's `failures.csv` were removed:
     failed runs are the `runs_frame()`/`runs.csv` rows with `status == "failed"`.
+  - `BenchmarkRun.dataset_label` and the benchmark tables' `dataset` column were removed; they
+    always equalled `representation`.
   - Every workflow result (`TrainResult`, `EvaluationResult`, `ValidationResult`,
     `OptimizationResult`, `BenchmarkResult`, `PredictionResult`) has `to_dict()`. `summary.json` and
     the `saber run --json` summary are `{"workflow", ...result.to_dict()}` with `algorithm`

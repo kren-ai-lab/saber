@@ -71,7 +71,6 @@ def _small_benchmark():
 
 EXPECTED_METRICS_COLUMNS = [
     "run_id",
-    "dataset",
     "representation",
     "partition",
     "algorithm",
@@ -95,7 +94,6 @@ EXPECTED_METRICS_COLUMNS = [
 ]
 EXPECTED_PREDICTIONS_COLUMNS = [
     "run_id",
-    "dataset",
     "representation",
     "partition",
     "algorithm",
@@ -116,7 +114,6 @@ EXPECTED_PREDICTIONS_COLUMNS = [
 ]
 EXPECTED_RUNS_COLUMNS = [
     "run_id",
-    "dataset",
     "representation",
     "partition",
     "algorithm",
@@ -133,7 +130,6 @@ EXPECTED_RUNS_COLUMNS = [
 ]
 EXPECTED_OPTIMIZATION_HISTORY_COLUMNS = [
     "run_id",
-    "dataset",
     "representation",
     "partition",
     "algorithm",

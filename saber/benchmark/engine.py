@@ -221,12 +221,7 @@ def _run_one(
 
     try:
         if algorithm_spec is None:
-            get_algorithm(algorithm)  # raises AlgorithmNotFoundError
-            # The lookup above always raises for an unregistered algorithm, so this
-            # is unreachable; caught below like any other run failure.
-            raise AssertionError(  # noqa: TRY301
-                f"Algorithm '{algorithm}' resolved to no spec but did not raise."
-            )
+            algorithm_spec = get_algorithm(algorithm)  # raises AlgorithmNotFoundError, recorded below
         if task is not None:
             dataset.validate(task=task)
 
@@ -277,7 +272,6 @@ def _run_one(
         elapsed = perf_counter() - start
         return BenchmarkRun(
             run_id=run_id,
-            dataset_label=label,
             representation=label,
             partition_label=partition.label,
             algorithm=algorithm,
@@ -304,7 +298,6 @@ def _run_one(
     except Exception as exc:  # noqa: BLE001  # any run failure becomes a failed BenchmarkRun, not a crash
         return BenchmarkRun(
             run_id=run_id,
-            dataset_label=label,
             representation=label,
             partition_label=partition.label,
             algorithm=algorithm,
