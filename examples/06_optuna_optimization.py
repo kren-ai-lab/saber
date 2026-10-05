@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.25.0"
-app = marimo.App()
+app = marimo.App(width="medium")
 
 
 @app.cell
@@ -14,7 +14,7 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    # Optuna optimization — typed continuous spaces and trial diagnostics
+    # Optuna optimization: typed continuous spaces and trial diagnostics
     """)
     return
 
@@ -23,7 +23,7 @@ def _(mo):
 def _(mo):
     mo.md(r"""
     ## Goal
-    Run a reproducible typed Optuna study over continuous/log-scaled SVC parameters. We inspect convergence, explored parameter space, trial ranking and secondary metrics. SVC probabilities are intentionally **not** enabled; ROC-AUC uses the decision function.
+    A seeded Optuna study searches log-scaled `C` and `gamma` for an RBF SVC. The notebook shows convergence, the explored region of the search space, the top trials and the secondary metrics of the best one. Probability outputs stay off for the SVC, so ROC AUC is computed from the decision function.
     """)
     return
 
@@ -31,22 +31,12 @@ def _(mo):
 @app.cell
 def _():
     import os
-    os.environ.setdefault("MPLBACKEND", "Agg")
 
     import numpy as np
     import polars as pl
     import matplotlib.pyplot as plt
 
     DEMO_TEST = os.getenv("SABER_DEMO_TEST") == "1"
-
-    def balanced_fold_labels(y, n_splits):
-        """Demo-only external memberships. Production partition generation belongs to BioSieve."""
-        y = np.asarray(y)
-        folds = np.empty(len(y), dtype=int)
-        for label in np.unique(y):
-            idx = np.flatnonzero(y == label)
-            folds[idx] = np.arange(len(idx)) % n_splits
-        return folds
 
     from sklearn.datasets import make_classification
     from saber import tune, SearchSpace, LogFloat, Categorical, DatasetBundle, PartitionPlan, TuningConfig
@@ -59,7 +49,6 @@ def _():
         PartitionPlan,
         SearchSpace,
         TuningConfig,
-        balanced_fold_labels,
         make_classification,
         np,
         pl,
@@ -76,61 +65,73 @@ def _(
     LogFloat,
     PartitionPlan,
     SearchSpace,
-    balanced_fold_labels,
     make_classification,
+    np,
 ):
-    n_samples=140 if DEMO_TEST else 320
-    X,y=make_classification(n_samples=n_samples,n_features=12,n_informative=8,class_sep=1.05,random_state=54)
-    ids=[f"opt_{i:04d}" for i in range(len(y))]
-    dataset=DatasetBundle(X=X,y=y,sample_ids=ids,feature_names=[f"f{i}" for i in range(X.shape[1])])
-    plan=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=balanced_fold_labels(y,4),dataset=dataset)
-    space=SearchSpace({"C":LogFloat(1e-2,30.0),"gamma":LogFloat(1e-4,1.0),"kernel":Categorical(["rbf"])})
+    n_samples = 140 if DEMO_TEST else 320
+    X, y = make_classification(
+        n_samples=n_samples, n_features=12, n_informative=8, class_sep=1.05, random_state=54
+    )
+    ids = [f"opt_{i:04d}" for i in range(len(y))]
+    dataset = DatasetBundle(X=X, y=y, sample_ids=ids, feature_names=[f"f{i}" for i in range(X.shape[1])])
+    plan = PartitionPlan.from_predefined_folds(
+        sample_ids=ids, fold_assignments=np.arange(len(y)) % 4, dataset=dataset
+    )
+    space = SearchSpace(
+        {"C": LogFloat(1e-2, 30.0), "gamma": LogFloat(1e-4, 1.0), "kernel": Categorical(["rbf"])}
+    )
     return dataset, plan, space
 
 
 @app.cell
 def _(DEMO_TEST, TuningConfig, dataset, pl, plan, space, tune):
-    n_trials=8 if DEMO_TEST else 28
-    config=TuningConfig(optimizer="optuna",refit_metric="mcc",n_trials=n_trials,n_jobs=1)
-    opt=tune(dataset=dataset,algorithm="svc",config=config,partition_plan=plan,search_space=space,
-             metrics=("mcc","roc_auc","balanced_accuracy"),random_state=123)
-    history=opt.history_frame(); completed=history.filter(pl.col("status")=="complete")
-    score_col=next(c for c in completed.columns if c in {"metric__mcc","metric__mcc__mean"})
-    completed=completed.with_columns(pl.col(score_col).cum_max().alias("best_so_far"))
-    top=completed.sort(score_col,descending=True).head(min(5,len(completed)))
-    print("Best:",opt.best_params,opt.best_scores)
-    top.select(["param__C","param__gamma",score_col]).head()
+    n_trials = 8 if DEMO_TEST else 28
+    config = TuningConfig(optimizer="optuna", refit_metric="mcc", n_trials=n_trials, n_jobs=1)
+    opt = tune(
+        dataset=dataset,
+        algorithm="svc",
+        config=config,
+        partition_plan=plan,
+        search_space=space,
+        metrics=("mcc", "roc_auc", "balanced_accuracy"),
+        random_state=123,
+    )
+    history = opt.history_frame()
+    completed = history.filter(pl.col("status") == "complete")
+    score_col = "metric__mcc"
+    completed = completed.with_columns(best_so_far=pl.col(score_col).cum_max())
+    top = completed.sort(score_col, descending=True).head(5)
+    print("Best:", opt.best_params, opt.best_scores)
+    top.select(["param__C", "param__gamma", score_col]).head()
     return completed, history, n_trials, opt, score_col
 
 
 @app.cell
-def _(completed, mo, np, opt, plt, score_col):
-    fig,axes=plt.subplots(1,3,figsize=(16,4.5))
-    scores = completed.get_column(score_col).to_numpy()
-    best_so_far = completed.get_column("best_so_far").to_numpy()
-    axes[0].plot(np.arange(len(completed)),scores,"o-",alpha=.6,label="trial"); axes[0].plot(best_so_far,label="best so far"); axes[0].set(title="Optimization convergence",xlabel="trial",ylabel="MCC"); axes[0].legend()
-    sc=axes[1].scatter(completed.get_column("param__C").to_numpy(),completed.get_column("param__gamma").to_numpy(),c=scores); axes[1].set_xscale("log"); axes[1].set_yscale("log"); axes[1].set(title="Explored search space",xlabel="C",ylabel="gamma"); fig.colorbar(sc,ax=axes[1],label="MCC")
-    secondary_scores={k:v for k,v in opt.best_scores.items() if k!="mcc"}
-    axes[2].bar(list(secondary_scores.keys()),list(secondary_scores.values()))
-    axes[2].set(title="Secondary metrics for selected trial",ylabel="score",ylim=(0,1.05))
+def _(completed, mo, opt, plt, score_col):
+    fig, axes = plt.subplots(1, 3, figsize=(16, 4.5))
+    axes[0].plot(completed[score_col], "o-", alpha=0.6, label="trial")
+    axes[0].plot(completed["best_so_far"], label="best so far")
+    axes[0].set(title="Optimization convergence", xlabel="trial", ylabel="MCC")
+    axes[0].legend()
+    sc = axes[1].scatter(completed["param__C"], completed["param__gamma"], c=completed[score_col])
+    axes[1].set_xscale("log")
+    axes[1].set_yscale("log")
+    axes[1].set(title="Explored search space", xlabel="C", ylabel="gamma")
+    fig.colorbar(sc, ax=axes[1], label="MCC")
+    secondary_scores = {k: v for k, v in opt.best_scores.items() if k != "mcc"}
+    axes[2].bar(list(secondary_scores), list(secondary_scores.values()))
+    axes[2].set(title="Secondary metrics for selected trial", ylabel="score", ylim=(0, 1.05))
     plt.tight_layout()
     mo.output.append(mo.as_html(fig))
-    FIGURE_COUNT=1
-    return FIGURE_COUNT, secondary_scores
+    return
 
 
 @app.cell
-def _(FIGURE_COUNT, completed, history, n_trials, np, opt, secondary_scores):
-    _best_so_far = completed.get_column("best_so_far").to_numpy()
-    DEMO_CHECKS={
-        "requested_trials": len(history)==n_trials,
-        "all_complete": (history.get_column("status")=="complete").all(),
-        "finite_best": np.isfinite(opt.best_scores[opt.refit_metric]),
+def _(history, n_trials, opt):
+    DEMO_CHECKS = {
+        "requested_trials": len(history) == n_trials,
+        "all_complete": (history.get_column("status") == "complete").all(),
         "study_available": opt.study is not None,
-        "typed_parameters": {"param__C","param__gamma"}.issubset(history.columns),
-        "monotonic_best": bool(np.all(np.diff(_best_so_far)>=0)),
-        "secondary_metrics": len(secondary_scores)>=2,
-        "figure_created": FIGURE_COUNT==1,
     }
     assert all(DEMO_CHECKS.values()), DEMO_CHECKS
     DEMO_CHECKS

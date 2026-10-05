@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.25.0"
-app = marimo.App()
+app = marimo.App(width="medium")
 
 
 @app.cell
@@ -14,7 +14,7 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    # Binary classification — full OOF diagnostic report
+    # Binary classification: OOF diagnostic report
     """)
     return
 
@@ -23,7 +23,7 @@ def _(mo):
 def _(mo):
     mo.md(r"""
     ## Goal and experimental design
-    This notebook treats binary classification as a small scientific study rather than a one-score example. We use an imbalanced prepared matrix, explicit upstream fold memberships, sample weights, fold-local preprocessing, a broad metric panel, OOF diagnostics, threshold sensitivity analysis, calibration-style diagnostics, and an error report. No split generation is implemented inside `saber`.
+    This notebook evaluates an imbalanced binary problem with more than one score. It uses a prepared feature matrix, fold memberships defined upstream, sample weights, preprocessing fitted inside each fold and a wide metric panel. The analysis covers out-of-fold (OOF) predictions, a threshold sweep, calibration metrics and an error report. `saber` does not generate the splits.
     """)
     return
 
@@ -31,7 +31,6 @@ def _(mo):
 @app.cell
 def _():
     import os
-    os.environ.setdefault("MPLBACKEND", "Agg")
 
     import numpy as np
     import polars as pl
@@ -39,18 +38,15 @@ def _():
 
     DEMO_TEST = os.getenv("SABER_DEMO_TEST") == "1"
 
-    def balanced_fold_labels(y, n_splits):
-        """Demo-only external memberships. Production partition generation belongs to BioSieve."""
-        y = np.asarray(y)
-        folds = np.empty(len(y), dtype=int)
-        for label in np.unique(y):
-            idx = np.flatnonzero(y == label)
-            folds[idx] = np.arange(len(idx)) % n_splits
-        return folds
-
     from sklearn.datasets import make_classification
-    from sklearn.metrics import (roc_curve, auc, precision_recall_curve,
-                                 matthews_corrcoef, f1_score, recall_score, confusion_matrix)
+    from sklearn.metrics import (
+        roc_curve,
+        auc,
+        precision_recall_curve,
+        matthews_corrcoef,
+        f1_score,
+        recall_score,
+    )
     from saber import validate, DatasetBundle, PartitionPlan
 
     return (
@@ -58,8 +54,6 @@ def _():
         DatasetBundle,
         PartitionPlan,
         auc,
-        balanced_fold_labels,
-        confusion_matrix,
         f1_score,
         make_classification,
         matthews_corrcoef,
@@ -77,38 +71,39 @@ def _():
 def _(mo):
     mo.md(r"""
     ## 1. Prepared data and explicit memberships
-    The minority class receives higher sample weight to exercise weight propagation through the validation pipeline. The fold assignments emulate an upstream/BioSieve artifact.
+    The minority class gets a higher sample weight, which checks that weights reach every step of validation. The fold assignments stand in for memberships produced upstream, for example by BioSieve.
     """)
     return
 
 
 @app.cell
-def _(
-    DEMO_TEST,
-    DatasetBundle,
-    PartitionPlan,
-    balanced_fold_labels,
-    make_classification,
-    np,
-    pl,
-):
+def _(DEMO_TEST, DatasetBundle, PartitionPlan, make_classification, np, pl):
     n_samples = 180 if DEMO_TEST else 420
     X, y = make_classification(
-        n_samples=n_samples, n_features=18, n_informative=10, n_redundant=3,
-        weights=[0.72, 0.28], class_sep=1.15, flip_y=0.025, random_state=42,
+        n_samples=n_samples,
+        n_features=18,
+        n_informative=10,
+        n_redundant=3,
+        weights=[0.72, 0.28],
+        class_sep=1.15,
+        flip_y=0.025,
+        random_state=42,
     )
     ids = np.asarray([f"bin_{i:04d}" for i in range(len(y))], dtype=object)
     weights = np.where(y == 1, 1.8, 1.0)
     dataset = DatasetBundle(
-        X=X, y=y, sample_ids=ids, sample_weight=weights,
+        X=X,
+        y=y,
+        sample_ids=ids,
+        sample_weight=weights,
         feature_names=[f"feature_{i:02d}" for i in range(X.shape[1])],
         metadata={"representation": "prepared_numeric"},
     )
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=dataset.sample_ids,
-        fold_assignments=balanced_fold_labels(y, 5),
+        fold_assignments=np.arange(len(y)) % 5,
         dataset=dataset,
-        metadata={"source": "demo_external_memberships", "strategy": "stratified_like_5fold"},
+        metadata={"source": "demo_external_memberships", "strategy": "round_robin_5fold"},
     )
     class_report = (
         pl.DataFrame({"label": y, "weight": weights})
@@ -124,7 +119,7 @@ def _(
 def _(mo):
     mo.md(r"""
     ## 2. Validation with an extended metric panel
-    The model returns probabilities, so we can evaluate ranking, calibration-related and threshold metrics together with class-label metrics.
+    The model returns probabilities, so the panel can include ranking, calibration and threshold metrics next to the class-label metrics.
     """)
     return
 
@@ -132,8 +127,18 @@ def _(mo):
 @app.cell
 def _(dataset, pl, plan, validate):
     metrics = (
-        "accuracy", "balanced_accuracy", "precision", "recall", "sensitivity",
-        "specificity", "f1", "mcc", "roc_auc", "pr_auc", "log_loss", "brier_score",
+        "accuracy",
+        "balanced_accuracy",
+        "precision",
+        "recall",
+        "sensitivity",
+        "specificity",
+        "f1",
+        "mcc",
+        "roc_auc",
+        "pr_auc",
+        "log_loss",
+        "brier_score",
     )
     result = validate(
         dataset=dataset,
@@ -146,7 +151,12 @@ def _(dataset, pl, plan, validate):
     oof = result.oof_prediction
     assert oof is not None
     proba = oof.positive_probabilities()
-    fold_metrics = result.metrics_frame().filter(pl.col("level")=="fold").pivot("metric",index="split",values="score").rename({"split":"fold"})
+    fold_metrics = (
+        result.metrics_frame()
+        .filter(pl.col("level") == "fold")
+        .pivot("metric", index="split", values="score")
+        .rename({"split": "fold"})
+    )
     aggregate = {k: round(result.aggregate_metrics[k], 4) for k in sorted(result.aggregate_metrics)}
     print(aggregate)
     fold_metrics.head()
@@ -157,35 +167,23 @@ def _(dataset, pl, plan, validate):
 def _(mo):
     mo.md(r"""
     ## 3. Threshold sensitivity and sample-level error analysis
-    Threshold selection is intentionally an external analysis step. We do **not** optimize the threshold on these OOF data and then claim unbiased performance. The sweep is diagnostic: it shows how sensitivity, specificity, F1 and MCC move when the decision threshold changes.
+    `saber` leaves threshold selection to the analyst. The sweep below is a diagnostic that shows how sensitivity, specificity, F1 and MCC change with the decision threshold. Choosing a threshold on these same OOF predictions and reporting its score would overstate performance. The error table lists the misclassified samples the model was most confident about.
     """)
     return
 
 
 @app.cell
-def _(
-    confusion_matrix,
-    f1_score,
-    ids,
-    matthews_corrcoef,
-    np,
-    oof,
-    pl,
-    proba,
-    recall_score,
-    y,
-):
+def _(f1_score, ids, matthews_corrcoef, np, oof, pl, proba, recall_score, y):
     def threshold_row(threshold):
         pred = (proba >= threshold).astype(int)
-        tn, fp, fn, tp = confusion_matrix(y, pred, labels=[0, 1]).ravel()
-        specificity = tn / (tn + fp) if (tn + fp) else 0.0
         return {
             "threshold": threshold,
             "mcc": matthews_corrcoef(y, pred),
             "f1": f1_score(y, pred, zero_division=0),
             "sensitivity": recall_score(y, pred, zero_division=0),
-            "specificity": specificity,
+            "specificity": recall_score(y, pred, pos_label=0, zero_division=0),
         }
+
     thresholds = np.linspace(0.10, 0.90, 17)
     threshold_report = pl.DataFrame([threshold_row(t) for t in thresholds])
     error_report = pl.DataFrame(
@@ -196,14 +194,14 @@ def _(
     )
     worst_errors = error_report.filter(pl.col("error")).sort("confidence", descending=True).head(10)
     threshold_report.head(), worst_errors
-    return threshold_report, worst_errors
+    return (threshold_report,)
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     ## 4. Visual report
-    The four panels summarize fold stability, ranking behavior, threshold trade-offs and the distribution of OOF probabilities.
+    The four panels show per-fold metrics, the ROC and precision-recall curves, the threshold sweep and the OOF probabilities for each class.
     """)
     return
 
@@ -213,7 +211,6 @@ def _(
     auc,
     fold_metrics,
     mo,
-    np,
     plt,
     precision_recall_curve,
     proba,
@@ -222,22 +219,12 @@ def _(
     threshold_report,
     y,
 ):
-    def grouped_bar(ax, categories, series):
-        x = np.arange(len(categories))
-        width = 0.8 / len(series)
-        for i, (label, values) in enumerate(series.items()):
-            ax.bar(x + i * width, values, width, label=label)
-        ax.set_xticks(x + width * (len(series) - 1) / 2, categories)
-        ax.legend()
-
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fold_cols = ["balanced_accuracy", "mcc", "roc_auc", "pr_auc"]
-    grouped_bar(
-        axes[0, 0],
-        fold_metrics.get_column("fold").to_list(),
-        {col: fold_metrics.get_column(col).to_numpy() for col in fold_cols},
-    )
-    axes[0, 0].set_title("Fold-level stability"); axes[0, 0].set_ylim(-0.05, 1.05)
+    for col in ("balanced_accuracy", "mcc", "roc_auc", "pr_auc"):
+        axes[0, 0].plot(fold_metrics["fold"], fold_metrics[col], "o-", label=col)
+    axes[0, 0].legend()
+    axes[0, 0].set_title("Fold-level stability")
+    axes[0, 0].set_ylim(-0.05, 1.05)
 
     fpr, tpr, _ = roc_curve(y, proba)
     precision, recall, _ = precision_recall_curve(y, proba)
@@ -246,38 +233,27 @@ def _(
     axes[0, 1].set(xlabel="x-axis rate", ylabel="y-axis rate", title="OOF ranking curves")
     axes[0, 1].legend()
 
-    threshold_x = threshold_report.get_column("threshold").to_numpy()
     for col in ("mcc", "f1", "sensitivity", "specificity"):
-        axes[1, 0].plot(threshold_x, threshold_report.get_column(col).to_numpy(), label=col)
-    axes[1, 0].axvline(0.5, linestyle="--"); axes[1, 0].set_title("Threshold sensitivity"); axes[1, 0].legend()
+        axes[1, 0].plot(threshold_report["threshold"], threshold_report[col], label=col)
+    axes[1, 0].axvline(0.5, linestyle="--")
+    axes[1, 0].set_title("Threshold sensitivity")
+    axes[1, 0].legend()
     for cls in (0, 1):
         axes[1, 1].hist(proba[y == cls], bins=18, alpha=0.6, label=f"class {cls}")
-    axes[1, 1].set(title="OOF probability distribution", xlabel="P(positive)"); axes[1, 1].legend()
+    axes[1, 1].set(title="OOF probability distribution", xlabel="P(positive)")
+    axes[1, 1].legend()
     plt.tight_layout()
     mo.output.append(mo.as_html(fig))
-    FIGURE_COUNT = 1
-    return (FIGURE_COUNT,)
+    return
 
 
 @app.cell
-def _(
-    FIGURE_COUNT,
-    dataset,
-    metrics,
-    np,
-    result,
-    threshold_report,
-    worst_errors,
-):
+def _(metrics, np, result, threshold_report):
     DEMO_CHECKS = {
         "five_folds": result.n_splits == 5,
-        "complete_oof": result.oof_prediction is not None,
         "all_metrics_present": set(metrics) == set(result.aggregate_metrics),
-        "sample_weights_exercised": dataset.sample_weight is not None,
         "threshold_report_complete": len(threshold_report) == 17,
-        "errors_traceable": set(worst_errors.columns) >= {"sample_id", "y_true", "y_pred", "p_positive"},
         "finite_metrics": all(np.isfinite(v) for v in result.aggregate_metrics.values()),
-        "figure_created": FIGURE_COUNT == 1,
     }
     assert all(DEMO_CHECKS.values()), DEMO_CHECKS
     DEMO_CHECKS

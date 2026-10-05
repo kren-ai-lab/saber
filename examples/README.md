@@ -17,7 +17,7 @@ external libraries. Plotting and reporting stay outside the `saber` core.
 | [06_optuna_optimization.py](06_optuna_optimization.py) | `tune` | typed continuous spaces, convergence and trial diagnostics |
 | [07_optimizer_comparison.py](07_optimizer_comparison.py) | `tune` | Grid vs Random vs Optuna on identical memberships and search domain |
 | [08_biosieve_validation.py](08_biosieve_validation.py) | `validate` | live BioSieve integration when installed, provenance and fold diagnostics |
-| [09_partition_strategy_comparison.py](09_partition_strategy_comparison.py) | `benchmark` | balanced vs group-blocked external partition regimes without reimplementing splitting in saber |
+| [09_partition_strategy_comparison.py](09_partition_strategy_comparison.py) | `benchmark` | random vs group-blocked external partition regimes without reimplementing splitting in saber |
 | [10_multi_representation_benchmark.py](10_multi_representation_benchmark.py) | `benchmark` | representations × partitions × algorithms × seeds benchmark matrix |
 | [11_benchmark_reporting.py](11_benchmark_reporting.py) | `benchmark` | leaderboard, stability, sample-level error audit and CSV/Markdown report export |
 | [12_model_persistence.py](12_model_persistence.py) | `train` / `save_model` / `load_model` | auditable artifact, checksum verification, reload and inference report |
