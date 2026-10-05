@@ -6,9 +6,14 @@ type: software
 version: 0.1.0
 license: MIT
 authors:
-  - name: "Kren AI Lab"
-    email: "krenai@umag.cl"
-    address: "Universidad de Magallanes"
+  - family-names: Álvarez Saravia
+    given-names: Diego
+    affiliation: "Universidad de Magallanes"
+    orcid: "https://orcid.org/0000-0003-0753-274X"
+  - family-names: Medina-Ortiz
+    given-names: David
+    affiliation: "Universidad de Magallanes"
+    orcid: "https://orcid.org/0000-0002-8369-5746"
 repository-code: "https://github.com/kren-ai-lab/saber"
 url: "https://github.com/kren-ai-lab/saber"
 keywords:
