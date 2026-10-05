@@ -3,7 +3,11 @@
 All notable changes to Saber are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
-## 0.1.0 (unreleased)
+## 0.1.1
+
+Publish archive on Zenodo.
+
+## 0.1.0
 
 First public release, published on PyPI as `saberlib`.
 

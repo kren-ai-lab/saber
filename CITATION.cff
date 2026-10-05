@@ -3,7 +3,7 @@ message: "If you use Saber in your research, please cite it as below."
 title: "Saber: Reproducible Classical Supervised Machine Learning for Prepared Numerical Representations"
 abstract: "Reproducible classical supervised machine learning (classification and regression) for prepared numerical tabular representations."
 type: software
-version: 0.1.0
+version: 0.1.1
 license: MIT
 authors:
   - family-names: Álvarez Saravia
