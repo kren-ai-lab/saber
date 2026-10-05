@@ -43,7 +43,7 @@ import numpy as np
 from sklearn.datasets import make_classification
 
 import saber
-from saber.datasets import DatasetBundle, PartitionPlan
+from saber import DatasetBundle, PartitionPlan
 
 X, y = make_classification(n_samples=120, n_features=12, random_state=42)
 dataset = DatasetBundle(X=X, y=y, sample_ids=[f"s{i}" for i in range(len(y))])
@@ -51,7 +51,7 @@ dataset = DatasetBundle(X=X, y=y, sample_ids=[f"s{i}" for i in range(len(y))])
 plan = PartitionPlan.from_predefined_folds(
     sample_ids=dataset.sample_ids,
     fold_assignments=np.arange(len(y)) % 4,
-    dataset_fingerprint=dataset.fingerprint,
+    dataset=dataset,
 )
 
 result = saber.validate(
@@ -70,12 +70,12 @@ refer to samples by ID, never by row position. If your data isn't split yet,
 let BioSieve generate the partitions:
 
 ```python
-from saber.datasets import BioSievePartitionConfig
+from saber import BioSievePartitionConfig
 
 result = saber.validate(
     dataset=dataset,
     algorithm="random_forest_classifier",
-    partitioning=BioSievePartitionConfig(
+    partition_plan=BioSievePartitionConfig(
         strategy="stratified_kfold",
         params={"n_splits": 5, "seed": 42},
     ),
@@ -89,18 +89,18 @@ external partition files and BioSieve.
 ## Tune, benchmark and save
 
 ```python
-from saber.core.search_space import Categorical, LogFloat, SearchSpace
-from saber.tuning import TuningConfig
+from saber import Categorical, LogFloat, SearchSpace, TuningConfig
 
 tuned = saber.tune(
     dataset=dataset,
     algorithm="svc",
     partition_plan=plan,
     search_space=SearchSpace(
-        name="svc",
         parameters={"C": LogFloat(1e-3, 1e2), "kernel": Categorical(["linear", "rbf"])},
     ),
-    config=TuningConfig(optimizer="random", metrics=("mcc",), n_trials=20, random_state=42),
+    config=TuningConfig(optimizer="random", n_trials=20),
+    metrics=("mcc",),
+    random_state=42,
 )
 print(tuned.best_params)
 ```
@@ -108,7 +108,7 @@ print(tuned.best_params)
 `saber.benchmark(...)` crosses representations, partitions, algorithms, seeds
 and tuned/untuned modes, and returns long-form Polars tables of metrics and
 per-sample predictions. `saber.train(...)` fits a final model, and
-`saber.save_model(...)` writes it as a directory with a feature schema,
+`saber.save_model(path, result, dataset=dataset)` writes a `train` or `tune` result as a directory with a feature schema,
 provenance and checksums that `saber.load_model(...)` verifies before loading.
 See the [tuning](docs/tuning.md), [benchmarking](docs/benchmarking.md) and
 [persistence](docs/persistence.md) guides.
@@ -123,7 +123,7 @@ saber artifact verify artifacts/model
 ```
 
 Every workflow can be written as a YAML or JSON file and run from the CLI or
-with `saber.run_config(...)`. See the [configuration](docs/configuration.md)
+with `saber.run_config("experiment.yaml")`. See the [configuration](docs/configuration.md)
 and [CLI](docs/cli.md) references.
 
 ## Design principles

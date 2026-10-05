@@ -25,7 +25,7 @@ def _inputs():
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=ids,
         fold_assignments=[i % 3 for i in range(len(y))],
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
     return dataset, plan
 
@@ -37,14 +37,14 @@ def test_optuna_uses_typed_space_pipeline_and_multiple_metrics() -> None:
         algorithm="logistic_regression",
         config=TuningConfig(
             optimizer="optuna",
-            metrics=("accuracy", "balanced_accuracy"),
             refit_metric="accuracy",
             n_trials=3,
-            random_state=42,
             n_jobs=1,
         ),
         partition_plan=plan,
-        search_space=SearchSpace("lr", {"C": LogFloat(1e-3, 10.0)}),
+        search_space=SearchSpace({"C": LogFloat(1e-3, 10.0)}),
+        metrics=("accuracy", "balanced_accuracy"),
+        random_state=42,
     )
     assert result.best_model is not None
     assert set(result.best_scores) == {"accuracy", "balanced_accuracy"}
@@ -56,18 +56,18 @@ def test_seeded_optuna_is_reproducible() -> None:
     dataset, plan = _inputs()
     config = TuningConfig(
         optimizer="optuna",
-        metrics=("accuracy",),
         n_trials=4,
-        random_state=91,
         n_jobs=1,
     )
-    space = SearchSpace("lr", {"C": LogFloat(1e-3, 10.0)})
+    space = SearchSpace({"C": LogFloat(1e-3, 10.0)})
     first = tune(
         dataset=dataset,
         algorithm="logistic_regression",
         config=config,
         partition_plan=plan,
         search_space=space,
+        metrics=("accuracy",),
+        random_state=91,
     )
     second = tune(
         dataset=dataset,
@@ -75,9 +75,13 @@ def test_seeded_optuna_is_reproducible() -> None:
         config=config,
         partition_plan=plan,
         search_space=space,
+        metrics=("accuracy",),
+        random_state=91,
     )
     assert first.best_params == second.best_params
-    assert first.best_score == pytest.approx(second.best_score)
+    assert first.best_scores[str(first.refit_metric)] == pytest.approx(
+        second.best_scores[str(second.refit_metric)]
+    )
 
 
 def test_optuna_storage_can_resume_existing_study(tmp_path) -> None:
@@ -85,21 +89,21 @@ def test_optuna_storage_can_resume_existing_study(tmp_path) -> None:
     storage = f"sqlite:///{tmp_path / 'study.db'}"
     base: dict[str, Any] = {
         "optimizer": "optuna",
-        "metrics": ("accuracy",),
         "n_trials": 2,
-        "random_state": 17,
         "n_jobs": 1,
         "optuna_storage": storage,
         "optuna_study_name": "phase5-resume",
         "optuna_load_if_exists": True,
     }
-    space = SearchSpace("lr", {"C": LogFloat(1e-3, 10.0)})
+    space = SearchSpace({"C": LogFloat(1e-3, 10.0)})
     first = tune(
         dataset=dataset,
         algorithm="logistic_regression",
         config=TuningConfig(**base),
         partition_plan=plan,
         search_space=space,
+        metrics=("accuracy",),
+        random_state=17,
     )
     assert len(first.history) == 2
     first_values = [entry["params"]["C"] for entry in first.history]
@@ -109,6 +113,8 @@ def test_optuna_storage_can_resume_existing_study(tmp_path) -> None:
         config=TuningConfig(**base),
         partition_plan=plan,
         search_space=space,
+        metrics=("accuracy",),
+        random_state=17,
     )
     assert len(second.history) == 4
     second_new_values = [entry["params"]["C"] for entry in second.history[2:]]
@@ -123,10 +129,14 @@ def test_optuna_failed_trials_are_counted_as_failures() -> None:
             dataset=dataset,
             algorithm="logistic_regression",
             config=TuningConfig(
-                optimizer="optuna", metrics=("accuracy",), n_trials=4, random_state=1, n_jobs=1
+                optimizer="optuna",
+                n_trials=4,
+                n_jobs=1,
             ),
             partition_plan=plan,
-            search_space=SearchSpace("lr", {"C": [-1.0, 1.0]}),
+            search_space=SearchSpace({"C": [-1.0, 1.0]}),
+            metrics=("accuracy",),
+            random_state=1,
         )
     assert result.failures
     assert all(row["status"] == "failed" for row in result.failures)

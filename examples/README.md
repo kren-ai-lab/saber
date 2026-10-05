@@ -20,13 +20,14 @@ external libraries. Plotting and reporting stay outside the `saber` core.
 | [09_partition_strategy_comparison.py](09_partition_strategy_comparison.py) | `benchmark` | balanced vs group-blocked external partition regimes without reimplementing splitting in saber |
 | [10_multi_representation_benchmark.py](10_multi_representation_benchmark.py) | `benchmark` | representations × partitions × algorithms × seeds benchmark matrix |
 | [11_benchmark_reporting.py](11_benchmark_reporting.py) | `benchmark` | leaderboard, stability, sample-level error audit and CSV/Markdown report export |
-| [12_model_persistence.py](12_model_persistence.py) | `train` / `load_model` | auditable artifact, checksum verification, reload and inference report |
+| [12_model_persistence.py](12_model_persistence.py) | `train` / `save_model` / `load_model` | auditable artifact, checksum verification, reload and inference report |
 | [13_data_centric_benchmark.py](13_data_centric_benchmark.py) | `benchmark` | representation comparison with untuned/tuned models and a protected final test |
 
 ## Configs
 
-`examples/configs/` holds minimal example YAML configs used by the CLI docs
-and `saber config validate`.
+`examples/configs/` holds minimal example YAML configs (schema 2.0) for
+`saber run CONFIG`; check one with `saber run CONFIG --dry-run`. They read
+`data/classification.csv` and `data/regression.csv` next to the config.
 
 ### Test mode
 

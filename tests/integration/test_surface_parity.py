@@ -31,7 +31,7 @@ def _write_classification_case(tmp_path: Path):
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=ids,
         fold_assignments=np.arange(45) % 3,
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
     part_path = tmp_path / "folds.json"
     part_path.write_text(json.dumps(plan.to_dict(), indent=2))
@@ -44,8 +44,9 @@ def test_config_relative_paths_do_not_depend_on_current_working_directory(tmp_pa
     _, _, data_path, part_path = _write_classification_case(case)
     config_path = case / "validate.yaml"
     config_path.write_text(
-        f"""schema_version: "1.0"\nworkflow: validate\ndataset:\n  path: {data_path.name}\n"""
-        """  target: label\n  sample_id: sample_id\nalgorithm: logistic_regression\npartition:\n"""
+        f"""schema_version: "2.0"\nworkflow: validate\ndataset:\n  path: {data_path.name}\n"""
+        """  target_col: label\n  sample_id_col: sample_id\nalgorithm: logistic_regression\n"""
+        """partition_plan:\n"""
         f"""  path: {part_path.name}\nmetrics: [accuracy]\n"""
     )
     other = tmp_path / "elsewhere"
@@ -66,9 +67,9 @@ def test_yaml_train_artifact_predict_roundtrip(tmp_path):
 
     train_config = tmp_path / "train.yaml"
     train_config.write_text(
-        """schema_version: "1.0"\nworkflow: train\ndataset:\n  path: train.csv\n  target: label\n"""
-        """  sample_id: sample_id\nalgorithm: logistic_regression\nrandom_state: 42\nartifact:\n"""
-        """  path: artifact\n"""
+        """schema_version: "2.0"\nworkflow: train\ndataset:\n  path: train.csv\n  target_col: label\n"""
+        """  sample_id_col: sample_id\nalgorithm: logistic_regression\nrandom_state: 42\n"""
+        """artifact: artifact\n"""
     )
     assert main(["run", str(train_config)]) == EXIT_OK
 
@@ -77,11 +78,11 @@ def test_yaml_train_artifact_predict_roundtrip(tmp_path):
     pred_frame.to_csv(tmp_path / "predict.csv", index=False)
     predict_config = tmp_path / "predict.yaml"
     predict_config.write_text(
-        """schema_version: "1.0"\nworkflow: predict\nartifact: artifact\ndataset:\n  path: predict.csv\n"""
-        """  sample_id: sample_id\noutput:\n  path: predictions.csv\n"""
+        """schema_version: "2.0"\nworkflow: predict\nmodel: artifact\ndataset:\n  path: predict.csv\n"""
+        """  sample_id_col: sample_id\noutput: out\n"""
     )
     assert main(["run", str(predict_config)]) == EXIT_OK
-    predictions = pd.read_csv(tmp_path / "predictions.csv")
+    predictions = pd.read_csv(tmp_path / "out" / "predictions.csv")
     assert len(predictions) == 40
     assert predictions["sample_id"].tolist() == ids
 
@@ -96,7 +97,8 @@ def test_regression_yaml_evaluate_artifact_roundtrip(tmp_path):
     ids = [f"r{i}" for i in range(45)]
     frame = pd.DataFrame(X, columns=[f"x{i}" for i in range(4)])
     dataset = DatasetBundle(frame, y, sample_ids=ids)
-    saber.train(dataset=dataset, algorithm="ridge_regressor", artifact_path=tmp_path / "artifact")
+    trained = saber.train(dataset=dataset, algorithm="ridge_regressor")
+    saber.save_model(tmp_path / "artifact", trained, dataset=dataset)
 
     eval_frame = frame.copy()
     eval_frame.insert(0, "sample_id", ids)
@@ -104,8 +106,8 @@ def test_regression_yaml_evaluate_artifact_roundtrip(tmp_path):
     eval_frame.to_csv(tmp_path / "eval.csv", index=False)
     config_path = tmp_path / "evaluate.yaml"
     config_path.write_text(
-        """schema_version: "1.0"\nworkflow: evaluate\nartifact: artifact\ndataset:\n  path: eval.csv\n"""
-        """  target: target\n  sample_id: sample_id\nmetrics: [rmse, mae]\n"""
+        """schema_version: "2.0"\nworkflow: evaluate\nmodel: artifact\ndataset:\n  path: eval.csv\n"""
+        """  target_col: target\n  sample_id_col: sample_id\nmetrics: [rmse, mae]\n"""
     )
     result = run_config(load_config(config_path))
     assert set(result.result.metrics) == {"rmse", "mae"}

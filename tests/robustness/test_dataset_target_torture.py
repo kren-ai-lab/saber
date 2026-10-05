@@ -15,7 +15,7 @@ def _cv_plan(dataset: DatasetBundle, n_splits: int = 3) -> PartitionPlan:
     return PartitionPlan.from_predefined_folds(
         sample_ids=dataset.sample_ids,
         fold_assignments=np.arange(dataset.n_samples) % n_splits,
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
 
 

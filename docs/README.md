@@ -18,13 +18,13 @@ Start with the [quickstart](../README.md) to install Saber and validate a model.
 
 The workflow functions live in the package root: `saber.train`,
 `saber.validate`, `saber.evaluate`, `saber.tune`,
-`saber.benchmark` and `saber.predict`, plus `save_model`, `load_model`,
-`load_config` and `run_config`. Use Python help for the signatures and defaults
+`saber.benchmark` and `saber.predict`, plus `save_model`, `load_model`
+and `run_config` (`load_config` lives in `saber.config`). Use Python help for the signatures and defaults
 of your installed version:
 
 ```python
 import saber
-from saber.datasets import DatasetBundle
+from saber import DatasetBundle
 
 help(saber.validate)
 help(DatasetBundle)
@@ -33,7 +33,8 @@ help(DatasetBundle)
 To find an algorithm, browse the algorithm catalog, or run `saber models list`:
 
 ```python
-from saber import ALGORITHMS, get_algorithm
+from saber import ALGORITHMS
+from saber.core import get_algorithm
 
 [s.name for s in ALGORITHMS.values() if s.task == "classification" and s.provider == "sklearn"]
 get_algorithm("random_forest_classifier").metadata()

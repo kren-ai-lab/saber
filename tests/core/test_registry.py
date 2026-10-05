@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import importlib.util
+
 import pytest
 
-from saber._optional import is_dependency_available
 from saber.core.registry import ALGORITHMS, get_algorithm
 from saber.exceptions import AlgorithmNotFoundError
 
@@ -34,4 +35,4 @@ def test_sklearn_specs_present() -> None:
 @pytest.mark.parametrize("provider", ["xgboost", "lightgbm"])
 def test_optional_providers_present_iff_installed(provider: str) -> None:
     present = any(spec.provider == provider for spec in ALGORITHMS.values())
-    assert present == is_dependency_available(provider)
+    assert present == (importlib.util.find_spec(provider) is not None)

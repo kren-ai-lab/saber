@@ -8,7 +8,7 @@ that later preprocessing/validation phases can enforce explicitly.
 from __future__ import annotations
 
 import inspect
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Literal
 
 ScalingRecommendation = Literal[
@@ -29,12 +29,7 @@ class EstimatorCapabilities:
 
     def to_dict(self) -> dict[str, bool]:
         """Return a serialization-friendly capability mapping."""
-        return {
-            "predict_proba": self.predict_proba,
-            "decision_function": self.decision_function,
-            "sample_weight": self.sample_weight,
-            "native_missing_values": self.native_missing_values,
-        }
+        return asdict(self)
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,11 +42,7 @@ class EstimatorRequirements:
 
     def to_dict(self) -> dict[str, bool | str]:
         """Return a serialization-friendly requirement mapping."""
-        return {
-            "non_negative_X": self.non_negative_X,
-            "positive_y": self.positive_y,
-            "scaling": self.scaling,
-        }
+        return asdict(self)
 
 
 def infer_estimator_capabilities(

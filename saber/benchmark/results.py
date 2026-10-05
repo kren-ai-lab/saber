@@ -6,10 +6,9 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal
 
-import numpy as np
 import polars as pl
 
-from saber.utils.tabular import cell_value, records_frame
+from saber.utils.tabular import records_frame
 
 if TYPE_CHECKING:
     from saber.core.prediction import PredictionResult
@@ -24,7 +23,6 @@ class BenchmarkRun:
     """One algorithm x representation x partition x seed x mode execution."""
 
     run_id: str
-    dataset_label: str
     representation: str
     partition_label: str
     algorithm: str
@@ -38,7 +36,6 @@ class BenchmarkRun:
     elapsed_seconds: float = 0.0
     error: str | None = None
     parameters: dict[str, Any] = field(default_factory=dict)
-    targets: dict[Any, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -61,6 +58,7 @@ class BenchmarkResult:
     """Collection of benchmark runs with analysis-ready exports."""
 
     runs: tuple[BenchmarkRun, ...]
+    targets: dict[Any, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -78,123 +76,73 @@ class BenchmarkResult:
         """Return the total number of requested runs."""
         return len(self.runs)
 
+    def to_dict(self) -> dict[str, Any]:
+        """Return a serialization-friendly summary; per-run results are in the ``*_frame()`` tables."""
+        return {
+            "algorithms": list(self.metadata.get("algorithms", ())),
+            "task": self.metadata.get("task"),
+            "dataset_fingerprints": {
+                run.representation: run.metadata.get("dataset_fingerprint") for run in self.runs
+            },
+            "n_runs": self.n_runs,
+            "n_successes": len(self.successes),
+            "n_failures": len(self.failures),
+        }
+
     def aggregate_metrics_frame(self) -> pl.DataFrame:
         """Return one long-form row per completed run and aggregate metric."""
-        rows: list[dict[str, Any]] = []
-        for run in self.successes:
-            for metric, value in run.aggregate_metrics.items():
-                rows.append(
-                    {
-                        **_run_identity(run),
-                        "level": "aggregate",
-                        "split": None,
-                        "evaluation_role": None,
-                        "metric": metric,
-                        "score": float(value),
-                        "elapsed_seconds": float(run.elapsed_seconds),
-                    }
-                )
-        return records_frame(rows)
+        return self._metrics_frame("aggregate")
 
     def fold_metrics_frame(self) -> pl.DataFrame:
         """Return one long-form row per fold/split and metric."""
-        rows: list[dict[str, Any]] = []
+        return self._metrics_frame("fold")
+
+    def metrics_frame(self) -> pl.DataFrame:
+        """Return aggregate and fold metrics in one analysis-ready table.
+
+        Rows are :meth:`ValidationResult.metrics_frame` rows prefixed with the
+        run identity and suffixed with the run's ``elapsed_seconds``.
+        """
+        return _concat([self.aggregate_metrics_frame(), self.fold_metrics_frame()])
+
+    def _metrics_frame(self, level: str) -> pl.DataFrame:
+        return _concat(
+            [
+                _with_identity(
+                    run.validation.metrics_frame().filter(pl.col("level") == level),
+                    run,
+                    elapsed_seconds=float(run.elapsed_seconds),
+                )
+                for run in self.successes
+                if run.validation is not None
+            ]
+        )
+
+    def predictions_frame(self) -> pl.DataFrame:
+        """Return sample-level held-out predictions for every successful run.
+
+        Columns are the run identity, ``split`` and ``evaluation_role``
+        followed by :meth:`PredictionResult.to_frame` columns.
+        """
+        frames: list[pl.DataFrame] = []
         for run in self.successes:
             if run.validation is None:
                 continue
             for fold in run.validation.folds:
-                for metric, value in fold.evaluation.metrics.items():
-                    rows.append(
-                        {
-                            **_run_identity(run),
-                            "level": "fold",
-                            "split": fold.split_name,
-                            "evaluation_role": fold.evaluation_role,
-                            "metric": metric,
-                            "score": float(value),
-                            "fit_seconds": float(fold.fit_seconds),
-                            "elapsed_seconds": float(run.elapsed_seconds),
-                        }
-                    )
-        return records_frame(rows)
-
-    def metrics_frame(self) -> pl.DataFrame:
-        """Return aggregate and fold metrics in one analysis-ready table."""
-        frames = [self.aggregate_metrics_frame(), self.fold_metrics_frame()]
-        non_empty = [frame for frame in frames if not frame.is_empty()]
-        if not non_empty:
-            return pl.DataFrame()
-        return pl.concat(non_empty, how="diagonal_relaxed")
-
-    def predictions_frame(self) -> pl.DataFrame:
-        """Return sample-level held-out predictions for every successful run."""
-        rows: list[dict[str, Any]] = []
-        for run in self.successes:
-            validation = run.validation
-            if validation is None:
-                continue
-            for fold in validation.folds:
-                prediction = fold.prediction
-                if prediction.sample_ids is None:
-                    # Fold predictions from validate() always carry sample_ids.
-                    raise AssertionError("Fold prediction is missing sample_ids.")
-                for index, sample_id in enumerate(prediction.sample_ids):
-                    row: dict[str, Any] = {
-                        **_run_identity(run),
-                        "split": fold.split_name,
-                        "evaluation_role": fold.evaluation_role,
-                        "sample_id": sample_id,
-                        "y_true": run.targets.get(sample_id),
-                        "y_pred": prediction.predictions[index],
-                    }
-                    if prediction.probabilities is not None:
-                        values = np.asarray(prediction.probabilities)
-                        if values.ndim == 1:
-                            row["probability"] = float(values[index])
-                        elif prediction.classes is not None:
-                            for class_index, class_label in enumerate(prediction.classes):
-                                row[f"probability__{class_label}"] = float(values[index, class_index])
-                    if prediction.decision_scores is not None:
-                        values = np.asarray(prediction.decision_scores)
-                        if values.ndim == 1:
-                            row["decision_score"] = float(values[index])
-                        elif prediction.classes is not None and values.shape[1] == len(prediction.classes):
-                            for class_index, class_label in enumerate(prediction.classes):
-                                row[f"decision_score__{class_label}"] = float(values[index, class_index])
-                    rows.append(row)
-        return records_frame(rows)
+                y_true = [self.targets.get(sample_id) for sample_id in fold.evaluation_ids]
+                frame = fold.prediction.to_frame(y_true=y_true)
+                frames.append(
+                    _with_identity(frame, run, split=fold.split, evaluation_role=fold.evaluation_role)
+                )
+        return _concat(frames)
 
     def optimization_history_frame(self) -> pl.DataFrame:
         """Return tuning candidate/trial history annotated with benchmark identity."""
-        frames: list[pl.DataFrame] = []
-        for run in self.successes:
-            if run.optimization is None:
-                continue
-            frame = run.optimization.history_frame()
-            if frame.is_empty():
-                continue
-            identity = _run_identity(run)
-            # Serialize nested identity values (e.g. "parameters") the same way
-            # records_frame does, so this column stays consistent across every result table.
-            serialized_identity = {key: cell_value(value) for key, value in identity.items()}
-            frame = frame.with_columns(**{k: pl.lit(v) for k, v in serialized_identity.items()}).select(
-                [*identity, *frame.columns]
-            )
-            frames.append(frame)
-        if not frames:
-            return pl.DataFrame()
-        return pl.concat(frames, how="diagonal_relaxed")
-
-    def failures_frame(self) -> pl.DataFrame:
-        """Return failed runs without discarding successful benchmark results."""
-        return records_frame(
+        return _concat(
             [
-                {
-                    **_run_identity(run),
-                    "error": run.error,
-                    "elapsed_seconds": float(run.elapsed_seconds),
-                }
-                for run in self.failures
+                _with_identity(run.optimization.history_frame(), run)
+                for run in self.successes
+                if run.optimization is not None
             ]
         )
 
@@ -213,10 +161,27 @@ class BenchmarkResult:
         return records_frame(rows)
 
 
+def _with_identity(frame: pl.DataFrame, run: BenchmarkRun, **context: Any) -> pl.DataFrame:
+    """Prefix ``frame`` with the run identity and ``context`` columns (``elapsed_seconds`` goes last)."""
+    if frame.is_empty():
+        return frame
+    elapsed = context.pop("elapsed_seconds", None)
+    frame = records_frame([_run_identity(run) | context]).join(frame, how="cross")
+    if elapsed is not None:
+        frame = frame.with_columns(elapsed_seconds=pl.lit(elapsed))
+    return frame
+
+
+def _concat(frames: list[pl.DataFrame]) -> pl.DataFrame:
+    non_empty = [frame for frame in frames if not frame.is_empty()]
+    if not non_empty:
+        return pl.DataFrame()
+    return pl.concat(non_empty, how="diagonal_relaxed")
+
+
 def _run_identity(run: BenchmarkRun) -> dict[str, Any]:
     return {
         "run_id": run.run_id,
-        "dataset": run.dataset_label,
         "representation": run.representation,
         "partition": run.partition_label,
         "algorithm": run.algorithm,

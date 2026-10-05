@@ -22,27 +22,25 @@ from saber.cli.render import (
 from saber.config import load_config, run_config
 from saber.core.registry import ALGORITHMS, get_algorithm
 from saber.exceptions import ConfigurationError, SaberError
-from saber.persistence import inspect_artifact, verify_artifact
+from saber.persistence import inspect_artifact
 from saber.utils.serialization import to_jsonable
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-    from saber.core.specs import AlgorithmSpec
 
 EXIT_OK = 0
 EXIT_CONFIG = 2
 EXIT_WORKFLOW = 3
 EXIT_INTERNAL = 4
 
-CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
+_MODEL_ROW_KEYS = ("name", "task", "provider", "tags", "capabilities", "requirements")
 
 app = typer.Typer(
     name="saber",
     add_completion=False,
     no_args_is_help=True,
     rich_markup_mode="rich",
-    context_settings=CONTEXT_SETTINGS,
+    context_settings={"help_option_names": ["-h", "--help"]},
     help=(
         "Classical supervised ML workflows with reproducible partitions, tuning, benchmarking, and artifacts."
     ),
@@ -105,7 +103,7 @@ def run(config: ConfigArg, dry_run: DryRunOpt = False, json_output: JsonOpt = Fa
         return
     if json_output:
         execution = run_config(loaded)
-        _print_json(console, {"summary": execution.summary, "outputs": execution.outputs})
+        _print_json(console, {"status": "ok", "summary": execution.summary, "outputs": execution.outputs})
         return
     render_preflight(console, loaded)
     with console.status(f"[bold cyan]Running {loaded.workflow} workflow…[/bold cyan]", spinner="dots"):
@@ -118,7 +116,25 @@ def models_list(
     task: TaskOpt = None, provider: ProviderOpt = None, tag: TagOpt = None, json_output: JsonOpt = False
 ) -> None:
     """List registered models, optionally filtered by task, provider, or tag."""
-    _print_model_rows(Console(), _filtered_specs(task, provider, tag), json_output=json_output)
+    console = Console()
+    specs = sorted(
+        (
+            spec
+            for spec in ALGORITHMS.values()
+            if (task is None or spec.task == task.value)
+            and (provider is None or spec.provider == provider)
+            and (tag is None or tag in spec.tags)
+        ),
+        key=lambda item: item.name,
+    )
+    metadata = [spec.metadata() for spec in specs]
+    rows = [{key: item[key] for key in _MODEL_ROW_KEYS} for item in metadata]
+    if json_output:
+        _print_json(console, rows)
+    else:
+        render_model_list(console, rows)
+        if not rows:
+            console.print("[yellow]No models matched the requested filters.[/yellow]")
 
 
 @models_app.command("show", help="Show detailed metadata for one algorithm.")
@@ -152,7 +168,7 @@ def artifact_inspect(
 @artifact_app.command("verify", help="Verify artifact schema and checksums.")
 def artifact_verify(path: Path) -> None:
     """Verify an artifact's schema and checksums."""
-    verify_artifact(path)
+    inspect_artifact(path)
     Console().print(f"[green]✓[/green] Artifact verified: {Path(path).resolve()}")
 
 
@@ -172,7 +188,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except SaberError as exc:
         error_console.print(f"[bold red]saber workflow failed[/bold red]\n{exc}")
         return EXIT_WORKFLOW
-    except (FileNotFoundError, OSError, ValueError, TypeError) as exc:
+    except (OSError, ValueError, TypeError) as exc:
         error_console.print(f"[bold red]Error[/bold red]\n{exc}")
         return EXIT_WORKFLOW
     except Exception as exc:  # noqa: BLE001 - last-resort CLI boundary
@@ -181,40 +197,5 @@ def main(argv: Sequence[str] | None = None) -> int:
     return EXIT_OK
 
 
-def _filtered_specs(task: TaskChoice | None, provider: str | None, tag: str | None) -> list[AlgorithmSpec]:
-    return [
-        spec
-        for spec in ALGORITHMS.values()
-        if (task is None or spec.task == task.value)
-        and (provider is None or spec.provider == provider)
-        and (tag is None or tag in spec.tags)
-    ]
-
-
-def _print_model_rows(console: Console, specs: list[AlgorithmSpec], *, json_output: bool) -> None:
-    rows = [_model_row(spec) for spec in sorted(specs, key=lambda item: item.name)]
-    if json_output:
-        _print_json(console, rows)
-    else:
-        render_model_list(console, rows)
-        if not rows:
-            console.print("[yellow]No models matched the requested filters.[/yellow]")
-
-
-def _model_row(spec: Any) -> dict[str, Any]:
-    return {
-        "name": spec.name,
-        "task": spec.task,
-        "provider": spec.provider,
-        "tags": list(spec.tags),
-        "capabilities": spec.capabilities.to_dict(),
-        "requirements": spec.requirements.to_dict(),
-    }
-
-
 def _print_json(console: Console, payload: Any) -> None:
     console.print_json(json.dumps(to_jsonable(payload), ensure_ascii=False))
-
-
-if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(main())

@@ -22,7 +22,9 @@ class EvaluationResult:
     def to_dict(self) -> dict[str, Any]:
         """Return a serialization-friendly summary."""
         return {
+            "algorithm": self.metadata.get("algorithm"),
             "task": self.task,
+            "dataset_fingerprint": self.metadata.get("dataset_fingerprint"),
+            "n_samples": None if self.prediction is None else self.prediction.n_samples,
             "metrics": dict(self.metrics),
-            "metadata": dict(self.metadata),
         }

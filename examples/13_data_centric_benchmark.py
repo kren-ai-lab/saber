@@ -49,11 +49,7 @@ def _():
         return folds
 
     from sklearn.datasets import make_classification
-    from saber import benchmark
-    from saber.benchmark import BenchmarkConfig
-    from saber.core import SearchSpace, Categorical
-    from saber.datasets import DatasetBundle, PartitionPlan
-    from saber.tuning import TuningConfig
+    from saber import benchmark, BenchmarkConfig, SearchSpace, Categorical, DatasetBundle, PartitionPlan, TuningConfig
 
     return (
         BenchmarkConfig,
@@ -84,7 +80,7 @@ def _(DEMO_TEST, DatasetBundle, PartitionPlan, make_classification, np):
     for cls in np.unique(y):
         cls_ids=ids[y==cls]; n=len(cls_ids); a,b=int(.60*n),int(.80*n)
         train_ids.extend(cls_ids[:a]); val_ids.extend(cls_ids[a:b]); test_ids.extend(cls_ids[b:])
-    plan=PartitionPlan.holdout(train_ids=train_ids,validation_ids=val_ids,test_ids=test_ids,dataset_fingerprint=rep_a.fingerprint,
+    plan=PartitionPlan.holdout(train_ids=train_ids,validation_ids=val_ids,test_ids=test_ids,dataset=rep_a,
                                metadata={"source":"prepared_holdout","test_role":"protected"})
     return plan, rep_a, rep_b
 
@@ -103,15 +99,15 @@ def _(
     rep_b,
 ):
     seeds=(42,) if DEMO_TEST else (42,123)
-    tuning=TuningConfig(optimizer="grid",metrics=("mcc","roc_auc"),refit_metric="mcc",random_state=None,n_jobs=1)
+    tuning=TuningConfig(optimizer="grid",refit_metric="mcc",n_jobs=1)
     search_spaces={
-        "logistic_regression":SearchSpace("logreg",{"C":Categorical([0.1,1.0,3.0]),"solver":Categorical(["lbfgs"])}),
-        "random_forest_classifier":SearchSpace("rf",{"n_estimators":Categorical([40,80] if DEMO_TEST else [80,160]),"max_depth":Categorical([4,8])}),
+        "logistic_regression":SearchSpace({"C":Categorical([0.1,1.0,3.0]),"solver":Categorical(["lbfgs"])}),
+        "random_forest_classifier":SearchSpace({"n_estimators":Categorical([40,80] if DEMO_TEST else [80,160]),"max_depth":Categorical([4,8])}),
     }
     bench=benchmark(
         datasets={"representation_A":rep_a,"representation_B":rep_b},
         algorithms=("logistic_regression","random_forest_classifier"), partitions={"development_plus_protected_test":plan},
-        config=BenchmarkConfig(metrics=("mcc","balanced_accuracy","f1","roc_auc"),seeds=seeds,modes=("untuned","tuned"),
+        metrics=("mcc","balanced_accuracy","f1","roc_auc"),config=BenchmarkConfig(seeds=seeds,modes=("untuned","tuned"),
                                include_baselines=True,tuning=tuning),
         search_spaces=search_spaces,
     )

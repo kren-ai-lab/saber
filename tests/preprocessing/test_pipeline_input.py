@@ -7,9 +7,9 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler
 
-from saber import get_algorithm
+from saber.core import get_algorithm
 from saber.datasets import DatasetBundle
-from saber.preprocessing import PreprocessingConfig, build_model_pipeline, pipeline_input
+from saber.preprocessing.pipeline import PreprocessingConfig, build_model_pipeline, pipeline_input
 
 
 def _dataset(X):

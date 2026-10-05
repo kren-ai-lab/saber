@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import json
 import pickle
 from pathlib import Path
@@ -17,7 +18,7 @@ from saber.exceptions import (
     PersistenceError,
     PredictionContractError,
 )
-from saber.persistence import inspect_artifact, load_model, save_model, verify_artifact
+from saber.persistence import inspect_artifact, load_model, save_model
 from saber.persistence.checksums import write_checksums
 
 
@@ -27,9 +28,7 @@ def _trained(tmp_path: Path):
     dataset = DatasetBundle(frame, y, sample_ids=[f"s{i}" for i in range(50)])
     trained = saber.train(dataset=dataset, algorithm="logistic_regression", random_state=42)
     path = tmp_path / "model"
-    save_model(
-        path, model=trained.model, algorithm="logistic_regression", task="classification", dataset=dataset
-    )
+    save_model(path, trained, dataset=dataset)
     return dataset, trained, path
 
 
@@ -37,7 +36,7 @@ def test_missing_checksum_file_is_rejected(tmp_path):
     _, _, path = _trained(tmp_path)
     (path / "checksums.sha256").unlink()
     with pytest.raises(ArtifactIntegrityError, match="checksum"):
-        verify_artifact(path)
+        inspect_artifact(path)
 
 
 def test_file_not_covered_by_checksums_is_rejected(tmp_path):
@@ -53,7 +52,7 @@ def test_empty_checksum_file_is_rejected(tmp_path):
     _, _, path = _trained(tmp_path)
     (path / "checksums.sha256").write_text("")
     with pytest.raises(ArtifactIntegrityError, match="not covered"):
-        verify_artifact(path)
+        inspect_artifact(path)
 
 
 def test_missing_manifest_is_rejected_even_when_checksum_verification_disabled(tmp_path):
@@ -104,47 +103,27 @@ def test_prediction_sample_ids_must_match_inference_row_count(tmp_path):
     dataset, _, path = _trained(tmp_path)
     loaded = load_model(path)
     with pytest.raises(PredictionContractError, match="sample_ids"):
-        loaded.predict_result(dataset.X, sample_ids=["too_short"])
+        saber.predict(loaded, dataset.X, sample_ids=["too_short"])
 
 
 def test_artifact_overwrite_replaces_previous_model(tmp_path):
     dataset, trained, path = _trained(tmp_path)
-    save_model(
-        path,
-        model=trained.model,
-        algorithm="logistic_regression",
-        task="classification",
-        dataset=dataset,
-        metadata={"revision": 2},
-        overwrite=True,
-    )
+    save_model(path, trained, dataset=dataset, metadata={"revision": 2}, overwrite=True)
     assert load_model(path).provenance["metadata"] == {"revision": 2}
     assert [child.name for child in path.parent.iterdir()] == [path.name]
 
 
 def test_failed_overwrite_keeps_previous_artifact_intact(tmp_path):
-    dataset, _, path = _trained(tmp_path)
+    dataset, trained, path = _trained(tmp_path)
+    unpicklable = dataclasses.replace(trained, model=lambda X: X)  # writing fails mid-save
     with pytest.raises(pickle.PicklingError):
-        save_model(
-            path,
-            model=lambda X: X,  # not picklable, so writing fails mid-save
-            algorithm="logistic_regression",
-            task="classification",
-            dataset=dataset,
-            metadata={"revision": 2},
-            overwrite=True,
-        )
+        save_model(path, unpicklable, dataset=dataset, metadata={"revision": 2}, overwrite=True)
     assert load_model(path).provenance["metadata"] == {}
     assert [child.name for child in path.parent.iterdir()] == [path.name]
 
 
 def test_invalid_task_is_rejected_before_writing_artifact(tmp_path):
     dataset, trained, _ = _trained(tmp_path)
+    bad_spec = dataclasses.replace(trained.spec, task="clustering")  # pyrefly: ignore[bad-argument-type]
     with pytest.raises(PersistenceError, match=r"classification.*regression"):
-        save_model(
-            tmp_path / "bad",
-            model=trained.model,
-            algorithm="logistic_regression",
-            task="clustering",
-            dataset=dataset,
-        )
+        save_model(tmp_path / "bad", dataclasses.replace(trained, spec=bad_spec), dataset=dataset)

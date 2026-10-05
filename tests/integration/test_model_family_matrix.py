@@ -62,8 +62,8 @@ def test_every_registered_algorithm_trains_predicts_and_evaluates(spec):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         result = saber.train(dataset=dataset, algorithm=spec.name, random_state=42, model_params=params)
-        prediction = saber.predict(result, dataset=dataset)
-        evaluation = saber.evaluate(dataset=dataset, model=result, metrics=(metric,))
+        prediction = saber.predict(result, dataset)
+        evaluation = saber.evaluate(result, dataset, metrics=(metric,))
 
     assert prediction.n_samples == dataset.n_samples
     assert np.isfinite(evaluation.metrics[metric])
@@ -79,7 +79,7 @@ def test_categorical_nb_runs_on_prepared_nonnegative_integer_features_without_sc
         algorithm="categorical_nb",
         preprocessing=PreprocessingConfig(imputation=None, scaler=None),
     )
-    evaluation = saber.evaluate(dataset=dataset, model=result, metrics=("accuracy",))
+    evaluation = saber.evaluate(result, dataset, metrics=("accuracy",))
     assert 0.0 <= evaluation.metrics["accuracy"] <= 1.0
 
 
@@ -89,5 +89,5 @@ def test_gamma_regression_runs_on_strictly_positive_target():
     y = np.exp(0.2 * X[:, 0] - 0.1 * X[:, 1]) + 0.1
     dataset = DatasetBundle(X=X, y=y, sample_ids=[f"g{i}" for i in range(60)])
     result = saber.train(dataset=dataset, algorithm="gamma_regressor")
-    evaluation = saber.evaluate(dataset=dataset, model=result, metrics=("rmse",))
+    evaluation = saber.evaluate(result, dataset, metrics=("rmse",))
     assert np.isfinite(evaluation.metrics["rmse"])

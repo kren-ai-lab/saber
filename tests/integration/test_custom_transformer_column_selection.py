@@ -44,7 +44,7 @@ def _fold_plan(dataset: DatasetBundle) -> PartitionPlan:
     return PartitionPlan.from_predefined_folds(
         sample_ids=dataset.sample_ids,
         fold_assignments=[i % 3 for i in range(dataset.n_samples)],
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
 
 
@@ -59,7 +59,7 @@ def test_train_validate_tune_predict_and_artifact_round_trip_with_named_column_s
         preprocessing=preprocessing,
         random_state=7,
     )
-    prediction = saber.predict(train_result, dataset=dataset)
+    prediction = saber.predict(train_result, dataset)
     assert prediction.predictions.shape[0] == dataset.n_samples
 
     validation_result = saber.validate(
@@ -77,27 +77,21 @@ def test_train_validate_tune_predict_and_artifact_round_trip_with_named_column_s
         algorithm="logistic_regression",
         config=TuningConfig(
             optimizer="grid",
-            metrics=("accuracy",),
             refit_metric="accuracy",
-            random_state=7,
             n_jobs=1,
         ),
         partition_plan=_fold_plan(dataset),
         preprocessing=preprocessing,
-        search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
+        search_space=SearchSpace({"C": [0.1, 1.0]}),
+        metrics=("accuracy",),
+        random_state=7,
     )
     assert tune_result.best_model is not None
 
     artifact_path = tmp_path / "model"
-    save_model(
-        artifact_path,
-        model=train_result.model,
-        algorithm="logistic_regression",
-        task="classification",
-        dataset=dataset,
-    )
+    save_model(artifact_path, train_result, dataset=dataset)
     loaded = load_model(artifact_path)
-    loaded_prediction = loaded.predict_result(dataset.X, sample_ids=dataset.sample_ids)
+    loaded_prediction = saber.predict(loaded, dataset.X, sample_ids=dataset.sample_ids)
     np.testing.assert_array_equal(loaded_prediction.predictions, prediction.predictions)
     assert loaded_prediction.probabilities is not None
     assert prediction.probabilities is not None

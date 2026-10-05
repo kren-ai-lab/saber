@@ -10,8 +10,6 @@ from sklearn.datasets import make_classification, make_regression
 
 from saber.benchmark import (
     BenchmarkConfig,
-    BenchmarkDataset,
-    BenchmarkPartition,
     benchmark,
 )
 from saber.core.search_space import SearchSpace
@@ -38,7 +36,7 @@ def _cv_plan(dataset: DatasetBundle, offset: int = 0) -> PartitionPlan:
     return PartitionPlan.from_predefined_folds(
         sample_ids=dataset.sample_ids,
         fold_assignments=[(i + offset) % 3 for i in range(dataset.n_samples)],
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
 
 
@@ -49,7 +47,7 @@ def _safe_holdout(dataset: DatasetBundle) -> PartitionPlan:
         train_ids=ids[:40],
         validation_ids=ids[40:50],
         test_ids=ids[50:],
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
 
 
@@ -61,19 +59,18 @@ def _small_benchmark():
         datasets={"roxy": dataset},
         algorithms=("logistic_regression", "not_a_model"),
         config=BenchmarkConfig(
-            metrics=("accuracy",),
             modes=("tuned",),
             include_baselines=False,
-            tuning=TuningConfig(optimizer="grid", metrics=("accuracy",), n_jobs=1),
+            tuning=TuningConfig(optimizer="grid", n_jobs=1),
         ),
         partitions=plan,
-        search_spaces={"logistic_regression": SearchSpace("lr", {"C": [0.1, 1.0]})},
+        search_spaces={"logistic_regression": SearchSpace({"C": [0.1, 1.0]})},
+        metrics=("accuracy",),
     )
 
 
 EXPECTED_METRICS_COLUMNS = [
     "run_id",
-    "dataset",
     "representation",
     "partition",
     "algorithm",
@@ -88,12 +85,15 @@ EXPECTED_METRICS_COLUMNS = [
     "evaluation_role",
     "metric",
     "score",
-    "elapsed_seconds",
+    "std",
+    "min",
+    "max",
+    "n",
     "fit_seconds",
+    "elapsed_seconds",
 ]
 EXPECTED_PREDICTIONS_COLUMNS = [
     "run_id",
-    "dataset",
     "representation",
     "partition",
     "algorithm",
@@ -114,7 +114,6 @@ EXPECTED_PREDICTIONS_COLUMNS = [
 ]
 EXPECTED_RUNS_COLUMNS = [
     "run_id",
-    "dataset",
     "representation",
     "partition",
     "algorithm",
@@ -129,24 +128,8 @@ EXPECTED_RUNS_COLUMNS = [
     "elapsed_seconds",
     "metric__accuracy",
 ]
-EXPECTED_FAILURES_COLUMNS = [
-    "run_id",
-    "dataset",
-    "representation",
-    "partition",
-    "algorithm",
-    "provider",
-    "task",
-    "mode",
-    "seed",
-    "configuration_id",
-    "parameters",
-    "error",
-    "elapsed_seconds",
-]
 EXPECTED_OPTIMIZATION_HISTORY_COLUMNS = [
     "run_id",
-    "dataset",
     "representation",
     "partition",
     "algorithm",
@@ -174,14 +157,12 @@ def test_result_frames_are_polars_and_keep_their_columns() -> None:
         "metrics_frame",
         "predictions_frame",
         "optimization_history_frame",
-        "failures_frame",
         "runs_frame",
     ):
         assert isinstance(getattr(result, name)(), pl.DataFrame), name
     assert list(result.metrics_frame().columns) == EXPECTED_METRICS_COLUMNS
     assert list(result.predictions_frame().columns) == EXPECTED_PREDICTIONS_COLUMNS
     assert list(result.runs_frame().columns) == EXPECTED_RUNS_COLUMNS
-    assert list(result.failures_frame().columns) == EXPECTED_FAILURES_COLUMNS
     assert list(result.optimization_history_frame().columns) == EXPECTED_OPTIMIZATION_HISTORY_COLUMNS
     assert result.predictions_frame()["sample_id"].to_list() == EXPECTED_SAMPLE_ORDER
 
@@ -192,11 +173,11 @@ def test_benchmark_runs_algorithm_matrix_with_baseline_and_repeated_seeds() -> N
         datasets=dataset,
         algorithms=("logistic_regression", "decision_tree_classifier"),
         config=BenchmarkConfig(
-            metrics=("accuracy", "balanced_accuracy"),
             seeds=(3, 7),
             include_baselines=True,
         ),
         partitions=_cv_plan(dataset),
+        metrics=("accuracy", "balanced_accuracy"),
     )
 
     assert result.n_runs == 6
@@ -223,17 +204,14 @@ def test_benchmark_multiple_representations_reuse_identical_partition_membership
     plan = _cv_plan(roxy)
 
     result = benchmark(
-        datasets=(
-            BenchmarkDataset("roxy", roxy, representation="roxy"),
-            BenchmarkDataset("sylphy", sylphy, representation="sylphy"),
-        ),
+        datasets={"roxy": roxy, "sylphy": sylphy},
         algorithms=("logistic_regression",),
         config=BenchmarkConfig(
-            metrics=("accuracy",),
             seeds=(42,),
             include_baselines=False,
         ),
-        partitions=BenchmarkPartition("cluster_disjoint", plan),
+        partitions={"cluster_disjoint": plan},
+        metrics=("accuracy",),
     )
 
     assert len(result.successes) == 2
@@ -259,8 +237,9 @@ def test_representation_benchmark_rejects_target_mismatch() -> None:
         benchmark(
             datasets={"first": first, "second": second},
             algorithms=("logistic_regression",),
-            config=BenchmarkConfig(metrics=("accuracy",), include_baselines=False),
+            config=BenchmarkConfig(include_baselines=False),
             partitions=_cv_plan(first),
+            metrics=("accuracy",),
         )
 
 
@@ -269,11 +248,12 @@ def test_multiple_partition_scenarios_are_explicit_in_long_form_tables() -> None
     result = benchmark(
         datasets={"roxy": dataset},
         algorithms=("logistic_regression",),
-        config=BenchmarkConfig(metrics=("accuracy", "mcc"), include_baselines=False),
+        config=BenchmarkConfig(include_baselines=False),
         partitions={
             "split_a": _cv_plan(dataset, 0),
             "split_b": _cv_plan(dataset, 1),
         },
+        metrics=("accuracy", "mcc"),
     )
     aggregate = result.aggregate_metrics_frame()
     folds = result.fold_metrics_frame()
@@ -288,8 +268,9 @@ def test_failed_algorithm_does_not_invalidate_successful_runs() -> None:
     result = benchmark(
         datasets=dataset,
         algorithms=("logistic_regression", "not_a_model"),
-        config=BenchmarkConfig(metrics=("accuracy",), include_baselines=False),
+        config=BenchmarkConfig(include_baselines=False),
         partitions=_cv_plan(dataset),
+        metrics=("accuracy",),
     )
     assert len(result.successes) == 1
     assert len(result.failures) == 1
@@ -297,9 +278,8 @@ def test_failed_algorithm_does_not_invalidate_successful_runs() -> None:
     assert result.failures[0].algorithm == "not_a_model"
     assert result.failures[0].error is not None
     assert "AlgorithmNotFoundError" in result.failures[0].error
-    assert result.failures_frame()["error"][0].startswith(
-        "AlgorithmNotFoundError: Algorithm 'not_a_model' was not found."
-    )
+    failed = result.runs_frame().filter(pl.col("status") == "failed")
+    assert failed["error"][0].startswith("AlgorithmNotFoundError: Algorithm 'not_a_model' was not found.")
     assert set(result.runs_frame()["status"]) == {"complete", "failed"}
 
 
@@ -310,11 +290,11 @@ def test_fail_fast_raises_after_recordable_run_failure() -> None:
             datasets=dataset,
             algorithms=("logistic_regression", "not_a_model"),
             config=BenchmarkConfig(
-                metrics=("accuracy",),
                 include_baselines=False,
                 fail_fast=True,
             ),
             partitions=_cv_plan(dataset),
+            metrics=("accuracy",),
         )
 
 
@@ -323,11 +303,8 @@ def test_seeded_benchmark_is_score_reproducible() -> None:
     kwargs = {
         "datasets": dataset,
         "algorithms": ("random_forest_classifier",),
-        "config": BenchmarkConfig(
-            metrics=("accuracy", "mcc"),
-            seeds=(123,),
-            include_baselines=False,
-        ),
+        "config": BenchmarkConfig(seeds=(123,), include_baselines=False),
+        "metrics": ("accuracy", "mcc"),
         "partitions": _cv_plan(dataset),
         "model_params": {"random_forest_classifier": {"n_estimators": 20}},
     }
@@ -349,8 +326,9 @@ def test_predictions_frame_retains_truth_predictions_and_probabilities() -> None
     result = benchmark(
         datasets={"roxy": dataset},
         algorithms=("logistic_regression",),
-        config=BenchmarkConfig(metrics=("accuracy",), include_baselines=False),
+        config=BenchmarkConfig(include_baselines=False),
         partitions=_cv_plan(dataset),
+        metrics=("accuracy",),
     )
     frame = result.predictions_frame()
     assert len(frame) == dataset.n_samples
@@ -366,17 +344,16 @@ def test_tuned_cv_is_rejected_without_destroying_untuned_result() -> None:
         datasets=dataset,
         algorithms=("logistic_regression",),
         config=BenchmarkConfig(
-            metrics=("accuracy",),
             modes=("untuned", "tuned"),
             include_baselines=False,
             tuning=TuningConfig(
                 optimizer="grid",
-                metrics=("accuracy",),
                 n_jobs=1,
             ),
         ),
         partitions=_cv_plan(dataset),
-        search_spaces={"logistic_regression": SearchSpace("lr", {"C": [1.0]})},
+        search_spaces={"logistic_regression": SearchSpace({"C": [1.0]})},
+        metrics=("accuracy",),
     )
     assert len(result.successes) == 1
     assert result.successes[0].mode == "untuned"
@@ -397,8 +374,9 @@ def test_regression_benchmark_includes_dummy_regressor_baseline() -> None:
     result = benchmark(
         datasets=dataset,
         algorithms=("ridge_regressor",),
-        config=BenchmarkConfig(metrics=("rmse", "r2"), include_baselines=True),
+        config=BenchmarkConfig(include_baselines=True),
         partitions=_cv_plan(dataset),
+        metrics=("rmse", "r2"),
     )
     assert {run.algorithm for run in result.successes} == {
         "dummy_regressor",
@@ -416,8 +394,9 @@ def test_partition_from_unrelated_dataset_fingerprint_is_rejected() -> None:
         benchmark(
             datasets=dataset,
             algorithms=("logistic_regression",),
-            config=BenchmarkConfig(metrics=("accuracy",), include_baselines=False),
+            config=BenchmarkConfig(include_baselines=False),
             partitions=foreign_plan,
+            metrics=("accuracy",),
         )
 
 
@@ -426,9 +405,10 @@ def test_metric_rows_link_to_configuration_and_prediction_rows_by_run_id() -> No
     result = benchmark(
         datasets=dataset,
         algorithms=("logistic_regression",),
-        config=BenchmarkConfig(metrics=("accuracy",), include_baselines=False),
+        config=BenchmarkConfig(include_baselines=False),
         partitions=_cv_plan(dataset),
         model_params={"logistic_regression": {"C": 0.5}},
+        metrics=("accuracy",),
     )
     metrics = result.fold_metrics_frame()
     predictions = result.predictions_frame()
@@ -443,13 +423,13 @@ def test_tuned_benchmark_exports_annotated_optimization_history() -> None:
         datasets=dataset,
         algorithms=("logistic_regression",),
         config=BenchmarkConfig(
-            metrics=("accuracy",),
             modes=("tuned",),
             include_baselines=False,
-            tuning=TuningConfig(optimizer="grid", metrics=("accuracy",), n_jobs=1),
+            tuning=TuningConfig(optimizer="grid", n_jobs=1),
         ),
         partitions=_safe_holdout(dataset),
-        search_spaces={"logistic_regression": SearchSpace("lr", {"C": [0.1, 1.0]})},
+        search_spaces={"logistic_regression": SearchSpace({"C": [0.1, 1.0]})},
+        metrics=("accuracy",),
     )
     history = result.optimization_history_frame()
     assert len(history) == 2
@@ -462,24 +442,23 @@ def test_mixed_tuned_and_untuned_holdout_use_same_protected_test() -> None:
     dataset = _classification_dataset()
     plan = _safe_holdout(dataset)
     result = benchmark(
-        datasets=BenchmarkDataset("roxy", dataset, representation="roxy"),
+        datasets={"roxy": dataset},
         algorithms=("logistic_regression",),
         config=BenchmarkConfig(
-            metrics=("accuracy", "mcc"),
             seeds=(42,),
             modes=("untuned", "tuned"),
             include_baselines=True,
             tuning=TuningConfig(
                 optimizer="grid",
-                metrics=("accuracy",),
                 refit_metric="accuracy",
                 n_jobs=1,
             ),
         ),
         partitions=plan,
         search_spaces={
-            "logistic_regression": SearchSpace("lr", {"C": [0.1, 1.0]}),
+            "logistic_regression": SearchSpace({"C": [0.1, 1.0]}),
         },
+        metrics=("accuracy", "mcc"),
     )
 
     assert not result.failures
@@ -494,6 +473,5 @@ def test_mixed_tuned_and_untuned_holdout_use_same_protected_test() -> None:
         assert len(fold.train_ids) == 50
     tuned = next(run for run in result.successes if run.mode == "tuned")
     assert tuned.optimization is not None
-    assert tuned.optimization.metadata["protected_samples"] == 10
     assert tuned.oof_prediction is not None
     assert tuned.oof_prediction.n_samples == 10

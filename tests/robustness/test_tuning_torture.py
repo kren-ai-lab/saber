@@ -12,8 +12,7 @@ import saber.tuning.engine as tuning_engine_module
 from saber.core.search_space import Categorical, Float, SearchSpace
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.exceptions import (
-    MetricProblemTypeError,
-    MetricTaskMismatchError,
+    MetricIncompatibleError,
     OptimizationError,
     ValidationContractError,
 )
@@ -24,7 +23,7 @@ def _cv(dataset: DatasetBundle, n=3):
     return PartitionPlan.from_predefined_folds(
         sample_ids=dataset.sample_ids,
         fold_assignments=np.arange(dataset.n_samples) % n,
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
 
 
@@ -54,12 +53,10 @@ def test_all_sklearn_tuning_backends_respect_explicit_cv(optimizer, monkeypatch)
         return search_class(*args, **kwargs)
 
     monkeypatch.setattr(module, name, recording_search)
-    space = SearchSpace("lr", {"C": Categorical([0.2, 1.0])})
+    space = SearchSpace({"C": Categorical([0.2, 1.0])})
     config = TuningConfig(
         optimizer=optimizer,
-        metrics=("accuracy",),
         refit_metric="accuracy",
-        random_state=4,
         n_jobs=1,
         n_iter=2,
         factor=2,
@@ -73,9 +70,11 @@ def test_all_sklearn_tuning_backends_respect_explicit_cv(optimizer, monkeypatch)
             config=config,
             partition_plan=plan,
             search_space=space,
+            metrics=("accuracy",),
+            random_state=4,
         )
     assert result.best_model is not None
-    assert np.isfinite(result.best_score)
+    assert np.isfinite(result.best_scores[str(result.refit_metric)])
     ids = np.asarray(dataset.sample_ids)
     (cv,) = received_cv
     assert [(set(ids[train]), set(ids[test])) for train, test in cv] == [
@@ -85,13 +84,14 @@ def test_all_sklearn_tuning_backends_respect_explicit_cv(optimizer, monkeypatch)
 
 def test_tuning_rejects_regression_metric_for_classifier():
     dataset = _classification()
-    with pytest.raises(MetricTaskMismatchError):
+    with pytest.raises(MetricIncompatibleError):
         tune(
             dataset=dataset,
             algorithm="logistic_regression",
-            config=TuningConfig(optimizer="grid", metrics=("rmse",), refit_metric="rmse"),
+            config=TuningConfig(optimizer="grid", refit_metric="rmse"),
             partition_plan=_cv(dataset),
-            search_space=SearchSpace("lr", {"C": [1.0]}),
+            search_space=SearchSpace({"C": [1.0]}),
+            metrics=("rmse",),
         )
 
 
@@ -100,13 +100,14 @@ def test_tuning_rejects_binary_roc_auc_for_multiclass_problem():
         n_samples=75, n_features=8, n_informative=6, n_classes=3, n_clusters_per_class=1, random_state=3
     )
     dataset = DatasetBundle(X=X, y=y, sample_ids=[f"s{i}" for i in range(75)])
-    with pytest.raises(MetricProblemTypeError):
+    with pytest.raises(MetricIncompatibleError):
         tune(
             dataset=dataset,
             algorithm="logistic_regression",
-            config=TuningConfig(optimizer="grid", metrics=("roc_auc",), refit_metric="roc_auc"),
+            config=TuningConfig(optimizer="grid", refit_metric="roc_auc"),
             partition_plan=_cv(dataset),
-            search_space=SearchSpace("lr", {"C": [1.0]}),
+            search_space=SearchSpace({"C": [1.0]}),
+            metrics=("roc_auc",),
         )
 
 
@@ -116,9 +117,10 @@ def test_grid_rejects_unbounded_continuous_domain_that_cannot_be_enumerated():
         tune(
             dataset=dataset,
             algorithm="logistic_regression",
-            config=TuningConfig(optimizer="grid", metrics=("accuracy",), refit_metric="accuracy"),
+            config=TuningConfig(optimizer="grid", refit_metric="accuracy"),
             partition_plan=_cv(dataset),
-            search_space=SearchSpace("lr", {"C": Float(0.01, 2.0)}),
+            search_space=SearchSpace({"C": Float(0.01, 2.0)}),
+            metrics=("accuracy",),
         )
 
 
@@ -129,10 +131,14 @@ def test_all_invalid_grid_candidates_raise_nonfinite_score_error():
             dataset=dataset,
             algorithm="logistic_regression",
             config=TuningConfig(
-                optimizer="grid", metrics=("accuracy",), refit_metric="accuracy", n_jobs=1, error_score=np.nan
+                optimizer="grid",
+                refit_metric="accuracy",
+                n_jobs=1,
+                error_score=np.nan,
             ),
             partition_plan=_cv(dataset),
-            search_space=SearchSpace("lr", {"C": Categorical([-1.0, -2.0])}),
+            search_space=SearchSpace({"C": Categorical([-1.0, -2.0])}),
+            metrics=("accuracy",),
         )
 
 
@@ -145,13 +151,14 @@ def test_tuning_rejects_any_explicit_training_fold_with_single_class_before_sear
         train_ids=ids[:12],
         validation_ids=ids[12:18],
         test_ids=ids[18:],
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
     with pytest.raises(ValidationContractError, match="at least two target classes"):
         tune(
             dataset=dataset,
             algorithm="logistic_regression",
-            config=TuningConfig(optimizer="grid", metrics=("accuracy",), refit_metric="accuracy"),
+            config=TuningConfig(optimizer="grid", refit_metric="accuracy"),
             partition_plan=plan,
-            search_space=SearchSpace("lr", {"C": [1.0]}),
+            search_space=SearchSpace({"C": [1.0]}),
+            metrics=("accuracy",),
         )

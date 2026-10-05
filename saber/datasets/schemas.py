@@ -138,7 +138,6 @@ class DatasetBundle:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     _feature_schema: FeatureSchema = field(init=False, repr=False)
-    _generated_sample_ids: bool = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         """Validate and normalize the dataset's features, target, and identifiers."""
@@ -152,7 +151,6 @@ class DatasetBundle:
         )
         self.feature_names = self._feature_schema.names
 
-        self._generated_sample_ids = self.sample_ids is None
         if self.sample_ids is None:
             self.sample_ids = tuple(range(n_samples))
         else:
@@ -183,11 +181,6 @@ class DatasetBundle:
     def feature_schema(self) -> FeatureSchema:
         """Return the dataset's feature schema."""
         return self._feature_schema
-
-    @property
-    def generated_sample_ids(self) -> bool:
-        """Return whether sample identifiers were auto-generated."""
-        return self._generated_sample_ids
 
     @property
     def resolved_sample_ids(self) -> Sequence[Any]:

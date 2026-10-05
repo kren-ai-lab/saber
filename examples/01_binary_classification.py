@@ -51,8 +51,7 @@ def _():
     from sklearn.datasets import make_classification
     from sklearn.metrics import (roc_curve, auc, precision_recall_curve,
                                  matthews_corrcoef, f1_score, recall_score, confusion_matrix)
-    from saber import validate
-    from saber.datasets import DatasetBundle, PartitionPlan
+    from saber import validate, DatasetBundle, PartitionPlan
 
     return (
         DEMO_TEST,
@@ -108,7 +107,7 @@ def _(
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=dataset.sample_ids,
         fold_assignments=balanced_fold_labels(y, 5),
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
         metadata={"source": "demo_external_memberships", "strategy": "stratified_like_5fold"},
     )
     class_report = (
@@ -147,7 +146,7 @@ def _(dataset, pl, plan, validate):
     oof = result.oof_prediction
     assert oof is not None
     proba = oof.positive_probabilities()
-    fold_metrics = pl.DataFrame([{"fold": f.split_name, **f.evaluation.metrics} for f in result.folds])
+    fold_metrics = result.metrics_frame().filter(pl.col("level")=="fold").pivot("metric",index="split",values="score").rename({"split":"fold"})
     aggregate = {k: round(result.aggregate_metrics[k], 4) for k in sorted(result.aggregate_metrics)}
     print(aggregate)
     fold_metrics.head()
@@ -272,7 +271,7 @@ def _(
 ):
     DEMO_CHECKS = {
         "five_folds": result.n_splits == 5,
-        "complete_oof": result.metadata["oof_complete"] is True,
+        "complete_oof": result.oof_prediction is not None,
         "all_metrics_present": set(metrics) == set(result.aggregate_metrics),
         "sample_weights_exercised": dataset.sample_weight is not None,
         "threshold_report_complete": len(threshold_report) == 17,

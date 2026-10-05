@@ -10,7 +10,7 @@ from sklearn.datasets import make_classification, make_regression
 
 import saber
 from saber.datasets import DatasetBundle, PartitionPlan
-from saber.exceptions import FeatureSchemaMismatchError
+from saber.exceptions import FeatureSchemaMismatchError, ValidationContractError
 from saber.preprocessing import PreprocessingConfig
 
 
@@ -30,7 +30,7 @@ def _cv_plan(dataset):
     return PartitionPlan.from_predefined_folds(
         sample_ids=dataset.sample_ids,
         fold_assignments=folds,
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
 
 
@@ -42,8 +42,8 @@ def test_train_predict_and_evaluate_share_prediction_contract():
         preprocessing=PreprocessingConfig(scaler="standard"),
         random_state=42,
     )
-    prediction = saber.predict(result, dataset=dataset)
-    evaluation = saber.evaluate(dataset=dataset, model=result, metrics=("accuracy", "roc_auc"))
+    prediction = saber.predict(result, dataset)
+    evaluation = saber.evaluate(result, dataset, metrics=("accuracy", "roc_auc"))
 
     assert prediction.n_samples == dataset.n_samples
     assert prediction.sample_ids is not None
@@ -61,7 +61,7 @@ def test_predict_keeps_native_dtype_for_integer_sample_ids():
         preprocessing=PreprocessingConfig(scaler="standard"),
         random_state=42,
     )
-    prediction = saber.predict(result, X=dataset.X, sample_ids=list(range(dataset.n_samples)))
+    prediction = saber.predict(result, dataset.X, sample_ids=list(range(dataset.n_samples)))
 
     assert prediction.sample_ids is not None
     assert prediction.sample_ids.dtype.kind == "i"
@@ -78,7 +78,7 @@ def test_predict_rejects_reordered_dataframe_columns():
     result = saber.train(dataset=dataset, algorithm="logistic_regression", random_state=42)
     reordered = dataset.X[list("dcba")]
     with pytest.raises(FeatureSchemaMismatchError):
-        saber.predict(result, X=reordered)
+        saber.predict(result, reordered)
 
 
 def test_evaluate_rejects_reordered_dataframe_columns():
@@ -86,7 +86,7 @@ def test_evaluate_rejects_reordered_dataframe_columns():
     result = saber.train(dataset=dataset, algorithm="logistic_regression", random_state=42)
     reordered = DatasetBundle(dataset.X[list("dcba")], dataset.y, sample_ids=dataset.sample_ids)
     with pytest.raises(FeatureSchemaMismatchError):
-        saber.evaluate(dataset=reordered, model=result, metrics=("accuracy",))
+        saber.evaluate(result, reordered, metrics=("accuracy",))
 
 
 def test_predict_and_evaluate_accept_dataset_feature_name_overrides():
@@ -96,32 +96,36 @@ def test_predict_and_evaluate_accept_dataset_feature_name_overrides():
     renamed = dataset.X.rename({"a": "x0", "b": "x1", "c": "x2", "d": "x3"})
     overridden = DatasetBundle(renamed, dataset.y, sample_ids=dataset.sample_ids, feature_names=list("abcd"))
 
-    prediction = saber.predict(result, dataset=overridden)
-    evaluation = saber.evaluate(dataset=overridden, model=result, metrics=("accuracy",))
+    prediction = saber.predict(result, overridden)
+    evaluation = saber.evaluate(result, overridden, metrics=("accuracy",))
 
-    reference = saber.evaluate(dataset=dataset, model=result, metrics=("accuracy",))
-    np.testing.assert_array_equal(prediction.predictions, saber.predict(result, dataset=dataset).predictions)
+    reference = saber.evaluate(result, dataset, metrics=("accuracy",))
+    np.testing.assert_array_equal(prediction.predictions, saber.predict(result, dataset).predictions)
     assert evaluation.metrics == reference.metrics
 
 
-def test_predict_forwards_explicit_feature_names_override_without_dataset():
+def test_predict_rejects_renamed_dataframe_columns_without_override():
     dataset = _named_classification_dataset()
     result = saber.train(dataset=dataset, algorithm="logistic_regression", random_state=42)
 
     renamed = dataset.X.rename({"a": "x0", "b": "x1", "c": "x2", "d": "x3"})
-    prediction = saber.predict(result, X=renamed, feature_names=list("abcd"))
-
-    np.testing.assert_array_equal(prediction.predictions, saber.predict(result, X=dataset.X).predictions)
+    with pytest.raises(FeatureSchemaMismatchError):
+        saber.predict(result, renamed)
 
 
 def test_predict_accepts_same_order_dataframe_and_matching_width_numpy_array():
     dataset = _named_classification_dataset()
     result = saber.train(dataset=dataset, algorithm="logistic_regression", random_state=42)
 
-    same_order = saber.predict(result, X=dataset.X)
-    from_numpy = saber.predict(result, X=np.asarray(dataset.X))
+    same_order = saber.predict(result, dataset.X)
+    from_numpy = saber.predict(result, np.asarray(dataset.X))
 
     np.testing.assert_array_equal(same_order.predictions, from_numpy.predictions)
+
+
+def test_predict_rejects_unsupported_model_type():
+    with pytest.raises(ValidationContractError):
+        saber.predict(object(), np.zeros((2, 3)))  # pyrefly: ignore[bad-argument-type]
 
 
 def test_public_api_regression_end_to_end():
@@ -137,7 +141,7 @@ def test_public_api_regression_end_to_end():
         sample_ids=[f"r{i}" for i in range(60)],
     )
     result = saber.train(dataset=dataset, algorithm="ridge_regressor", random_state=42)
-    evaluation = saber.evaluate(dataset=dataset, model=result, metrics=("rmse", "mae"))
+    evaluation = saber.evaluate(result, dataset, metrics=("rmse", "mae"))
     assert evaluation.metrics["rmse"] >= 0.0
     assert evaluation.metrics["mae"] >= 0.0
 
@@ -162,15 +166,11 @@ def test_saber_works_without_pandas():
 def test_train_positive_class_matches_loaded_artifact(tmp_path) -> None:
     X, y = make_classification(n_samples=60, n_features=5, random_state=3)  # pyrefly: ignore[bad-unpacking]
     dataset = DatasetBundle(X=X, y=y)
-    trained = saber.train(
-        dataset=dataset, algorithm="logistic_regression", positive_class=0, artifact_path=tmp_path / "m"
-    )
+    trained = saber.train(dataset=dataset, algorithm="logistic_regression", positive_class=0)
+    saber.save_model(tmp_path / "m", trained, dataset=dataset)
     loaded = saber.load_model(tmp_path / "m")
-    in_memory = saber.predict(trained, dataset=dataset)
-    from_disk = saber.predict(loaded, dataset=dataset)
+    in_memory = saber.predict(trained, dataset)
+    from_disk = saber.predict(loaded, dataset)
     assert in_memory.positive_class == from_disk.positive_class == 0
     np.testing.assert_allclose(in_memory.positive_probabilities(), from_disk.positive_probabilities())
-    assert (
-        saber.evaluate(dataset=dataset, model=trained).metrics
-        == saber.evaluate(dataset=dataset, model=loaded).metrics
-    )
+    assert saber.evaluate(trained, dataset).metrics == saber.evaluate(loaded, dataset).metrics
