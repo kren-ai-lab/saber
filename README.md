@@ -21,17 +21,19 @@ multi-output problems are out of scope.
 Saber supports Python 3.11 to 3.14.
 
 ```bash
-python -m pip install saberlib
+pip install saberlib
+# or with uv:
+uv add saberlib
 ```
 
 Optional extras:
 
 ```bash
-python -m pip install "saberlib[biosieve]"   # partition generation
-python -m pip install "saberlib[optuna]"     # Optuna tuning
-python -m pip install "saberlib[xgboost]"    # XGBoost models
-python -m pip install "saberlib[lightgbm]"   # LightGBM models
-python -m pip install "saberlib[all]"
+pip install "saberlib[biosieve]"   # partition generation
+pip install "saberlib[optuna]"     # Optuna tuning
+pip install "saberlib[xgboost]"    # XGBoost models
+pip install "saberlib[lightgbm]"   # LightGBM models
+pip install "saberlib[all]"
 ```
 
 For development setup with
