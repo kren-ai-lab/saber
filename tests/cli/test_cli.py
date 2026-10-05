@@ -29,17 +29,18 @@ def _workflow_files(tmp_path):
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=bundle.sample_ids,
         fold_assignments=[i % 3 for i in range(45)],
-        dataset_fingerprint=bundle.fingerprint,
+        dataset=bundle,
     )
     (tmp_path / "folds.json").write_text(json.dumps(plan.to_dict()), encoding="utf-8")
     config = {
         "workflow": "validate",
-        "dataset": {"path": "data.csv", "target": "label", "sample_id": "sample_id"},
+        "dataset": {"path": "data.csv", "target_col": "label", "sample_id_col": "sample_id"},
         "algorithm": "logistic_regression",
-        "partition": {"path": "folds.json"},
+        "partition_plan": {"path": "folds.json"},
         "metrics": ["accuracy"],
         "random_state": 42,
-        "output": {"directory": "cli_results"},
+        "output": "cli_results",
+        "overwrite": True,
     }
     path = tmp_path / "validate.yaml"
     path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
@@ -51,7 +52,7 @@ def test_cli_run_uses_same_config_runner(tmp_path):
     direct = run_config(path)
     assert main(["run", str(path)]) == EXIT_OK
     summary = json.loads((tmp_path / "cli_results" / "summary.json").read_text())
-    assert summary["aggregate_metrics"] == direct.summary["aggregate_metrics"]
+    assert summary["metrics"] == direct.summary["metrics"]
     assert summary["workflow"] == "validate"
     assert summary["n_splits"] == 3
 
@@ -60,14 +61,7 @@ def test_cli_artifact_inspection_and_verification(tmp_path):
     _, bundle = _workflow_files(tmp_path)
     trained = train(dataset=bundle, algorithm="logistic_regression", random_state=42)
     artifact = tmp_path / "artifact"
-    save_model(
-        artifact,
-        model=trained.model,
-        algorithm=trained.spec.name,
-        task=trained.spec.task,
-        dataset=bundle,
-        provider=trained.spec.provider,
-    )
+    save_model(artifact, trained, dataset=bundle)
     assert main(["artifact", "verify", str(artifact)]) == EXIT_OK
     assert main(["artifact", "inspect", str(artifact), "--json"]) == EXIT_OK
 

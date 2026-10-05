@@ -5,20 +5,22 @@ representations × partitions × algorithms × seeds × tuned/untuned modes.
 
 ```python
 import saber
-from saber.benchmark import BenchmarkConfig
+from saber import BenchmarkConfig
 
 result = saber.benchmark(
     datasets={"repr_a": dataset_a, "repr_b": dataset_b},
     algorithms=("logistic_regression", "random_forest_classifier", "svc"),
     partitions={"shared_cv": plan},
+    metrics=("mcc", "balanced_accuracy"),
     config=BenchmarkConfig(
-        metrics=("mcc", "balanced_accuracy"),
         seeds=(42, 123, 456),
         modes=("untuned",),
         include_baselines=True,
     ),
 )
 ```
+
+`metrics` is required; `evaluation_role`, `require_complete` and `return_estimators` are also keyword arguments of `benchmark`. `partitions` accepts a `PartitionPlan`, a mapping of label to plan, or a `BioSievePartitionConfig` (the first dataset is the reference). In tuned mode, tuning uses the benchmark `metrics` and each seed as its `random_state`.
 
 All representations must have the same sample IDs and targets, so one
 partition plan can be reused across them. `include_baselines=True` adds dummy
@@ -34,16 +36,26 @@ refit on train+validation first, so rows stay comparable.
 
 ```python
 result.runs_frame()
-result.aggregate_metrics_frame()
-result.fold_metrics_frame()
+result.metrics_frame()               # aggregate_metrics_frame() + fold_metrics_frame()
 result.predictions_frame()
-result.failures_frame()
 result.optimization_history_frame()
 ```
 
 Every row carries a `run_id` that links it to its representation, partition,
-algorithm, mode, seed and parameters. Failed runs go to `failures_frame()`
-instead of stopping the benchmark, unless you set `fail_fast=True`.
+algorithm, mode, seed and parameters. The other columns are the ones of the
+per-run results:
+
+- `metrics_frame()`: `ValidationResult.metrics_frame()` columns (`level`,
+  `split`, `evaluation_role`, `metric`, `score`, `std`, `min`, `max`, `n`,
+  `fit_seconds`) plus the run's `elapsed_seconds`.
+- `predictions_frame()`: `split`, `evaluation_role`, then
+  `PredictionResult.to_frame()` columns (`sample_id`, `y_true`, `y_pred`,
+  `probability__{class}`, `decision_score` or `decision_score__{class}`).
+- `optimization_history_frame()`: `OptimizationResult.history_frame()` columns,
+  scores in their natural direction.
+
+A failed run is a `runs_frame()` row with `status == "failed"` and its `error`;
+it doesn't stop the benchmark unless you set `fail_fast=True`.
 
 Saber doesn't plot; feed these tables to your plotting or reporting tool of
 choice.

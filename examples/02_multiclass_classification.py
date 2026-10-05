@@ -50,8 +50,7 @@ def _():
 
     from sklearn.datasets import make_classification
     from sklearn.metrics import ConfusionMatrixDisplay, classification_report
-    from saber import validate
-    from saber.datasets import DatasetBundle, PartitionPlan
+    from saber import validate, DatasetBundle, PartitionPlan
 
     return (
         ConfusionMatrixDisplay,
@@ -88,7 +87,7 @@ def _(
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=dataset.sample_ids,
         fold_assignments=balanced_fold_labels(y, 5),
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
         metadata={"source":"demo_external_memberships"},
     )
     return dataset, plan, y
@@ -107,7 +106,7 @@ def _(DEMO_TEST, classification_report, dataset, pl, plan, validate, y):
     )
     oof = result.oof_prediction
     assert oof is not None and tuple(oof.classes) == (0,1,2)
-    fold_metrics = pl.DataFrame([{"fold":f.split_name, **f.evaluation.metrics} for f in result.folds])
+    fold_metrics = result.metrics_frame().filter(pl.col("level")=="fold").pivot("metric",index="split",values="score").rename({"split":"fold"})
     class_report_dict = classification_report(y, oof.predictions, output_dict=True, zero_division=0)
     per_class = pl.DataFrame(
         [{"class": key, **value} for key, value in class_report_dict.items() if isinstance(value, dict)]
@@ -161,7 +160,7 @@ def _(FIGURE_COUNT, fold_metrics, metrics, np, oof, per_class, result):
     DEMO_CHECKS = {
         "five_folds": result.n_splits == 5,
         "global_multiclass": len(oof.classes) == 3,
-        "complete_oof": result.metadata["oof_complete"] is True,
+        "complete_oof": result.oof_prediction is not None,
         "extended_metrics": set(metrics) == set(result.aggregate_metrics),
         "canonical_f1_weighted": np.isclose(result.aggregate_metrics["f1"], fold_metrics.get_column("f1").mean()),
         "class_report_has_all_classes": all(

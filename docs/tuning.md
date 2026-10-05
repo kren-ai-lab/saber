@@ -8,10 +8,9 @@ using the same partitions and metrics as `saber.validate(...)`. Optimizers:
 ## Search spaces
 
 ```python
-from saber.core.search_space import Categorical, Integer, LogFloat, SearchSpace
+from saber import Categorical, Integer, LogFloat, SearchSpace
 
 space = SearchSpace(
-    name="forest",
     parameters={
         "n_estimators": Integer(100, 500, step=100),
         "max_features": Categorical(["sqrt", "log2", None]),
@@ -28,14 +27,12 @@ not `Float(0.0, 1.0, step=0.3)`).
 
 ```python
 import saber
-from saber.tuning import TuningConfig
+from saber import TuningConfig
 
 config = TuningConfig(
     optimizer="optuna",
-    metrics=("mcc", "roc_auc", "balanced_accuracy"),
     refit_metric="mcc",
     n_trials=50,
-    random_state=42,
 )
 result = saber.tune(
     dataset=dataset,
@@ -43,12 +40,18 @@ result = saber.tune(
     partition_plan=plan,
     search_space=space,
     config=config,
+    metrics=("mcc", "roc_auc", "balanced_accuracy"),
+    random_state=42,
 )
 print(result.best_params)
 print(result.history_frame())
 ```
 
-`refit_metric` is the objective; the other metrics are recorded for every
+`result.best_scores` (`best_scores[refit_metric]` is the selection score) and
+`history_frame()` report every metric in its natural direction, so RMSE is
+positive and lower is better; history ranks keep 1 as the best candidate.
+
+`metrics` and `random_state` are keyword arguments of `tune`. `refit_metric` (default: the first metric, and it must be in `metrics`) is the objective; the other metrics are recorded for every
 candidate. For binary targets, `precision`, `recall`, `f1` and `roc_auc` are
 scored for the positive class; pass `positive_class=` to change it.
 

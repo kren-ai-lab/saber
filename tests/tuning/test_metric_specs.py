@@ -7,7 +7,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_score
 
 from saber.core.metrics import get_metric_spec, validate_metric
-from saber.exceptions import MetricNotFoundError, MetricProblemTypeError, MetricTaskMismatchError
+from saber.exceptions import MetricIncompatibleError, MetricNotFoundError
 
 
 def test_roc_auc_uses_modern_response_method() -> None:
@@ -27,12 +27,12 @@ def test_roc_auc_uses_modern_response_method() -> None:
 
 
 def test_metric_task_mismatch_fails_before_search() -> None:
-    with pytest.raises(MetricTaskMismatchError):
+    with pytest.raises(MetricIncompatibleError):
         validate_metric("rmse", task="classification", y=np.array([0, 1]))
 
 
 def test_binary_only_roc_auc_rejects_multiclass() -> None:
-    with pytest.raises(MetricProblemTypeError):
+    with pytest.raises(MetricIncompatibleError):
         validate_metric(
             "roc_auc",
             task="classification",

@@ -49,9 +49,7 @@ def _():
         return folds
 
     from sklearn.datasets import make_classification
-    from saber import benchmark
-    from saber.benchmark import BenchmarkConfig
-    from saber.datasets import DatasetBundle, PartitionPlan
+    from saber import benchmark, BenchmarkConfig, DatasetBundle, PartitionPlan
 
     return (
         BenchmarkConfig,
@@ -83,11 +81,11 @@ def _(
     rep1=DatasetBundle(X=X,y=y,sample_ids=ids,feature_names=[f"R1_{i}" for i in range(X.shape[1])])
     rep2_X=np.column_stack([X[:,:10],rng.normal(size=(n,14))]); rep2=DatasetBundle(X=rep2_X,y=y,sample_ids=ids,feature_names=[f"R2_{i}" for i in range(rep2_X.shape[1])])
     rep3_X=np.tanh(X[:,:8]); rep3=DatasetBundle(X=rep3_X,y=y,sample_ids=ids,feature_names=[f"R3_{i}" for i in range(rep3_X.shape[1])])
-    plan_a=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=balanced_fold_labels(y,4),dataset_fingerprint=rep1.fingerprint,metadata={"source":"external","strategy":"balanced"})
+    plan_a=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=balanced_fold_labels(y,4),dataset=rep1,metadata={"source":"external","strategy":"balanced"})
     # A deliberately different deterministic membership pattern to emulate a second upstream strategy.
     order=np.argsort(X[:,0]); alt=np.empty(n,dtype=int); alt[order]=np.arange(n)%4
     # Ensure every training membership retains both classes; if not, fall back to balanced labels for that demo artifact.
-    plan_b=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=alt,dataset_fingerprint=rep1.fingerprint,metadata={"source":"external","strategy":"feature_blocked_like"})
+    plan_b=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=alt,dataset=rep1,metadata={"source":"external","strategy":"feature_blocked_like"})
     return plan_a, plan_b, rep1, rep2, rep3
 
 
@@ -97,7 +95,7 @@ def _(BenchmarkConfig, DEMO_TEST, benchmark, pl, plan_a, plan_b, rep1, rep2, rep
     bench=benchmark(datasets={"rep_core":rep1,"rep_expanded":rep2,"rep_nonlinear":rep3},
                     algorithms=("logistic_regression","random_forest_classifier","svc"),
                     partitions={"balanced":plan_a,"feature_blocked":plan_b},
-                    config=BenchmarkConfig(metrics=("mcc","balanced_accuracy","f1","roc_auc"),seeds=seeds,modes=("untuned",),include_baselines=True),
+                    metrics=("mcc","balanced_accuracy","f1","roc_auc"),config=BenchmarkConfig(seeds=seeds,modes=("untuned",),include_baselines=True),
                     model_params={"random_forest_classifier":{"n_estimators":45 if DEMO_TEST else 110,"max_depth":7}})
     assert not bench.failures
     metrics=bench.aggregate_metrics_frame(); runs=bench.runs_frame(); folds=bench.fold_metrics_frame()

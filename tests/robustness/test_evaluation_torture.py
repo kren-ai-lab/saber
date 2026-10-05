@@ -142,8 +142,6 @@ def test_repeated_heldout_membership_disables_oof_instead_of_merging_predictions
         require_complete=False,
     )
     assert result.oof_prediction is None
-    assert result.metadata["oof_available"] is False
-    assert "repeat" in result.metadata["oof_reason"]
 
 
 def test_incomplete_external_plan_reports_partial_oof_coverage_when_allowed():
@@ -153,7 +151,7 @@ def test_incomplete_external_plan_reports_partial_oof_coverage_when_allowed():
     plan = PartitionPlan.holdout(
         train_ids=ids[:15],
         test_ids=ids[15:20],
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
     result = validate(
         dataset=dataset,
@@ -164,8 +162,7 @@ def test_incomplete_external_plan_reports_partial_oof_coverage_when_allowed():
         require_complete=False,
     )
     assert result.oof_prediction is not None
-    assert result.metadata["oof_complete"] is False
-    assert result.metadata["oof_coverage"] == pytest.approx(5 / 30)
+    assert result.oof_prediction.n_samples == 5
 
 
 def test_multiclass_cv_with_string_labels_returns_complete_oof():
@@ -183,7 +180,7 @@ def test_multiclass_cv_with_string_labels_returns_complete_oof():
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=ids,
         fold_assignments=np.arange(75) % 3,
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
     result = validate(
         dataset=dataset,
@@ -221,7 +218,7 @@ def test_validation_rejects_training_fold_with_single_class_before_estimator_fit
     plan = PartitionPlan.holdout(
         train_ids=ids[:8],
         test_ids=ids[8:],
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
     with pytest.raises(ValidationContractError, match="at least two target classes"):
         validate(

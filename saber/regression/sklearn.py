@@ -1,7 +1,4 @@
-"""saber.regression.sklearn.
-
-Scikit-learn based regression algorithms and registry wiring.
-"""
+"""Scikit-learn based regression algorithms and registry wiring."""
 
 from __future__ import annotations
 
@@ -84,184 +81,177 @@ def _build_specs() -> tuple[AlgorithmSpec, ...]:
         (
             "dummy_regressor",
             DummyRegressor,
-            ("regression", "baseline", "dummy"),
+            ("baseline",),
             None,
         ),
         (
             "linear_regression",
             LinearRegression,
-            ("regression", "linear"),
+            ("linear",),
             search_spaces.LINEAR_REGRESSION,
         ),
         (
             "ridge_regressor",
             Ridge,
-            ("regression", "linear", "regularized"),
+            ("linear",),
             search_spaces.RIDGE_REGRESSOR,
         ),
         (
             "lasso",
             Lasso,
-            ("regression", "linear", "regularized"),
+            ("linear",),
             search_spaces.LASSO_REGRESSOR,
         ),
         (
             "elastic_net",
             ElasticNet,
-            ("regression", "linear", "regularized"),
+            ("linear",),
             search_spaces.ELASTIC_NET,
         ),
         (
             "bayesian_ridge",
             BayesianRidge,
-            ("regression", "linear", "bayesian"),
+            ("linear",),
             search_spaces.BAYESIAN_RIDGE,
         ),
         (
             "random_forest_regressor",
             RandomForestRegressor,
-            ("regression", "tree", "ensemble"),
+            ("tree", "ensemble", "bagging"),
             search_spaces.RANDOM_FOREST_REGRESSOR,
         ),
         (
             "extra_trees_regressor",
             ExtraTreesRegressor,
-            ("regression", "tree", "ensemble"),
+            ("tree", "ensemble", "bagging"),
             search_spaces.EXTRA_TREES_REGRESSOR,
         ),
         (
             "gradient_boosting_regressor",
             GradientBoostingRegressor,
-            ("regression", "boosting"),
+            ("tree", "ensemble", "boosting"),
             search_spaces.GRADIENT_BOOSTING_REGRESSOR,
         ),
         (
             "hist_gradient_boosting_regressor",
             HistGradientBoostingRegressor,
-            ("regression", "boosting"),
+            ("tree", "ensemble", "boosting"),
             search_spaces.HIST_GRADIENT_BOOSTING_REGRESSOR,
         ),
         (
             "adaboost_regressor",
             AdaBoostRegressor,
-            ("regression", "boosting"),
+            ("ensemble", "boosting"),
             search_spaces.ADABOOST_REGRESSOR,
         ),
         (
             "knn_regressor",
             KNeighborsRegressor,
-            ("regression", "neighbors"),
+            ("neighbors",),
             search_spaces.KNN_REGRESSOR,
         ),
         (
             "svr",
             SVR,
-            ("regression", "svm"),
+            ("svm",),
             search_spaces.SVR_SPACE,
         ),
         (
             "linear_svr",
             LinearSVR,
-            ("regression", "svm"),
+            ("linear", "svm"),
             search_spaces.LINEAR_SVR,
         ),
         (
             "nu_svr",
             NuSVR,
-            ("regression", "svm"),
+            ("svm",),
             search_spaces.NU_SVR,
         ),
         (
             "decision_tree_regressor",
             DecisionTreeRegressor,
-            ("regression", "tree"),
+            ("tree",),
             search_spaces.DECISION_TREE_REGRESSOR,
         ),
         (
             "extra_tree_regressor",
             ExtraTreeRegressor,
-            ("regression", "tree"),
+            ("tree",),
             search_spaces.EXTRA_TREE_REGRESSOR,
         ),
         (
             "gaussian_process_regressor",
             GaussianProcessRegressor,
-            ("regression", "gaussian_process"),
+            ("gaussian_process",),
             search_spaces.GAUSSIAN_PROCESS_REGRESSOR,
         ),
         (
             "bagging_regressor",
             BaggingRegressor,
-            ("regression", "ensemble"),
+            ("ensemble", "bagging"),
             search_spaces.BAGGING_REGRESSOR,
         ),
         (
             "ard_regression",
             ARDRegression,
-            ("regression", "linear"),
+            ("linear",),
             search_spaces.ARD_REGRESSION,
         ),
         (
             "gamma_regressor",
             GammaRegressor,
-            ("regression", "linear"),
+            ("linear",),
             search_spaces.GAMMA_REGRESSION,
         ),
         (
             "huber_regressor",
             HuberRegressor,
-            ("regression", "linear"),
+            ("linear",),
             search_spaces.HUBER_REGRESSION,
         ),
         (
             "lars",
             Lars,
-            ("regression", "linear"),
+            ("linear",),
             search_spaces.LARS_REGRESSOR,
         ),
         (
             "lasso_lars",
             LassoLars,
-            ("regression", "linear"),
+            ("linear",),
             search_spaces.LASSO_LARS_REGRESSOR,
         ),
         (
             "orthogonal_matching_pursuit",
             OrthogonalMatchingPursuit,
-            ("regression", "linear"),
+            ("linear",),
             search_spaces.ORTHOGONAL_MATCHING_PURSUIT,
         ),
         (
             "radius_neighbors_regressor",
             RadiusNeighborsRegressor,
-            ("regression", "knn"),
+            ("neighbors",),
             search_spaces.RADIUS_NEIGHBORS_REGRESSOR,
         ),
     ]
-
-    specs: list[AlgorithmSpec] = []
-
-    for name, model_rgx, tags, search_space in models:
-        capabilities = infer_estimator_capabilities(
-            model_rgx,
-            native_missing_values=(name == "hist_gradient_boosting_regressor"),
-        )
-
-        spec = AlgorithmSpec(
+    return tuple(
+        AlgorithmSpec(
             provider="sklearn",
             task="regression",
             name=name,
             estimator_cls=model_rgx,
             default_params=_DEFAULT_PARAMS.get(name, {}),
             tags=tags,
-            capabilities=capabilities,
+            capabilities=infer_estimator_capabilities(
+                model_rgx,
+                native_missing_values=(name == "hist_gradient_boosting_regressor"),
+            ),
             requirements=_requirements_for(name),
             search_space=search_space,
         )
-
-        specs.append(spec)
-
-    return tuple(specs)
+        for name, model_rgx, tags, search_space in models
+    )
 
 
 SPECS: tuple[AlgorithmSpec, ...] = _build_specs()

@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from time import perf_counter
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, cross_validate
 
-from saber.core.metrics import resolve_positive_class, validate_metric
+from saber.core.metrics import get_metric_spec, resolve_positive_class, validate_metric
 from saber.core.registry import get_algorithm
 from saber.exceptions import (
     DatasetValidationError,
@@ -17,7 +16,12 @@ from saber.exceptions import (
     OptimizationError,
     ValidationContractError,
 )
-from saber.preprocessing import PreprocessingConfig, build_model_pipeline, pipeline_input
+from saber.preprocessing.pipeline import (
+    PreprocessingConfig,
+    build_model_pipeline,
+    pipeline_input,
+    preprocessing_summary,
+)
 from saber.tuning.results import OptimizationResult
 from saber.validation.partitioning import (
     EvaluationRole,
@@ -26,7 +30,7 @@ from saber.validation.partitioning import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Callable, Mapping, Sequence
 
     from saber.core.search_space import SearchSpace
     from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
@@ -42,14 +46,18 @@ OptimizerName = Literal[
 
 @dataclass(frozen=True, slots=True)
 class TuningConfig:
-    """Backend-neutral tuning controls."""
+    """Optimizer-specific tuning controls.
+
+    Workflow knobs shared with ``validate``/``benchmark`` (``metrics``,
+    ``random_state``, ``positive_class``, ...) are keyword arguments of
+    :func:`tune`.  ``refit_metric`` selects among those metrics and defaults
+    to the first one.
+    """
 
     optimizer: OptimizerName = "grid"
-    metrics: tuple[str, ...] = ()
     refit_metric: str | None = None
     refit: bool = True
     n_jobs: int = -1
-    random_state: int | None = None
     n_iter: int = 20
     n_trials: int = 50
     timeout: float | None = None
@@ -63,32 +71,21 @@ class TuningConfig:
     optuna_study_name: str | None = None
     optuna_load_if_exists: bool = True
 
-    def resolved_refit_metric(self) -> str:
-        """Return the metric to refit on, defaulting to the first configured metric."""
-        if not self.metrics:
-            raise ValidationContractError("At least one tuning metric is required.")
-        metric = self.refit_metric or self.metrics[0]
-        if metric not in self.metrics:
-            raise ValidationContractError(
-                f"refit_metric '{metric}' must be included in metrics {self.metrics!r}."
-            )
-        return metric
-
 
 def tune(
     *,
     dataset: DatasetBundle,
     algorithm: str,
+    model_params: Mapping[str, Any] | None = None,
+    preprocessing: PreprocessingConfig | None = None,
+    partition_plan: PartitionPlan | BioSievePartitionConfig | None = None,
     config: TuningConfig,
-    partition_plan: PartitionPlan | None = None,
-    partitioning: BioSievePartitionConfig | None = None,
-    biosieve_extra_columns: Mapping[str, Sequence[Any]] | None = None,
-    preprocessing: PreprocessingConfig | Any | None = None,
     search_space: SearchSpace | None = None,
+    metrics: Sequence[str],
     evaluation_role: EvaluationRole = "auto",
     require_complete: bool = True,
-    model_params: Mapping[str, Any] | None = None,
     positive_class: Any | None = None,
+    random_state: int | None = None,
 ) -> OptimizationResult:
     """Tune an algorithm over explicit/BioSieve partitions and return the best result.
 
@@ -102,15 +99,10 @@ def tune(
     spec = get_algorithm(algorithm)
     dataset.validate(task=spec.task)
 
-    plan = resolve_partition_plan(
-        dataset=dataset,
-        partition_plan=partition_plan,
-        partitioning=partitioning,
-        biosieve_extra_columns=biosieve_extra_columns,
-    )
+    plan = resolve_partition_plan(dataset=dataset, partition_plan=partition_plan)
     plan.validate_against(dataset, require_complete=require_complete)
 
-    search_dataset, cv, evaluation_roles = build_explicit_cv(
+    search_dataset, cv = build_explicit_cv(
         dataset=dataset,
         plan=plan,
         evaluation_role=evaluation_role,
@@ -133,10 +125,14 @@ def tune(
     if len(space) == 0:
         raise ValidationContractError(f"Search space for algorithm '{spec.name}' is empty.")
 
-    metrics = tuple(dict.fromkeys(config.metrics))
+    metrics = tuple(dict.fromkeys(metrics))
     if not metrics:
         raise ValidationContractError("At least one tuning metric is required.")
-    refit_metric = config.resolved_refit_metric()
+    refit_metric = config.refit_metric or metrics[0]
+    if refit_metric not in metrics:
+        raise ValidationContractError(
+            f"refit_metric '{refit_metric}' must be included in metrics {metrics!r}."
+        )
     scoring_positive_class = resolve_positive_class(
         task=spec.task, y=search_dataset.y, positive_class=positive_class
     )
@@ -150,8 +146,8 @@ def tune(
     first_train_index = cv[0][0]
     first_train = search_dataset.subset(tuple(search_dataset_ids[index] for index in first_train_index))
     estimator = spec.build_estimator(
-        random_state=config.random_state,
-        **dict(model_params or {}),
+        random_state=random_state,
+        **(model_params or {}),
     )
     pipeline = build_model_pipeline(
         spec=spec,
@@ -161,48 +157,34 @@ def tune(
     )
 
     fit_params = spec.sample_weight_fit_params(search_dataset.sample_weight)
-    start = perf_counter()
 
-    if config.optimizer == "optuna":
-        result = _run_optuna(
-            spec=spec,
-            pipeline=pipeline,
-            dataset=search_dataset,
-            cv=cv,
-            search_space=space,
-            scorers=scorers,
-            refit_metric=refit_metric,
-            config=config,
-            fit_params=fit_params,
-        )
-    else:
-        result = _run_sklearn(
-            spec=spec,
-            pipeline=pipeline,
-            dataset=search_dataset,
-            cv=cv,
-            search_space=space,
-            scorers=scorers,
-            refit_metric=refit_metric,
-            config=config,
-            fit_params=fit_params,
-        )
+    runner = _run_optuna if config.optimizer == "optuna" else _run_sklearn
+    result = runner(
+        spec=spec,
+        pipeline=pipeline,
+        dataset=search_dataset,
+        cv=cv,
+        search_space=space,
+        scorers=scorers,
+        refit_metric=refit_metric,
+        config=config,
+        random_state=random_state,
+        fit_params=fit_params,
+    )
 
     result.partition_plan = plan
     result.metrics = metrics
     result.refit_metric = refit_metric
+    result.feature_schema = dataset.feature_schema
+    result.positive_class = positive_class
     result.metadata.update(
         {
+            "random_state": random_state,
+            "preprocessing": preprocessing_summary(preprocessing),
+            "tuning_config": asdict(config),
             "dataset_fingerprint": dataset.fingerprint,
             "search_dataset_fingerprint": search_dataset.fingerprint,
             "partition_fingerprint": plan.fingerprint,
-            "partition_source": plan.metadata.get("source", "external"),
-            "evaluation_roles": evaluation_roles,
-            "n_splits": len(cv),
-            "n_search_samples": search_dataset.n_samples,
-            "n_total_samples": dataset.n_samples,
-            "protected_samples": dataset.n_samples - search_dataset.n_samples,
-            "elapsed_seconds": float(perf_counter() - start),
             "search_space": space.to_dict(),
         }
     )
@@ -219,6 +201,7 @@ def _run_sklearn(
     scorers: dict[str, Any],
     refit_metric: str,
     config: TuningConfig,
+    random_state: int | None,
     fit_params: dict[str, Any],
 ) -> OptimizationResult:
     optimizer = config.optimizer
@@ -232,34 +215,13 @@ def _run_sklearn(
         "error_score": config.error_score,
     }
 
-    try:
-        grid_parameters = (
-            search_space.to_grid(prefix="estimator__") if optimizer in {"grid", "halving_grid"} else None
-        )
-        random_parameters = (
-            search_space.to_random(prefix="estimator__")
-            if optimizer in {"random", "halving_random"}
-            else None
-        )
-    except ValueError as exc:
-        raise ValidationContractError(
-            f"Search space for optimizer '{optimizer}' is incompatible: {exc}"
-        ) from exc
-
     if optimizer == "grid":
-        if grid_parameters is None:  # always set above whenever optimizer is "grid"
-            raise AssertionError("grid optimizer resolved no grid_parameters.")
-        search = GridSearchCV(
-            param_grid=grid_parameters,
-            **common,
-        )
+        search = GridSearchCV(param_grid=_space_params(search_space.to_grid, optimizer), **common)
     elif optimizer == "random":
-        if random_parameters is None:  # always set above whenever optimizer is "random"
-            raise AssertionError("random optimizer resolved no random_parameters.")
         search = RandomizedSearchCV(
-            param_distributions=random_parameters,
+            param_distributions=_space_params(search_space.to_random, optimizer),
             n_iter=config.n_iter,
-            random_state=config.random_state,
+            random_state=random_state,
             **common,
         )
     elif optimizer in {"halving_grid", "halving_random"}:
@@ -267,10 +229,6 @@ def _run_sklearn(
         # single scoring objective. We optimize the explicit refit metric,
         # then evaluate the selected configuration with all requested
         # metrics on the same explicit folds.
-        single_common = dict(common)
-        single_common["scoring"] = scorers[refit_metric]
-        single_common["refit"] = config.refit
-
         # Deferred: enables the experimental halving search API only when it is used.
         from sklearn.experimental import enable_halving_search_cv  # noqa: F401, PLC0415
 
@@ -281,28 +239,26 @@ def _run_sklearn(
         )
 
         halving_common = {
-            **single_common,
+            **common,
+            "scoring": scorers[refit_metric],
+            "refit": config.refit,
             "factor": config.factor,
             "resource": config.resource,
             "max_resources": config.max_resources,
-            "min_resources": config.min_resources,
             "aggressive_elimination": config.aggressive_elimination,
         }
         if optimizer == "halving_grid":
             search = HalvingGridSearchCV(
-                param_grid=grid_parameters,
+                param_grid=_space_params(search_space.to_grid, optimizer),
+                min_resources=config.min_resources,
                 **halving_common,
             )
         else:
-            min_resources = config.min_resources
-            if min_resources == "exhaust":
-                # HalvingRandomSearchCV uses "smallest" as its canonical
-                # automatic lower-resource policy.
-                min_resources = "smallest"
-            halving_common["min_resources"] = min_resources
             search = HalvingRandomSearchCV(
-                param_distributions=random_parameters,
-                random_state=config.random_state,
+                param_distributions=_space_params(search_space.to_random, optimizer),
+                random_state=random_state,
+                # HalvingRandomSearchCV's canonical automatic lower-resource policy is "smallest".
+                min_resources="smallest" if config.min_resources == "exhaust" else config.min_resources,
                 **halving_common,
             )
     else:
@@ -348,12 +304,6 @@ def _run_sklearn(
         )
         best_scores[refit_metric] = best_score
 
-    best_score = _ensure_finite(
-        best_score,
-        algorithm=spec.name,
-        metric=refit_metric,
-        optimizer=optimizer,
-    )
     _validate_best_scores(
         best_scores,
         algorithm=spec.name,
@@ -365,15 +315,13 @@ def _run_sklearn(
     return OptimizationResult(
         algorithm=spec.name,
         optimizer=optimizer,
-        metric=refit_metric,
-        best_score=best_score,
+        refit_metric=refit_metric,
         best_params=best_params,
         best_model=best_model,
         spec=spec,
         history=history,
         study=search,
-        refit=config.refit,
-        best_scores=best_scores,
+        best_scores=_natural_scores(best_scores),
     )
 
 
@@ -387,6 +335,7 @@ def _run_optuna(
     scorers: dict[str, Any],
     refit_metric: str,
     config: TuningConfig,
+    random_state: int | None,
     fit_params: dict[str, Any],
 ) -> OptimizationResult:
     try:
@@ -403,7 +352,7 @@ def _run_optuna(
         ) from exc
 
     sampler = None
-    sampler_seed = config.random_state
+    sampler_seed = random_state
     if (
         sampler_seed is not None
         and config.optuna_storage is not None
@@ -471,9 +420,9 @@ def _run_optuna(
     )
 
     completed = [
-        trial
+        (float(trial.value), trial)
         for trial in study.trials
-        if trial.state == TrialState.COMPLETE and trial.value is not None and np.isfinite(float(trial.value))
+        if trial.state == TrialState.COMPLETE and trial.value is not None and np.isfinite(trial.value)
     ]
     if not completed:
         raise NonFiniteScoreError(
@@ -483,13 +432,7 @@ def _run_optuna(
             score=float("nan"),
         )
 
-    best_trial = max(completed, key=_finite_trial_value)
-    best_score = _ensure_finite(
-        _finite_trial_value(best_trial),
-        algorithm=spec.name,
-        metric=refit_metric,
-        optimizer="optuna",
-    )
+    best_score, best_trial = max(completed, key=lambda item: item[0])
     best_params = dict(best_trial.params)
     pipeline_params = {f"estimator__{name}": value for name, value in best_params.items()}
     selected = pipeline.set_params(**pipeline_params)
@@ -515,43 +458,40 @@ def _run_optuna(
         best_model = selected
         best_model.fit(pipeline_input(best_model, dataset.X), dataset.y, **fit_params)
 
-    history: list[dict[str, Any]] = [
-        {
-            "trial": trial.number,
-            "params": dict(trial.params),
-            "score": None if trial.value is None else float(trial.value),
-            "metrics": {refit_metric: None if trial.value is None else float(trial.value)},
-            "status": {"FAIL": "failed"}.get(trial.state.name, trial.state.name.lower()),
-            "error": trial.user_attrs.get("saber_error"),
-        }
-        for trial in study.trials
-    ]
+    history: list[dict[str, Any]] = []
+    for trial in study.trials:
+        score = None if trial.value is None else _natural(refit_metric, trial.value)
+        history.append(
+            {
+                "trial": trial.number,
+                "params": dict(trial.params),
+                "score": score,
+                "metrics": {refit_metric: score},
+                "status": {"FAIL": "failed"}.get(trial.state.name, trial.state.name.lower()),
+                "error": trial.user_attrs.get("saber_error"),
+            }
+        )
 
     return OptimizationResult(
         algorithm=spec.name,
         optimizer="optuna",
-        metric=refit_metric,
-        best_score=best_score,
+        refit_metric=refit_metric,
         best_params=best_params,
         best_model=best_model,
         spec=spec,
         history=history,
         study=study,
-        refit=config.refit,
-        best_scores=best_scores,
+        best_scores=_natural_scores(best_scores),
     )
 
 
-def _finite_trial_value(trial: Any) -> float:
-    """Return an optuna trial's objective value, already known to be finite/non-None.
-
-    Only called on trials from the ``completed`` list, which is filtered to
-    ``trial.value is not None`` above; optuna's stubs still type ``value`` as
-    optional, so this narrows it back for callers.
-    """
-    if trial.value is None:
-        raise AssertionError("Trial is missing an objective value.")
-    return float(trial.value)
+def _space_params(build: Callable[..., Any], optimizer: str) -> Any:
+    try:
+        return build(prefix="estimator__")
+    except ValueError as exc:
+        raise ValidationContractError(
+            f"Search space for optimizer '{optimizer}' is incompatible: {exc}"
+        ) from exc
 
 
 def _best_index(
@@ -573,18 +513,6 @@ def _best_index(
     return int(candidates[np.argmax(values[finite])])
 
 
-def _ensure_finite(score: float, *, algorithm: str, metric: str, optimizer: str) -> float:
-    value = float(score)
-    if not np.isfinite(value):
-        raise NonFiniteScoreError(
-            algorithm=algorithm,
-            metric=metric,
-            optimizer=optimizer,
-            score=value,
-        )
-    return value
-
-
 def _validate_best_scores(
     scores: Mapping[str, float],
     *,
@@ -601,6 +529,15 @@ def _validate_best_scores(
             )
 
 
+def _natural(metric: str, score: float) -> float:
+    """Convert an internal maximize-oriented score (sklearn/optuna) to the metric's natural sign."""
+    return get_metric_spec(metric).to_natural_score(score)
+
+
+def _natural_scores(scores: Mapping[str, float]) -> dict[str, float]:
+    return {metric: _natural(metric, score) for metric, score in scores.items()}
+
+
 def _strip_estimator_prefix(params: dict[str, Any]) -> dict[str, Any]:
     prefix = "estimator__"
     return {key.removeprefix(prefix): value for key, value in params.items()}
@@ -615,7 +552,7 @@ def _history_from_results(
     for index, raw_params in enumerate(results["params"]):
         metric_payload = {
             metric: {
-                "mean": float(results[f"mean_test_{suffix}"][index]),
+                "mean": _natural(metric, results[f"mean_test_{suffix}"][index]),
                 "std": float(results[f"std_test_{suffix}"][index]),
                 "rank": int(results[f"rank_test_{suffix}"][index]),
             }

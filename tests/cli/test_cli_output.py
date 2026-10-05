@@ -43,19 +43,19 @@ def _validate_config(tmp_path: Path) -> Path:
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=dataset.sample_ids,
         fold_assignments=[i % 3 for i in range(dataset.n_samples)],
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
     folds = tmp_path / "folds.json"
     folds.write_text(json.dumps(plan.to_dict()), encoding="utf-8")
 
     config = {
         "workflow": "validate",
-        "dataset": {"path": "data.csv", "target": "label", "sample_id": "sample_id"},
+        "dataset": {"path": "data.csv", "target_col": "label", "sample_id_col": "sample_id"},
         "algorithm": "logistic_regression",
-        "partition": {"path": "folds.json"},
+        "partition_plan": {"path": "folds.json"},
         "metrics": ["accuracy", "balanced_accuracy", "mcc"],
         "random_state": 42,
-        "output": {"directory": "results"},
+        "output": "results",
     }
     config_path = tmp_path / "validate.yaml"
     config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
@@ -85,18 +85,18 @@ def _benchmark_config(tmp_path: Path) -> Path:
     plan = PartitionPlan.from_predefined_folds(
         sample_ids=dataset.sample_ids,
         fold_assignments=[i % 3 for i in range(dataset.n_samples)],
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
     folds = tmp_path / "folds.json"
     folds.write_text(json.dumps(plan.to_dict()), encoding="utf-8")
 
     config = {
         "workflow": "benchmark",
-        "datasets": {"rep_a": {"path": "data.csv", "target": "label", "sample_id": "sample_id"}},
+        "datasets": {"rep_a": {"path": "data.csv", "target_col": "label", "sample_id_col": "sample_id"}},
         "algorithms": ["logistic_regression"],
         "partitions": {"cv": {"path": "folds.json"}},
+        "metrics": ["accuracy"],
         "benchmark": {
-            "metrics": ["accuracy"],
             "seeds": [42],
             "modes": ["untuned"],
             "include_baselines": False,
@@ -134,6 +134,7 @@ def test_workflow_json_mode_is_machine_readable(tmp_path, capsys):
     assert main(["run", str(config), "--json"]) == EXIT_OK
     output = capsys.readouterr().out
     payload = json.loads(output)
+    assert payload["status"] == "ok"
     assert payload["summary"]["workflow"] == "validate"
     assert payload["summary"]["algorithm"] == "logistic_regression"
     assert payload["summary"]["n_splits"] == 3

@@ -17,7 +17,7 @@ def test_algorithm_spec_builds_factory_and_metadata() -> None:
         estimator_cls=LogisticRegression,
         tags=("classification", "linear"),
         default_params={"max_iter": 250},
-        search_space=SearchSpace("lr", {"C": [0.1, 1.0]}),
+        search_space=SearchSpace({"C": [0.1, 1.0]}),
         requirements=EstimatorRequirements(scaling="recommended"),
     )
 

@@ -19,7 +19,7 @@ def _cv(dataset, n=3):
     return PartitionPlan.from_predefined_folds(
         sample_ids=dataset.sample_ids,
         fold_assignments=np.arange(dataset.n_samples) % n,
-        dataset_fingerprint=dataset.fingerprint,
+        dataset=dataset,
     )
 
 
@@ -31,8 +31,9 @@ def test_representation_with_missing_sample_id_fails_before_runs():
         benchmark(
             datasets={"a": base, "b": second},
             algorithms=("logistic_regression",),
-            config=BenchmarkConfig(metrics=("accuracy",), include_baselines=False),
+            config=BenchmarkConfig(include_baselines=False),
             partitions=_cv(base),
+            metrics=("accuracy",),
         )
 
 
@@ -42,6 +43,7 @@ def test_mixed_classification_and_regression_algorithms_are_rejected_globally():
         benchmark(
             datasets=dataset,
             algorithms=("logistic_regression", "ridge_regressor"),
-            config=BenchmarkConfig(metrics=("accuracy",), include_baselines=False),
+            config=BenchmarkConfig(include_baselines=False),
             partitions=_cv(dataset),
+            metrics=("accuracy",),
         )

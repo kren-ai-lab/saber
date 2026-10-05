@@ -49,10 +49,7 @@ def _():
         return folds
 
     from sklearn.datasets import make_classification
-    from saber import tune, validate
-    from saber.core import SearchSpace, Categorical
-    from saber.datasets import DatasetBundle, PartitionPlan
-    from saber.tuning import TuningConfig
+    from saber import tune, validate, SearchSpace, Categorical, DatasetBundle, PartitionPlan, TuningConfig
 
     return (
         Categorical,
@@ -80,19 +77,20 @@ def _(DEMO_TEST, DatasetBundle, PartitionPlan, make_classification, np):
     for cls in np.unique(y):
         cls_ids=ids[y==cls]; n=len(cls_ids); a,b=int(.60*n),int(.80*n)
         train_ids.extend(cls_ids[:a]); val_ids.extend(cls_ids[a:b]); test_ids.extend(cls_ids[b:])
-    plan=PartitionPlan.holdout(train_ids=train_ids,validation_ids=val_ids,test_ids=test_ids,dataset_fingerprint=dataset.fingerprint)
+    plan=PartitionPlan.holdout(train_ids=train_ids,validation_ids=val_ids,test_ids=test_ids,dataset=dataset)
     return dataset, plan, test_ids, train_ids, val_ids
 
 
 @app.cell
 def _(Categorical, SearchSpace, TuningConfig, dataset, pl, plan, tune):
-    space=SearchSpace("logreg_grid",{
+    space=SearchSpace({
         "C":Categorical([0.03,0.1,0.3,1.0,3.0]),
         "class_weight":Categorical([None,"balanced"]),
         "solver":Categorical(["lbfgs"]),
     })
-    config=TuningConfig(optimizer="grid",metrics=("mcc","roc_auc","balanced_accuracy"),refit_metric="mcc",random_state=42,n_jobs=1)
-    opt=tune(dataset=dataset,algorithm="logistic_regression",config=config,partition_plan=plan,search_space=space)
+    config=TuningConfig(optimizer="grid",refit_metric="mcc",n_jobs=1)
+    opt=tune(dataset=dataset,algorithm="logistic_regression",config=config,partition_plan=plan,search_space=space,
+             metrics=("mcc","roc_auc","balanced_accuracy"),random_state=42)
     history=opt.history_frame(); complete=history.filter(pl.col("status")=="complete")
     score_col="metric__mcc__mean"
     top=complete.sort(score_col,descending=True).head(5)
@@ -105,7 +103,7 @@ def _(Categorical, SearchSpace, TuningConfig, dataset, pl, plan, tune):
 def _(PartitionPlan, dataset, opt, pl, test_ids, train_ids, val_ids, validate):
     # Baseline and tuned configurations are both evaluated only on the protected test.
     final_plan=PartitionPlan.holdout(train_ids=tuple(train_ids)+tuple(val_ids),test_ids=test_ids,
-                                     dataset_fingerprint=dataset.fingerprint,name="protected_test")
+                                     dataset=dataset,name="protected_test")
     untuned=validate(dataset=dataset,algorithm="logistic_regression",partition_plan=final_plan,
                      metrics=("mcc","roc_auc","balanced_accuracy"),evaluation_role="test",random_state=42)
     tuned=validate(dataset=dataset,algorithm="logistic_regression",partition_plan=final_plan,
@@ -140,7 +138,7 @@ def _(comparison, complete, mo, np, opt, pl, plt, score_col, tuned):
         {metric: comparison.get_column(metric).to_numpy() for metric in ("mcc","balanced_accuracy","roc_auc")},
     )
     axes[1].set_ylim(-.05,1.05); axes[1].set_title("Protected test")
-    axes[2].bar(["search","protected test"],[opt.display_scores["mcc"],tuned.aggregate_metrics["mcc"]]); axes[2].set_ylim(-.05,1.05); axes[2].set_title("Selection vs final estimate")
+    axes[2].bar(["search","protected test"],[opt.best_scores["mcc"],tuned.aggregate_metrics["mcc"]]); axes[2].set_ylim(-.05,1.05); axes[2].set_title("Selection vs final estimate")
     plt.tight_layout()
     mo.output.append(mo.as_html(fig))
     FIGURE_COUNT=1
@@ -150,7 +148,7 @@ def _(comparison, complete, mo, np, opt, pl, plt, score_col, tuned):
 @app.cell
 def _(FIGURE_COUNT, comparison, complete, np, opt, test_ids, top, tuned):
     DEMO_CHECKS={
-        "test_protected": opt.metadata["protected_samples"]==len(test_ids),
+        "test_protected": set(tuned.oof_prediction.sample_ids)==set(test_ids),
         "ten_candidates": len(complete)==10,
         "multi_metric": set(opt.metrics)=={"mcc","roc_auc","balanced_accuracy"},
         "top_report": len(top)==5,

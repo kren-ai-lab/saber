@@ -1,10 +1,10 @@
-schema_version: "1.0"
+schema_version: "2.0"
 workflow: tune
 
 dataset:
   path: data/regression.csv
-  target: target
-  sample_id: sample_id
+  target_col: target
+  sample_id_col: sample_id
 
 algorithm: ridge_regressor
 
@@ -20,16 +20,17 @@ preprocessing:
 
 tuning:
   optimizer: grid
-  metrics:
-    - rmse
-    - mae
   refit_metric: rmse
-  random_state: 42
 
 search_space:
   alpha:
     type: categorical
     values: [0.01, 0.1, 1.0, 10.0]
 
-output:
-  directory: results/regression_tuning
+metrics:
+  - rmse
+  - mae
+
+random_state: 42
+
+output: results/regression_tuning

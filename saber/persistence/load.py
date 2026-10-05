@@ -96,7 +96,7 @@ def load_benchmark(
     metadata = read_json(root / manifest.files["benchmark_metadata"])
 
     tables: dict[str, pl.DataFrame] = {}
-    for name in ("runs", "metrics", "predictions", "failures", "optimization_history"):
+    for name in ("runs", "metrics", "predictions", "optimization_history"):
         relative = manifest.files.get(name)
         if relative is not None:
             target = root / relative
@@ -118,11 +118,6 @@ def load_benchmark(
         result=result,
         compatibility_warnings=warnings,
     )
-
-
-def verify_artifact(path: str | Path) -> ArtifactManifest:
-    """Verify checksums/schema and return the artifact manifest."""
-    return inspect_artifact(path, verify=True)
 
 
 def _artifact_root(path: str | Path) -> Path:

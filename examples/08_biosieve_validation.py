@@ -49,8 +49,7 @@ def _():
         return folds
 
     from sklearn.datasets import make_classification
-    from saber import validate
-    from saber.datasets import DatasetBundle, PartitionPlan, BioSievePartitionConfig
+    from saber import validate, DatasetBundle, PartitionPlan, BioSievePartitionConfig
     from saber.exceptions import OptionalDependencyError
 
     return (
@@ -86,12 +85,12 @@ def _(
     LIVE_BIOSIEVE=False
     try:
         result=validate(dataset=dataset,algorithm="logistic_regression",
-                        partitioning=BioSievePartitionConfig(strategy="stratified_kfold",params={"n_splits":5,"seed":42}),
+                        partition_plan=BioSievePartitionConfig(strategy="stratified_kfold",params={"n_splits":5,"seed":42}),
                         metrics=("mcc","balanced_accuracy","f1","roc_auc","pr_auc"),random_state=42)
         LIVE_BIOSIEVE=True
     except OptionalDependencyError:
         plan=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=balanced_fold_labels(y,5),
-            dataset_fingerprint=dataset.fingerprint,metadata={"source":"demo_prepartitioned_fallback","strategy":"stratified_like_5fold"})
+            dataset=dataset,metadata={"source":"demo_prepartitioned_fallback","strategy":"stratified_like_5fold"})
         result=validate(dataset=dataset,algorithm="logistic_regression",partition_plan=plan,
                         metrics=("mcc","balanced_accuracy","f1","roc_auc","pr_auc"),random_state=42)
     print("Live BioSieve:",LIVE_BIOSIEVE)
@@ -104,8 +103,8 @@ def _(dataset, np, pl, result):
     fold_rows=[]
     for fold in result.folds:
         eval_y=dataset.subset(fold.evaluation_ids).y
-        fold_rows.append({"fold":fold.split_name,"n_eval":len(eval_y),"positive_rate":float(np.mean(eval_y)),**fold.evaluation.metrics})
-    fold_df=pl.DataFrame(fold_rows)
+        fold_rows.append({"fold":fold.split,"n_eval":len(eval_y),"positive_rate":float(np.mean(eval_y))})
+    fold_df=pl.DataFrame(fold_rows).join(result.metrics_frame().filter(pl.col("level")=="fold").pivot("metric",index="split",values="score").rename({"split":"fold"}),on="fold",how="left")
     fold_df
     return (fold_df,)
 
@@ -138,7 +137,7 @@ def _(fold_df, mo, np, plt, y):
 def _(FIGURE_COUNT, LIVE_BIOSIEVE, fold_df, np, result):
     DEMO_CHECKS={
         "five_splits":result.n_splits==5,
-        "complete_oof":result.metadata["oof_complete"] is True,
+        "complete_oof":result.oof_prediction is not None,
         "source_explicit":result.partition_plan.metadata.get("source") in {"biosieve","demo_prepartitioned_fallback"},
         "fold_diagnostics":len(fold_df)==5,
         "finite_metrics":np.isfinite(fold_df.select(["mcc","balanced_accuracy","f1","roc_auc","pr_auc"]).to_numpy()).all(),

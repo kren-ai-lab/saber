@@ -1,10 +1,10 @@
-schema_version: "1.0"
+schema_version: "2.0"
 workflow: validate
 
 dataset:
   path: data/classification.csv
-  target: label
-  sample_id: sample_id
+  target_col: label
+  sample_id_col: sample_id
 
 algorithm: logistic_regression
 
@@ -25,5 +25,4 @@ metrics:
 
 random_state: 42
 
-output:
-  directory: results/classification
+output: results/classification

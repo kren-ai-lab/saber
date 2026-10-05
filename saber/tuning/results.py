@@ -1,4 +1,4 @@
-"""saber.tuning.results: Result objects returned by optimization methods."""
+"""Result objects returned by optimization methods."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from saber.core.metrics import get_metric_spec
 from saber.exceptions import NonFiniteScoreError
 from saber.utils.tabular import records_frame
 
@@ -15,57 +14,45 @@ if TYPE_CHECKING:
     import polars as pl
 
     from saber.core.specs import AlgorithmSpec
+    from saber.datasets.schemas import FeatureSchema
 
 
 @dataclass(slots=True)
 class OptimizationResult:
-    """Stores the result of a hyperparameter optimization process."""
+    """Stores the result of a hyperparameter optimization process.
+
+    ``best_scores`` (``best_scores[refit_metric]`` is the selection score) and
+    the history report each metric in its natural direction (e.g. RMSE is positive, lower
+    is better); ranks in the history keep 1 as the best candidate.
+    """
 
     algorithm: str
-    best_score: float
     best_params: dict[str, Any]
     best_model: Any = None
     spec: AlgorithmSpec | None = None
     optimizer: str | None = None
-    metric: str | None = None
     history: list[dict[str, Any]] = field(default_factory=list)
     study: Any = None
-    refit: bool | None = None
     metrics: tuple[str, ...] = field(default_factory=tuple)
     refit_metric: str | None = None
     best_scores: dict[str, float] = field(default_factory=dict)
     partition_plan: Any = None
+    feature_schema: FeatureSchema | None = None
+    positive_class: Any | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """Normalize numeric fields and validate that the best score is finite."""
-        self.best_score = float(self.best_score)
         self.metrics = tuple(self.metrics)
         self.best_scores = {name: float(value) for name, value in self.best_scores.items()}
         self.metadata = dict(self.metadata)
-        if self.metric is not None and self.metric not in self.best_scores:
-            self.best_scores[self.metric] = self.best_score
-        if not np.isfinite(self.best_score):
+        if self.refit_metric in self.best_scores and not np.isfinite(self.best_scores[self.refit_metric]):
             raise NonFiniteScoreError(
                 algorithm=self.algorithm,
-                metric=self.metric or "unknown",
+                metric=self.refit_metric,
                 optimizer=self.optimizer or "unknown",
-                score=self.best_score,
+                score=self.best_scores[self.refit_metric],
             )
-
-    @property
-    def display_score(self) -> float:
-        """User-facing score in the metric's natural direction."""
-        if self.metric is None:
-            return self.best_score
-        return get_metric_spec(self.metric).to_natural_score(self.best_score)
-
-    @property
-    def display_scores(self) -> dict[str, float]:
-        """Best candidate scores converted to each metric's natural direction."""
-        return {
-            name: get_metric_spec(name).to_natural_score(value) for name, value in self.best_scores.items()
-        }
 
     @property
     def failures(self) -> list[dict[str, Any]]:
@@ -91,19 +78,16 @@ class OptimizationResult:
         return records_frame(rows)
 
     def to_dict(self) -> dict[str, Any]:
-        """Export result as dictionary."""
+        """Return a serialization-friendly summary; ``metrics`` holds the best candidate's scores."""
         return {
             "algorithm": self.algorithm,
+            "task": None if self.spec is None else self.spec.task,
+            "dataset_fingerprint": self.metadata.get("dataset_fingerprint"),
+            "partition_fingerprint": self.metadata.get("partition_fingerprint"),
             "optimizer": self.optimizer,
-            "metric": self.metric,
-            "metrics": self.metrics,
             "refit_metric": self.refit_metric,
-            "best_score": self.best_score,
-            "display_score": self.display_score,
-            "best_scores": dict(self.best_scores),
-            "display_scores": self.display_scores,
-            "best_params": self.best_params,
-            "refit": self.refit,
+            "best_params": dict(self.best_params),
+            "metrics": dict(self.best_scores),
+            "n_candidates": len(self.history),
             "n_failures": len(self.failures),
-            "metadata": dict(self.metadata),
         }

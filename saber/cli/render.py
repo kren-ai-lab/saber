@@ -19,12 +19,17 @@ from saber.utils.serialization import to_jsonable
 from saber.validation import ValidationResult
 
 
-def render_preflight(console: Console, config: WorkflowConfig) -> None:
-    """Render a concise execution plan without duplicating workflow logic."""
-    payload = config.payload
+def _grid() -> Table:
     table = Table.grid(padding=(0, 2))
     table.add_column(style="bold cyan", no_wrap=True)
     table.add_column()
+    return table
+
+
+def render_preflight(console: Console, config: WorkflowConfig) -> None:
+    """Render a concise execution plan without duplicating workflow logic."""
+    payload = config.payload
+    table = _grid()
     table.add_row("Workflow", config.workflow)
     if config.source is not None:
         table.add_row("Config", str(config.source))
@@ -39,36 +44,21 @@ def render_preflight(console: Console, config: WorkflowConfig) -> None:
     if "datasets" in payload:
         table.add_row("Datasets", ", ".join(str(key) for key in payload["datasets"]))
     elif "dataset" in payload:
-        dataset = payload["dataset"]
-        if isinstance(dataset, Mapping):
-            table.add_row("Dataset", str(dataset.get("path", "prepared input")))
+        table.add_row("Dataset", str(payload["dataset"]["path"]))
 
     if "partitioning" in payload:
-        partitioning = payload["partitioning"]
-        if isinstance(partitioning, Mapping):
-            table.add_row("Partitioning", f"BioSieve / {partitioning.get('strategy', 'configured')}")
+        table.add_row("Partitioning", f"BioSieve / {payload['partitioning']['strategy']}")
     elif "partitions" in payload:
         table.add_row("Partitions", ", ".join(str(key) for key in payload["partitions"]))
-    elif "partition" in payload:
-        partition = payload["partition"]
-        if isinstance(partition, Mapping):
-            table.add_row("Partition", str(partition.get("path", "external")))
+    elif "partition_plan" in payload:
+        table.add_row("Partition plan", str(payload["partition_plan"]["path"]))
 
-    metrics = _configured_metrics(config)
-    if metrics:
-        table.add_row("Metrics", ", ".join(metrics))
+    if metrics := payload.get("metrics"):
+        table.add_row("Metrics", ", ".join(str(value) for value in metrics))
 
-    output = payload.get("output")
-    if isinstance(output, Mapping):
-        destination = output.get("directory") or output.get("path")
-        if destination:
-            table.add_row("Output", str(destination))
-    artifact = payload.get("artifact")
-    if artifact is not None:
-        if isinstance(artifact, Mapping):
-            artifact = artifact.get("path")
-        if artifact:
-            table.add_row("Artifact", str(artifact))
+    for key in ("model", "artifact", "output"):
+        if key in payload:
+            table.add_row(key.title(), str(payload[key]))
 
     console.print(Panel(table, title="[bold]saber execution plan[/bold]", border_style="cyan"))
 
@@ -132,9 +122,7 @@ def render_model_list(console: Console, rows: Sequence[Mapping[str, Any]]) -> No
 def render_model(console: Console, metadata: Mapping[str, Any]) -> None:
     """Render detailed metadata for a single registered model."""
     title = f"{metadata.get('name')}  [{metadata.get('provider')}]"
-    basics = Table.grid(padding=(0, 2))
-    basics.add_column(style="bold cyan")
-    basics.add_column()
+    basics = _grid()
     for key in ("task", "estimator", "description"):
         if metadata.get(key) is not None:
             basics.add_row(key.replace("_", " ").title(), str(metadata[key]))
@@ -160,9 +148,7 @@ def render_model(console: Console, metadata: Mapping[str, Any]) -> None:
 
 def render_artifact(console: Console, payload: Mapping[str, Any], path: str) -> None:
     """Render a summary panel for a persisted model artifact."""
-    table = Table.grid(padding=(0, 2))
-    table.add_column(style="bold cyan")
-    table.add_column()
+    table = _grid()
     table.add_row("Path", path)
     for key in ("artifact_type", "schema_version", "created_at", "saber_version"):
         if key in payload:
@@ -173,9 +159,7 @@ def render_artifact(console: Console, payload: Mapping[str, Any], path: str) -> 
 
 
 def _render_validation(console: Console, result: ValidationResult) -> None:
-    overview = Table.grid(padding=(0, 2))
-    overview.add_column(style="bold cyan")
-    overview.add_column()
+    overview = _grid()
     overview.add_row("Algorithm", result.algorithm)
     overview.add_row("Task", result.task)
     overview.add_row("Splits", str(result.n_splits))
@@ -183,24 +167,24 @@ def _render_validation(console: Console, result: ValidationResult) -> None:
     if result.oof_prediction is not None:
         overview.add_row("OOF samples", str(result.oof_prediction.n_samples))
     console.print(overview)
-    _render_metric_table(console, result.aggregate_metrics, result.metric_summary)
+    aggregate = result.metrics_frame().filter(pl.col("level") == "aggregate")
+    _render_metric_table(
+        console, result.aggregate_metrics, {row["metric"]: row for row in aggregate.iter_rows(named=True)}
+    )
 
 
 def _render_optimization(console: Console, result: OptimizationResult) -> None:
-    overview = Table.grid(padding=(0, 2))
-    overview.add_column(style="bold cyan")
-    overview.add_column()
+    overview = _grid()
     overview.add_row("Algorithm", result.algorithm)
     overview.add_row("Optimizer", str(result.optimizer))
     overview.add_row("Refit metric", str(result.refit_metric))
-    overview.add_row("Best score", _format_number(result.display_score))
     overview.add_row("Candidates", str(len(result.history)))
     overview.add_row("Failed", str(len(result.failures)))
     overview.add_row("Refit model", _yes_no(result.best_model is not None))
     console.print(overview)
 
-    if result.display_scores:
-        _render_metric_table(console, result.display_scores, None, title="Best candidate metrics")
+    if result.best_scores:
+        _render_metric_table(console, result.best_scores, None, title="Best candidate metrics")
     if result.best_params:
         params = Table(title="Best parameters", header_style="bold cyan")
         params.add_column("Parameter")
@@ -211,9 +195,7 @@ def _render_optimization(console: Console, result: OptimizationResult) -> None:
 
 
 def _render_benchmark(console: Console, result: BenchmarkResult) -> None:
-    overview = Table.grid(padding=(0, 2))
-    overview.add_column(style="bold cyan")
-    overview.add_column()
+    overview = _grid()
     overview.add_row("Runs", str(result.n_runs))
     overview.add_row("Successful", str(len(result.successes)))
     overview.add_row("Failed", str(len(result.failures)))
@@ -226,18 +208,12 @@ def _render_benchmark(console: Console, result: BenchmarkResult) -> None:
         [pl.col("metric"), pl.col("score").fill_nan(None)], descending=[False, True], nulls_last=True
     ).head(16)
     table = Table(title="Aggregate results (preview)", header_style="bold cyan")
-    for column in ("representation", "partition", "algorithm", "mode", "seed", "metric", "score"):
+    columns = ("representation", "partition", "algorithm", "mode", "seed", "metric", "score")
+    for column in columns:
         table.add_column(column.replace("_", " ").title())
     for row in preview.iter_rows(named=True):
-        table.add_row(
-            str(row["representation"]),
-            str(row["partition"]),
-            str(row["algorithm"]),
-            str(row["mode"]),
-            str(row["seed"]),
-            str(row["metric"]),
-            _format_number(row["score"]),
-        )
+        cells = [str(row[column]) for column in columns[:-1]]
+        table.add_row(*cells, _format_number(row["score"]))
     console.print(table)
     if len(frame) > len(preview):
         console.print(f"[dim]Showing {len(preview)} of {len(frame)} aggregate metric rows.[/dim]")
@@ -256,7 +232,7 @@ def _render_benchmark(console: Console, result: BenchmarkResult) -> None:
 def _render_metric_table(
     console: Console,
     metrics: Mapping[str, float],
-    summary: Mapping[str, Mapping[str, float]] | None,
+    summary: Mapping[str, Mapping[str, Any]] | None,
     *,
     title: str = "Metrics",
 ) -> None:
@@ -298,19 +274,6 @@ def _render_outputs(console: Console, outputs: Mapping[str, str]) -> None:
     for name, path in sorted(outputs.items()):
         table.add_row(name, path)
     console.print(table)
-
-
-def _configured_metrics(config: WorkflowConfig) -> list[str]:
-    payload = config.payload
-    if isinstance(payload.get("metrics"), Sequence) and not isinstance(payload.get("metrics"), (str, bytes)):
-        return [str(value) for value in payload["metrics"]]
-    tuning = payload.get("tuning")
-    if isinstance(tuning, Mapping):
-        return [str(value) for value in tuning.get("metrics", ())]
-    benchmark = payload.get("benchmark")
-    if isinstance(benchmark, Mapping):
-        return [str(value) for value in benchmark.get("metrics", ())]
-    return []
 
 
 def _display_value(value: Any) -> str:

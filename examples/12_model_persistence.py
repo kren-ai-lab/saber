@@ -51,8 +51,7 @@ def _():
     from pathlib import Path
     import tempfile
     from sklearn.datasets import make_classification
-    from saber import train, load_model, inspect_artifact, verify_artifact, evaluate
-    from saber.datasets import DatasetBundle
+    from saber import train, save_model, predict, load_model, inspect_artifact, evaluate, DatasetBundle
 
     return (
         DEMO_TEST,
@@ -65,9 +64,10 @@ def _():
         np,
         pl,
         plt,
+        predict,
+        save_model,
         tempfile,
         train,
-        verify_artifact,
     )
 
 
@@ -82,22 +82,24 @@ def _(
     make_classification,
     np,
     pl,
+    predict,
+    save_model,
     tempfile,
     train,
-    verify_artifact,
 ):
     X,y=make_classification(n_samples=140 if DEMO_TEST else 280,n_features=12,n_informative=8,class_sep=1.1,random_state=101)
     ids=[f"persist_{i:04d}" for i in range(len(y))]
     dataset=DatasetBundle(X=X,y=y,sample_ids=ids,feature_names=[f"f{i}" for i in range(X.shape[1])])
     tmp=tempfile.mkdtemp(prefix="saber-example-")
     artifact_path=Path(tmp)/"model_artifact"
-    trained=train(dataset=dataset,algorithm="logistic_regression",random_state=42,artifact_path=artifact_path)
+    trained=train(dataset=dataset,algorithm="logistic_regression",random_state=42)
+    save_model(artifact_path,trained,dataset=dataset)
     before=trained.model.predict(dataset.X)
-    verified=verify_artifact(artifact_path)
+    verified=inspect_artifact(artifact_path)
     manifest=inspect_artifact(artifact_path)
     loaded=load_model(artifact_path)
-    pred=loaded.predict_result(dataset.X,feature_names=dataset.feature_names,sample_ids=dataset.sample_ids)
-    evaluation=evaluate(dataset=dataset,model=loaded,metrics=("accuracy","balanced_accuracy","mcc","roc_auc","pr_auc","log_loss"))
+    pred=predict(loaded,dataset.X,sample_ids=dataset.sample_ids)
+    evaluation=evaluate(loaded,dataset,metrics=("accuracy","balanced_accuracy","mcc","roc_auc","pr_auc","log_loss"))
     files=sorted(p.name for p in artifact_path.iterdir())
     report=pl.DataFrame({"sample_id":ids,"y_true":y,"y_pred":pred.predictions,"p_positive":pred.positive_probabilities()})
     exact_roundtrip=np.array_equal(before,pred.predictions)

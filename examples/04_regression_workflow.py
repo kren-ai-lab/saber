@@ -49,8 +49,7 @@ def _():
         return folds
 
     from sklearn.datasets import make_regression
-    from saber import validate
-    from saber.datasets import DatasetBundle, PartitionPlan
+    from saber import validate, DatasetBundle, PartitionPlan
 
     return (
         DEMO_TEST,
@@ -75,7 +74,7 @@ def _(DEMO_TEST, DatasetBundle, PartitionPlan, make_regression, np):
     ids=[f"reg_{i:04d}" for i in range(len(y))]
     dataset=DatasetBundle(X=X,y=y,sample_ids=ids,feature_names=[f"f{i:02d}" for i in range(X.shape[1])])
     plan=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=np.arange(len(y))%5,
-                                             dataset_fingerprint=dataset.fingerprint)
+                                             dataset=dataset)
     return dataset, ids, plan, y
 
 
@@ -101,7 +100,7 @@ def _(dataset, ids, pl, plan, validate, y):
         .sort("target_quartile")
     )
     worst = report.sort("absolute_error", descending=True).head(10)
-    fold_metrics = pl.DataFrame([{"fold":f.split_name,**f.evaluation.metrics} for f in result.folds])
+    fold_metrics = result.metrics_frame().filter(pl.col("level")=="fold").pivot("metric",index="split",values="score").rename({"split":"fold"})
     print({k: round(result.aggregate_metrics[k], 4) for k in sorted(result.aggregate_metrics)})
     quartile_error
     return fold_metrics, metrics, oof, quartile_error, report, result, worst
@@ -140,7 +139,7 @@ def _(fold_metrics, mo, np, oof, plt, report, y):
 @app.cell
 def _(FIGURE_COUNT, dataset, metrics, np, quartile_error, result, worst):
     DEMO_CHECKS={
-        "complete_oof": result.metadata["oof_complete"] is True,
+        "complete_oof": result.oof_prediction is not None,
         "all_metrics": set(metrics)==set(result.aggregate_metrics),
         "missing_values_exercised": np.isnan(dataset.X).any(),
         "quartile_report": len(quartile_error)==4,

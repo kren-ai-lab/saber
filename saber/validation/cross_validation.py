@@ -11,7 +11,7 @@ from saber.core.prediction import PredictionResult, collect_model_outputs
 from saber.core.registry import get_algorithm
 from saber.evaluation import evaluate_prediction
 from saber.exceptions import DatasetValidationError, ValidationContractError
-from saber.preprocessing import PreprocessingConfig, build_model_pipeline, pipeline_input
+from saber.preprocessing.pipeline import PreprocessingConfig, build_model_pipeline, pipeline_input
 from saber.validation.partitioning import (
     EvaluationRole,
     resolve_evaluation_dataset,
@@ -35,28 +35,25 @@ def validate(
     *,
     dataset: DatasetBundle,
     algorithm: str,
-    partition_plan: PartitionPlan | None = None,
-    partitioning: BioSievePartitionConfig | None = None,
-    biosieve_extra_columns: Mapping[str, Sequence[Any]] | None = None,
-    preprocessing: PreprocessingConfig | Any | None = None,
+    model_params: Mapping[str, Any] | None = None,
+    preprocessing: PreprocessingConfig | None = None,
+    partition_plan: PartitionPlan | BioSievePartitionConfig | None = None,
     metrics: Sequence[str] | None = None,
     evaluation_role: EvaluationRole = "auto",
-    positive_class: Any | None = None,
-    random_state: int | None = None,
-    return_estimators: bool = False,
     require_complete: bool = True,
-    model_params: Mapping[str, Any] | None = None,
+    positive_class: Any | None = None,
+    return_estimators: bool = False,
+    random_state: int | None = None,
 ) -> ValidationResult:
-    """Validate one registered algorithm over an explicit/generated plan."""
+    """Validate one registered algorithm over an explicit or BioSieve-generated plan.
+
+    ``partition_plan`` is either an explicit :class:`PartitionPlan` or a
+    :class:`BioSievePartitionConfig` that delegates split generation to BioSieve.
+    """
     spec = get_algorithm(algorithm)
     dataset.validate(task=spec.task)
 
-    plan = resolve_partition_plan(
-        dataset=dataset,
-        partition_plan=partition_plan,
-        partitioning=partitioning,
-        biosieve_extra_columns=biosieve_extra_columns,
-    )
+    plan = resolve_partition_plan(dataset=dataset, partition_plan=partition_plan)
     plan.validate_against(dataset, require_complete=require_complete)
 
     folds: list[FoldValidationResult] = []
@@ -81,7 +78,7 @@ def validate(
 
         estimator = spec.build_estimator(
             random_state=random_state,
-            **dict(model_params or {}),
+            **(model_params or {}),
         )
         pipeline = build_model_pipeline(
             spec=spec,
@@ -96,14 +93,15 @@ def validate(
         pipeline.fit(pipeline_input(pipeline, resolved.train.X), resolved.train.y, **fit_kwargs)
         fit_seconds = perf_counter() - start
 
-        prediction = _prediction_from_pipeline(
-            pipeline,
-            spec_task=spec.task,
-            X=evaluation_data.X,
-            sample_ids=evaluation_data.sample_ids,
+        outputs = collect_model_outputs(
+            pipeline, pipeline_input(pipeline, evaluation_data.X), task=spec.task, tolerant=True
+        )
+        prediction = PredictionResult(
+            task=spec.task,
+            **outputs,
             positive_class=positive_class,
-            algorithm=spec.name,
-            provider=spec.provider,
+            sample_ids=np.asarray(evaluation_data.sample_ids, dtype=object),
+            metadata={"algorithm": spec.name},
         )
         evaluation = evaluate_prediction(
             evaluation_data.y,
@@ -113,25 +111,20 @@ def validate(
 
         folds.append(
             FoldValidationResult(
-                split_name=split.name,
+                split=split.name,
                 evaluation_role=role,
                 train_ids=tuple(resolved.train.resolved_sample_ids),
                 evaluation_ids=tuple(evaluation_data.sample_ids),
                 prediction=prediction,
-                evaluation=evaluation,
+                metrics=evaluation.metrics,
                 estimator=pipeline if return_estimators else None,
                 fit_seconds=float(fit_seconds),
-                metadata={
-                    "partition_metadata": dict(split.metadata),
-                    "n_train": resolved.train.n_samples,
-                    "n_evaluation": evaluation_data.n_samples,
-                },
             )
         )
 
     fold_tuple = tuple(folds)
-    aggregate_metrics, metric_summary = aggregate_fold_metrics(fold_tuple)
-    oof_prediction, oof_metadata = _build_oof_prediction(
+    aggregate_metrics = {name: stats["mean"] for name, stats in aggregate_fold_metrics(fold_tuple).items()}
+    oof_prediction = _build_oof_prediction(
         dataset=dataset,
         folds=fold_tuple,
         task=spec.task,
@@ -143,38 +136,10 @@ def validate(
         partition_plan=plan,
         folds=fold_tuple,
         aggregate_metrics=aggregate_metrics,
-        metric_summary=metric_summary,
         oof_prediction=oof_prediction,
         metadata={
-            "partition_source": plan.metadata.get("source", "external"),
             "partition_fingerprint": plan.fingerprint,
             "dataset_fingerprint": dataset.fingerprint,
-            **oof_metadata,
-        },
-    )
-
-
-def _prediction_from_pipeline(
-    pipeline: Any,
-    *,
-    spec_task: TaskType,
-    X: Any,
-    sample_ids: Sequence[Any],
-    positive_class: Any | None,
-    algorithm: str,
-    provider: str,
-) -> PredictionResult:
-    X = pipeline_input(pipeline, X)
-    outputs = collect_model_outputs(pipeline, X, task=spec_task, tolerant=True)
-
-    return PredictionResult(
-        task=spec_task,
-        **outputs,
-        positive_class=positive_class,
-        sample_ids=np.asarray(sample_ids, dtype=object),
-        metadata={
-            "algorithm": algorithm,
-            "provider": provider,
         },
     )
 
@@ -184,19 +149,13 @@ def _build_oof_prediction(
     dataset: DatasetBundle,
     folds: tuple[FoldValidationResult, ...],
     task: TaskType,
-) -> tuple[PredictionResult | None, dict[str, Any]]:
+) -> PredictionResult | None:
     ids = [sample_id for fold in folds for sample_id in fold.evaluation_ids]
     if len(ids) != len(set(ids)):
-        return None, {
-            "oof_available": False,
-            "oof_reason": "held-out sample IDs repeat across splits",
-        }
+        return None
 
     if not ids:
-        return None, {
-            "oof_available": False,
-            "oof_reason": "no held-out predictions",
-        }
+        return None
 
     prediction_by_id: dict[Any, tuple[FoldValidationResult, int]] = {}
     for fold in folds:
@@ -226,7 +185,7 @@ def _build_oof_prediction(
         attribute="decision_scores",
     )
 
-    result = PredictionResult(
+    return PredictionResult(
         task=task,
         predictions=predictions,
         probabilities=probabilities,
@@ -234,20 +193,11 @@ def _build_oof_prediction(
         classes=classes,
         positive_class=positive_class,
         sample_ids=np.asarray(ordered_ids, dtype=object),
-        metadata={"kind": "out_of_fold"},
     )
-    return result, {
-        "oof_available": True,
-        "oof_n_samples": len(ordered_ids),
-        "oof_coverage": float(len(ordered_ids) / dataset.n_samples),
-        "oof_complete": len(ordered_ids) == dataset.n_samples,
-    }
 
 
 def _consistent_classes(folds: tuple[FoldValidationResult, ...]) -> np.ndarray | None:
     values = [fold.prediction.classes for fold in folds]
-    if all(value is None for value in values):
-        return None
     if any(value is None for value in values):
         return None
     first = np.asarray(values[0])

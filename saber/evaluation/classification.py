@@ -320,22 +320,14 @@ def evaluate_multiclass_classification(
     # Canonical MetricSpec names use weighted averaging for multiclass
     # precision/recall/F1. Explicit *_macro/*_micro/*_weighted names remain
     # available for the lower-level evaluator.
-    if "precision" in requested_set:
-        results["precision"] = float(precision_score(y_true, y_pred, average="weighted", zero_division=0))
-    if "recall" in requested_set:
-        results["recall"] = float(recall_score(y_true, y_pred, average="weighted", zero_division=0))
-    if "f1" in requested_set:
-        results["f1"] = float(f1_score(y_true, y_pred, average="weighted", zero_division=0))
+    prf = (("precision", precision_score), ("recall", recall_score), ("f1", f1_score))
+    for name, fn in prf:
+        if name in requested_set:
+            results[name] = float(fn(y_true, y_pred, average="weighted", zero_division=0))
     for average in ("macro", "micro", "weighted"):
-        key = f"precision_{average}"
-        if key in requested_set:
-            results[key] = float(precision_score(y_true, y_pred, average=average, zero_division=0))
-        key = f"recall_{average}"
-        if key in requested_set:
-            results[key] = float(recall_score(y_true, y_pred, average=average, zero_division=0))
-        key = f"f1_{average}"
-        if key in requested_set:
-            results[key] = float(f1_score(y_true, y_pred, average=average, zero_division=0))
+        for name, fn in prf:
+            if (key := f"{name}_{average}") in requested_set:
+                results[key] = float(fn(y_true, y_pred, average=average, zero_division=0))
     if "mcc" in requested_set:
         results["mcc"] = float(matthews_corrcoef(y_true, y_pred))
 

@@ -49,10 +49,7 @@ def _():
         return folds
 
     from sklearn.datasets import make_classification
-    from saber import tune
-    from saber.core import SearchSpace, LogFloat, Categorical
-    from saber.datasets import DatasetBundle, PartitionPlan
-    from saber.tuning import TuningConfig
+    from saber import tune, SearchSpace, LogFloat, Categorical, DatasetBundle, PartitionPlan, TuningConfig
 
     return (
         Categorical,
@@ -86,21 +83,22 @@ def _(
     X,y=make_classification(n_samples=n_samples,n_features=12,n_informative=8,class_sep=1.05,random_state=54)
     ids=[f"opt_{i:04d}" for i in range(len(y))]
     dataset=DatasetBundle(X=X,y=y,sample_ids=ids,feature_names=[f"f{i}" for i in range(X.shape[1])])
-    plan=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=balanced_fold_labels(y,4),dataset_fingerprint=dataset.fingerprint)
-    space=SearchSpace("svc_optuna",{"C":LogFloat(1e-2,30.0),"gamma":LogFloat(1e-4,1.0),"kernel":Categorical(["rbf"])})
+    plan=PartitionPlan.from_predefined_folds(sample_ids=ids,fold_assignments=balanced_fold_labels(y,4),dataset=dataset)
+    space=SearchSpace({"C":LogFloat(1e-2,30.0),"gamma":LogFloat(1e-4,1.0),"kernel":Categorical(["rbf"])})
     return dataset, plan, space
 
 
 @app.cell
 def _(DEMO_TEST, TuningConfig, dataset, pl, plan, space, tune):
     n_trials=8 if DEMO_TEST else 28
-    config=TuningConfig(optimizer="optuna",metrics=("mcc","roc_auc","balanced_accuracy"),refit_metric="mcc",n_trials=n_trials,random_state=123,n_jobs=1)
-    opt=tune(dataset=dataset,algorithm="svc",config=config,partition_plan=plan,search_space=space)
+    config=TuningConfig(optimizer="optuna",refit_metric="mcc",n_trials=n_trials,n_jobs=1)
+    opt=tune(dataset=dataset,algorithm="svc",config=config,partition_plan=plan,search_space=space,
+             metrics=("mcc","roc_auc","balanced_accuracy"),random_state=123)
     history=opt.history_frame(); completed=history.filter(pl.col("status")=="complete")
     score_col=next(c for c in completed.columns if c in {"metric__mcc","metric__mcc__mean"})
     completed=completed.with_columns(pl.col(score_col).cum_max().alias("best_so_far"))
     top=completed.sort(score_col,descending=True).head(min(5,len(completed)))
-    print("Best:",opt.best_params,opt.display_scores)
+    print("Best:",opt.best_params,opt.best_scores)
     top.select(["param__C","param__gamma",score_col]).head()
     return completed, history, n_trials, opt, score_col
 
@@ -112,7 +110,7 @@ def _(completed, mo, np, opt, plt, score_col):
     best_so_far = completed.get_column("best_so_far").to_numpy()
     axes[0].plot(np.arange(len(completed)),scores,"o-",alpha=.6,label="trial"); axes[0].plot(best_so_far,label="best so far"); axes[0].set(title="Optimization convergence",xlabel="trial",ylabel="MCC"); axes[0].legend()
     sc=axes[1].scatter(completed.get_column("param__C").to_numpy(),completed.get_column("param__gamma").to_numpy(),c=scores); axes[1].set_xscale("log"); axes[1].set_yscale("log"); axes[1].set(title="Explored search space",xlabel="C",ylabel="gamma"); fig.colorbar(sc,ax=axes[1],label="MCC")
-    secondary_scores={k:v for k,v in opt.display_scores.items() if k!="mcc"}
+    secondary_scores={k:v for k,v in opt.best_scores.items() if k!="mcc"}
     axes[2].bar(list(secondary_scores.keys()),list(secondary_scores.values()))
     axes[2].set(title="Secondary metrics for selected trial",ylabel="score",ylim=(0,1.05))
     plt.tight_layout()
@@ -127,7 +125,7 @@ def _(FIGURE_COUNT, completed, history, n_trials, np, opt, secondary_scores):
     DEMO_CHECKS={
         "requested_trials": len(history)==n_trials,
         "all_complete": (history.get_column("status")=="complete").all(),
-        "finite_best": np.isfinite(opt.best_score),
+        "finite_best": np.isfinite(opt.best_scores[opt.refit_metric]),
         "study_available": opt.study is not None,
         "typed_parameters": {"param__C","param__gamma"}.issubset(history.columns),
         "monotonic_best": bool(np.all(np.diff(_best_so_far)>=0)),

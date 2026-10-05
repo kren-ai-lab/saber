@@ -27,50 +27,27 @@ if TYPE_CHECKING:
 _STRATEGIES: dict[str, tuple[str, str]] = {
     "random": ("biosieve.splitting.random", "RandomSplitter"),
     "stratified": ("biosieve.splitting.stratified", "StratifiedSplitter"),
-    "stratified_numeric": (
-        "biosieve.splitting.stratified_numeric",
-        "StratifiedNumericSplitter",
-    ),
+    "stratified_numeric": ("biosieve.splitting.stratified_numeric", "StratifiedNumericSplitter"),
     "group": ("biosieve.splitting.group", "GroupSplitter"),
     "time": ("biosieve.splitting.time_based", "TimeSplitter"),
     "cluster_aware": ("biosieve.splitting.cluster", "ClusterAwareSplitter"),
-    "distance_aware": (
-        "biosieve.splitting.distance_aware",
-        "DistanceAwareSplitter",
-    ),
-    "homology_aware": (
-        "biosieve.splitting.homology_aware",
-        "HomologyAwareSplitter",
-    ),
-    "random_kfold": (
-        "biosieve.splitting.random_kfold",
-        "RandomKFoldSplitter",
-    ),
-    "stratified_kfold": (
-        "biosieve.splitting.stratified_kfold",
-        "StratifiedKFoldSplitter",
-    ),
-    "group_kfold": (
-        "biosieve.splitting.group_kfold",
-        "GroupKFoldSplitter",
-    ),
+    "distance_aware": ("biosieve.splitting.distance_aware", "DistanceAwareSplitter"),
+    "homology_aware": ("biosieve.splitting.homology_aware", "HomologyAwareSplitter"),
+    "random_kfold": ("biosieve.splitting.random_kfold", "RandomKFoldSplitter"),
+    "stratified_kfold": ("biosieve.splitting.stratified_kfold", "StratifiedKFoldSplitter"),
+    "group_kfold": ("biosieve.splitting.group_kfold", "GroupKFoldSplitter"),
     "stratified_numeric_kfold": (
         "biosieve.splitting.stratified_numeric_kfold",
         "StratifiedNumericKFoldSplitter",
     ),
-    "distance_aware_kfold": (
-        "biosieve.splitting.distance_aware_kfold",
-        "DistanceAwareKFoldSplitter",
-    ),
+    "distance_aware_kfold": ("biosieve.splitting.distance_aware_kfold", "DistanceAwareKFoldSplitter"),
 }
 
-_KFOLD_STRATEGIES = {
-    "random_kfold",
-    "stratified_kfold",
-    "group_kfold",
-    "stratified_numeric_kfold",
-    "distance_aware_kfold",
-}
+_KFOLD_STRATEGIES = {name for name in _STRATEGIES if name.endswith("_kfold")}
+
+_ID_COL = "__saber_sample_id__"
+_LABEL_COL = "__saber_target__"
+_GROUP_COL = "__saber_group__"
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,22 +57,23 @@ class BioSievePartitionConfig:
     Parameters are forwarded to the corresponding BioSieve splitter. saber
     only adds canonical column names when a strategy needs labels/groups and
     those parameters were not supplied explicitly.
+
+    ``extra_columns`` can provide prepared information aligned with the
+    dataset's samples that a BioSieve strategy requires (for example sequence,
+    cluster, time, or descriptor columns) without expanding ``DatasetBundle``
+    into a domain-specific data container.
     """
 
     strategy: str
     params: Mapping[str, Any] = field(default_factory=dict)
-    id_col: str = "__saber_sample_id__"
-    label_col: str = "__saber_target__"
-    group_col: str = "__saber_group__"
     seq_col: str = "sequence"
     cluster_col: str | None = None
     date_col: str | None = None
+    extra_columns: Mapping[str, Sequence[Any]] | None = None
 
     def __post_init__(self) -> None:
         """Normalize the strategy name and validate that it is supported."""
         strategy = str(self.strategy).strip().lower()
-        if not strategy:
-            raise PartitionIntegrationError("BioSieve strategy cannot be empty.")
         if strategy not in _STRATEGIES:
             supported = ", ".join(sorted(_STRATEGIES))
             raise PartitionIntegrationError(
@@ -109,17 +87,12 @@ def partition_with_biosieve(
     dataset: DatasetBundle,
     config: BioSievePartitionConfig,
     *,
-    extra_columns: Mapping[str, Sequence[Any]] | None = None,
     splitter: Any | None = None,
 ) -> PartitionPlan:
     """Generate a :class:`PartitionPlan` through BioSieve.
 
     BioSieve remains the sole split-generation engine. saber converts the
     resulting sample memberships into its internal identity-based contract.
-    ``extra_columns`` can provide prepared aligned information required by
-    BioSieve strategies (for example sequence, cluster, time, or descriptor
-    columns) without expanding ``DatasetBundle`` into a domain-specific data
-    container.
     """
     dataset.validate()
     pl, Columns = _import_biosieve_runtime()
@@ -134,31 +107,28 @@ def partition_with_biosieve(
 
     frame = _dataset_to_polars(
         dataset,
-        config=config,
-        extra_columns=extra_columns,
+        extra_columns=config.extra_columns,
         polars_module=pl,
         include_features=include_features,
     )
     active_splitter = splitter or _build_splitter(config.strategy, params)
 
     columns = Columns(
-        id_col=config.id_col,
+        id_col=_ID_COL,
         seq_col=config.seq_col,
-        label_col=config.label_col,
-        group_col=config.group_col if dataset.groups is not None else None,
+        label_col=_LABEL_COL,
+        group_col=_GROUP_COL if dataset.groups is not None else None,
         cluster_col=config.cluster_col,
         date_col=config.date_col,
     )
 
+    if not (hasattr(active_splitter, "run_folds") or hasattr(active_splitter, "run")):
+        raise PartitionIntegrationError("BioSieve splitter must implement run(...) or run_folds(...).")
     try:
         if hasattr(active_splitter, "run_folds"):
             raw_results = list(active_splitter.run_folds(frame, columns))
-        elif hasattr(active_splitter, "run"):
-            raw_results = [active_splitter.run(frame, columns)]
         else:
-            raise PartitionIntegrationError(  # noqa: TRY301  # re-raised unchanged by the except clause below
-                "BioSieve splitter must implement run(...) or run_folds(...)."
-            )
+            raw_results = [active_splitter.run(frame, columns)]
     except PartitionIntegrationError:
         raise
     except Exception as exc:
@@ -170,7 +140,7 @@ def partition_with_biosieve(
     splits = tuple(
         _split_result_to_partition(
             result,
-            id_col=config.id_col,
+            id_col=_ID_COL,
             fallback_index=index,
         )
         for index, result in enumerate(raw_results)
@@ -233,18 +203,20 @@ def _resolved_strategy_params(
 ) -> dict[str, Any]:
     params = dict(config.params)
 
-    if config.strategy in {"stratified", "stratified_kfold"}:
-        params.setdefault("label_col", config.label_col)
-
-    if config.strategy in {"stratified_numeric", "stratified_numeric_kfold"}:
-        params.setdefault("label_col", config.label_col)
+    if config.strategy in {
+        "stratified",
+        "stratified_kfold",
+        "stratified_numeric",
+        "stratified_numeric_kfold",
+    }:
+        params.setdefault("label_col", _LABEL_COL)
 
     if config.strategy in {"group", "group_kfold"}:
         if dataset.groups is None:
             raise PartitionIntegrationError(
                 f"BioSieve strategy '{config.strategy}' requires DatasetBundle.groups."
             )
-        params.setdefault("group_col", config.group_col)
+        params.setdefault("group_col", _GROUP_COL)
 
     if config.strategy == "cluster_aware" and config.cluster_col is not None:
         params.setdefault("cluster_col", config.cluster_col)
@@ -258,12 +230,11 @@ def _resolved_strategy_params(
 def _dataset_to_polars(
     dataset: DatasetBundle,
     *,
-    config: BioSievePartitionConfig,
     extra_columns: Mapping[str, Sequence[Any]] | None,
     polars_module: Any,
     include_features: bool,
 ) -> pl.DataFrame:
-    reserved = {config.id_col, config.label_col, config.group_col}
+    reserved = {_ID_COL, _LABEL_COL, _GROUP_COL}
     feature_names = tuple(dataset.resolved_feature_names)
     collisions = reserved & set(feature_names)
     if collisions:
@@ -283,12 +254,12 @@ def _dataset_to_polars(
             features = {name: values[:, index].copy() for index, name in enumerate(feature_names)}
 
     payload: dict[str, Any] = {
-        config.id_col: list(dataset.resolved_sample_ids),
-        config.label_col: np.asarray(dataset.y).tolist(),
+        _ID_COL: list(dataset.resolved_sample_ids),
+        _LABEL_COL: np.asarray(dataset.y).tolist(),
         **features,
     }
     if dataset.groups is not None:
-        payload[config.group_col] = list(dataset.groups)
+        payload[_GROUP_COL] = list(dataset.groups)
 
     for name, values in dict(extra_columns or {}).items():
         if name in payload:

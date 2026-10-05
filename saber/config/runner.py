@@ -3,18 +3,15 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
-import numpy as np
-import polars as pl
-
-from saber.api import benchmark, evaluate, predict, train, tune, validate
-from saber.benchmark import BenchmarkResult
+from saber._api import evaluate, predict, train
+from saber.benchmark import benchmark
 from saber.config.builders import (
     build_benchmark_config,
-    build_partition_inputs,
+    build_partition_plan,
+    build_partitioning,
     build_preprocessing,
     build_search_space,
     build_tuning_config,
@@ -22,17 +19,23 @@ from saber.config.builders import (
     load_prediction_frame,
 )
 from saber.config.io import load_config
-from saber.config.schema import as_mapping
+from saber.config.schema import PARTITIONING_ROLE_COLUMNS
 from saber.exceptions import ConfigurationError
 from saber.persistence import load_model, save_benchmark, save_model
+from saber.tuning import tune
 from saber.utils.serialization import to_jsonable
 from saber.utils.tabular import records_frame
-from saber.validation import ValidationResult
+from saber.validation import validate
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
+    import polars as pl
+
     from saber.config.schema import WorkflowConfig
+    from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
+    from saber.persistence import LoadedModelArtifact
     from saber.validation.partitioning import EvaluationRole
 
 
@@ -47,8 +50,9 @@ class WorkflowExecution:
 
 
 def run_config(source: str | Path | Mapping[str, Any] | WorkflowConfig) -> WorkflowExecution:
-    """Run one YAML/JSON workflow using the same public API as Python callers."""
+    """Run one YAML/JSON workflow (a config path, mapping or WorkflowConfig) through the public API."""
     config = load_config(source)
+    _check_targets(config)
     handler = {
         "train": _run_train,
         "evaluate": _run_evaluate,
@@ -62,389 +66,249 @@ def run_config(source: str | Path | Mapping[str, Any] | WorkflowConfig) -> Workf
 
 def _run_train(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
-    dataset = load_dataset(config, as_mapping(payload["dataset"], "dataset"))
-    preprocessing = build_preprocessing(_optional_mapping(payload.get("preprocessing"), "preprocessing"))
-    partition_plan = None
-    if payload.get("partition") is not None:
-        partition_plan, _ = build_partition_inputs(
-            config,
-            partition=as_mapping(payload["partition"], "partition"),
-            partitioning=None,
-        )
-    artifact = _optional_mapping(payload.get("artifact"), "artifact")
-    artifact_path = None if artifact is None else config.resolve_path(_required(artifact, "path", "artifact"))
-
+    dataset, _ = load_dataset(config, payload["dataset"])
     result = train(
         dataset=dataset,
-        algorithm=str(payload["algorithm"]),
-        preprocessing=preprocessing,
+        algorithm=payload["algorithm"],
+        model_params=payload.get("model_params"),
+        preprocessing=build_preprocessing(payload.get("preprocessing")),
         random_state=payload.get("random_state"),
-        model_params=_optional_mapping(payload.get("model_params"), "model_params"),
-        artifact_path=artifact_path,
-        partition_plan=partition_plan,
-        artifact_overwrite=bool(artifact.get("overwrite", False)) if artifact else False,
-        metadata=config.metadata,
         positive_class=payload.get("positive_class"),
     )
-    summary = {
-        "workflow": "train",
-        "algorithm": result.spec.name,
-        "task": result.spec.task,
-        "provider": result.spec.provider,
-        "dataset_fingerprint": dataset.fingerprint,
-        "n_samples": dataset.n_samples,
-        "n_features": dataset.n_features,
-    }
     outputs: dict[str, str] = {}
-    if artifact_path is not None:
-        outputs["artifact"] = str(artifact_path)
-    _write_summary(config, summary, outputs)
+    if "artifact" in payload:
+        plan = payload.get("partition_plan")
+        partition_plan = None if plan is None else build_partition_plan(config, plan)
+        outputs["artifact"] = _save_model(config, result, dataset, partition_plan)
+    summary = _summary(config, result)
+    outputs |= _write_output(config, summary)
     return WorkflowExecution(config, result, summary, outputs)
 
 
 def _run_evaluate(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
-    dataset = load_dataset(config, as_mapping(payload["dataset"], "dataset"))
-    artifact = payload["artifact"]
-    if isinstance(artifact, Mapping):
-        artifact_path = config.resolve_path(_required(artifact, "path", "artifact"))
-    else:
-        artifact_path = config.resolve_path(str(artifact))
-    model = load_model(
-        artifact_path,
-        strict_environment=bool(payload.get("strict_environment", False)),
-    )
+    dataset, _ = load_dataset(config, payload["dataset"])
+    model_path, model = _load_model(config)
     result = evaluate(
-        dataset=dataset,
-        model=model,
+        model,
+        dataset,
         metrics=payload.get("metrics"),
         positive_class=payload.get("positive_class"),
     )
-    summary = {
-        "workflow": "evaluate",
-        "task": result.task,
-        "metrics": dict(result.metrics),
-        "artifact": str(artifact_path),
-    }
-    outputs: dict[str, str] = {}
-    _write_summary(config, summary, outputs)
+    summary = _summary(config, result, model=str(model_path))
+    metrics = records_frame([{"metric": name, "score": score} for name, score in result.metrics.items()])
+    outputs = _write_output(config, summary, {"metrics": metrics})
     return WorkflowExecution(config, result, summary, outputs)
+
+
+def _evaluation_role(payload: Mapping[str, Any]) -> EvaluationRole:
+    # Config-supplied strings are validated downstream by
+    # resolve_evaluation_dataset, which raises ValidationContractError for
+    # anything other than "auto"/"validation"/"test".
+    return cast("EvaluationRole", str(payload.get("evaluation_role", "auto")))
+
+
+def _search_kwargs(
+    config: WorkflowConfig, dataset: DatasetBundle, extras: Mapping[str, list[Any]]
+) -> dict[str, Any]:
+    """Keyword arguments shared by the validate and tune workflows."""
+    payload = config.payload
+    return {
+        "dataset": dataset,
+        "algorithm": payload["algorithm"],
+        "model_params": payload.get("model_params"),
+        "preprocessing": build_preprocessing(payload.get("preprocessing")),
+        "partition_plan": _partition_plan(config, extras),
+        "evaluation_role": _evaluation_role(payload),
+        "require_complete": payload.get("require_complete", True),
+        "positive_class": payload.get("positive_class"),
+        "random_state": payload.get("random_state"),
+    }
 
 
 def _run_validate(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
-    dataset = load_dataset(config, as_mapping(payload["dataset"], "dataset"))
-    plan, partitioning = build_partition_inputs(
-        config,
-        partition=_optional_mapping(payload.get("partition"), "partition"),
-        partitioning=_optional_mapping(payload.get("partitioning"), "partitioning"),
-    )
+    dataset, extras = load_dataset(config, payload["dataset"], extra_columns=_extra_column_names(config))
     result = validate(
-        dataset=dataset,
-        algorithm=str(payload["algorithm"]),
-        partition_plan=plan,
-        partitioning=partitioning,
-        biosieve_extra_columns=_optional_mapping(
-            payload.get("biosieve_extra_columns"), "biosieve_extra_columns"
-        ),
-        preprocessing=build_preprocessing(_optional_mapping(payload.get("preprocessing"), "preprocessing")),
+        **_search_kwargs(config, dataset, extras),
         metrics=payload.get("metrics"),
-        # Config-supplied strings are validated downstream by
-        # resolve_evaluation_dataset, which raises ValidationContractError for
-        # anything other than "auto"/"validation"/"test".
-        evaluation_role=cast("EvaluationRole", str(payload.get("evaluation_role", "auto"))),
-        positive_class=payload.get("positive_class"),
-        random_state=payload.get("random_state"),
-        return_estimators=bool(payload.get("return_estimators", False)),
-        require_complete=bool(payload.get("require_complete", True)),
-        model_params=_optional_mapping(payload.get("model_params"), "model_params"),
     )
-    summary = _validation_summary(result)
-    outputs: dict[str, str] = {}
-    _write_result_tables(config, result, outputs)
-    _write_summary(config, summary, outputs)
+    tables = {"metrics": result.metrics_frame()}
+    oof = result.oof_prediction
+    if oof is not None:
+        targets = dict(zip(dataset.resolved_sample_ids, dataset.y.tolist(), strict=True))
+        sample_ids = [] if oof.sample_ids is None else oof.sample_ids.tolist()
+        tables["predictions"] = oof.to_frame(y_true=[targets[sample_id] for sample_id in sample_ids])
+    summary = _summary(config, result)
+    outputs = _write_output(config, summary, tables)
     return WorkflowExecution(config, result, summary, outputs)
 
 
 def _run_tune(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
-    dataset = load_dataset(config, as_mapping(payload["dataset"], "dataset"))
-    plan, partitioning = build_partition_inputs(
-        config,
-        partition=_optional_mapping(payload.get("partition"), "partition"),
-        partitioning=_optional_mapping(payload.get("partitioning"), "partitioning"),
-    )
-    tuning_config = build_tuning_config(as_mapping(payload["tuning"], "tuning"))
+    dataset, extras = load_dataset(config, payload["dataset"], extra_columns=_extra_column_names(config))
     result = tune(
-        dataset=dataset,
-        algorithm=str(payload["algorithm"]),
-        config=tuning_config,
-        partition_plan=plan,
-        partitioning=partitioning,
-        biosieve_extra_columns=_optional_mapping(
-            payload.get("biosieve_extra_columns"), "biosieve_extra_columns"
-        ),
-        preprocessing=build_preprocessing(_optional_mapping(payload.get("preprocessing"), "preprocessing")),
-        search_space=build_search_space(
-            str(payload["algorithm"]), _optional_mapping(payload.get("search_space"), "search_space")
-        ),
-        # Config-supplied strings are validated downstream by
-        # resolve_evaluation_dataset, which raises ValidationContractError for
-        # anything other than "auto"/"validation"/"test".
-        evaluation_role=cast("EvaluationRole", str(payload.get("evaluation_role", "auto"))),
-        require_complete=bool(payload.get("require_complete", True)),
-        model_params=_optional_mapping(payload.get("model_params"), "model_params"),
-        positive_class=payload.get("positive_class"),
+        **_search_kwargs(config, dataset, extras),
+        config=build_tuning_config(payload["tuning"]),
+        search_space=build_search_space(payload.get("search_space")),
+        metrics=tuple(payload["metrics"]),
     )
-    summary = {
-        "workflow": "tune",
-        "algorithm": result.algorithm,
-        "optimizer": result.optimizer,
-        "refit_metric": result.refit_metric,
-        "best_score": result.display_score,
-        "best_scores": result.display_scores,
-        "best_params": dict(result.best_params),
-    }
+    summary = _summary(config, result)
     outputs: dict[str, str] = {}
-    output = _output_mapping(config)
-    if output and output.get("directory"):
-        directory = config.resolve_path(output["directory"])
-        directory.mkdir(parents=True, exist_ok=True)
-        history_path = directory / "optimization_history.csv"
-        result.history_frame().write_csv(history_path)
-        outputs["optimization_history"] = str(history_path)
-
-    artifact = _optional_mapping(payload.get("artifact"), "artifact")
-    if artifact is not None:
-        if result.best_model is None:
-            raise ConfigurationError("Cannot save tuned artifact because tuning used refit=False.")
-        artifact_path = config.resolve_path(_required(artifact, "path", "artifact"))
-        save_model(
-            artifact_path,
-            model=result.best_model,
-            algorithm=result.algorithm,
-            task=result.spec.task if result.spec is not None else "classification",
-            dataset=dataset,
-            partition_plan=result.partition_plan,
-            provider=result.spec.provider if result.spec is not None else None,
-            parameters=dict(result.best_params),
-            metrics=result.display_scores,
-            training_config={"tuning": as_mapping(payload["tuning"], "tuning")},
-            positive_class=payload.get("positive_class"),
-            metadata=config.metadata,
-            overwrite=bool(artifact.get("overwrite", False)),
-        )
-        outputs["artifact"] = str(artifact_path)
-
-    _write_summary(config, summary, outputs)
+    if "artifact" in payload:
+        outputs["artifact"] = _save_model(config, result, dataset)
+    outputs |= _write_output(config, summary, {"optimization_history": result.history_frame()})
     return WorkflowExecution(config, result, summary, outputs)
 
 
 def _run_benchmark(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
-    if "datasets" in payload:
-        datasets_payload = as_mapping(payload["datasets"], "datasets")
-        datasets = {
-            str(label): load_dataset(config, as_mapping(spec, f"datasets.{label}"))
-            for label, spec in datasets_payload.items()
+    names = _extra_column_names(config)
+    datasets: dict[str, DatasetBundle] = {}
+    extras: dict[str, dict[str, list[Any]]] = {}
+    for label, spec in payload["datasets"].items():
+        datasets[str(label)], extras[str(label)] = load_dataset(config, spec, extra_columns=names)
+    # benchmark() generates BioSieve partitions from the first dataset.
+    reference = str(payload.get("partitioning_reference", next(iter(datasets))))
+    datasets = {reference: datasets[reference]} | datasets
+
+    partitions: PartitionPlan | BioSievePartitionConfig | dict[str, PartitionPlan]
+    if "partitions" in payload:
+        partitions = {
+            str(label): build_partition_plan(config, spec) for label, spec in payload["partitions"].items()
         }
     else:
-        datasets = load_dataset(config, as_mapping(payload["dataset"], "dataset"))
-
-    partitions = None
-    if payload.get("partitions") is not None:
-        partitions = {}
-        for label, spec in as_mapping(payload["partitions"], "partitions").items():
-            plan, _ = build_partition_inputs(
-                config,
-                partition=as_mapping(spec, f"partitions.{label}"),
-                partitioning=None,
-            )
-            if plan is None:
-                # partition= is always provided above, so build_partition_inputs
-                # always returns a plan for this loop.
-                raise AssertionError(f"Partition '{label}' resolved to no plan.")
-            partitions[str(label)] = plan
-
-    partitioning = None
-    if payload.get("partitioning") is not None:
-        _, partitioning = build_partition_inputs(
-            config,
-            partition=None,
-            partitioning=as_mapping(payload["partitioning"], "partitioning"),
-        )
+        partitions = _partition_plan(config, extras[reference])
 
     search_spaces = None
-    if payload.get("search_spaces") is not None:
+    if "search_spaces" in payload:
         search_spaces = {
-            str(algorithm): build_search_space(
-                str(algorithm), as_mapping(space, f"search_spaces.{algorithm}")
-            )
-            for algorithm, space in as_mapping(payload["search_spaces"], "search_spaces").items()
+            str(algorithm): build_search_space(space) for algorithm, space in payload["search_spaces"].items()
         }
 
     result = benchmark(
         datasets=datasets,
-        algorithms=tuple(str(value) for value in payload["algorithms"]),
-        config=build_benchmark_config(as_mapping(payload["benchmark"], "benchmark")),
+        algorithms=tuple(payload["algorithms"]),
+        model_params=payload.get("model_params"),
+        preprocessing=build_preprocessing(payload.get("preprocessing")),
         partitions=partitions,
-        partitioning=partitioning,
-        partitioning_reference=payload.get("partitioning_reference"),
-        biosieve_extra_columns=_optional_mapping(
-            payload.get("biosieve_extra_columns"), "biosieve_extra_columns"
-        ),
-        preprocessing=build_preprocessing(_optional_mapping(payload.get("preprocessing"), "preprocessing")),
-        model_params=_optional_mapping(payload.get("model_params"), "model_params"),
+        config=build_benchmark_config(payload.get("benchmark")),
         search_spaces=search_spaces,
+        metrics=tuple(payload["metrics"]),
+        evaluation_role=_evaluation_role(payload),
+        require_complete=payload.get("require_complete", True),
         positive_class=payload.get("positive_class"),
     )
-    summary = {
-        "workflow": "benchmark",
-        "n_runs": result.n_runs,
-        "n_successes": len(result.successes),
-        "n_failures": len(result.failures),
-    }
+    summary = _summary(config, result)
     outputs: dict[str, str] = {}
-    artifact = _optional_mapping(payload.get("artifact"), "artifact")
-    if artifact is not None:
-        artifact_path = config.resolve_path(_required(artifact, "path", "artifact"))
-        save_benchmark(
-            artifact_path,
+    if "output" in payload:
+        # The output directory is the checksummed benchmark artifact; its
+        # benchmark_metadata.json carries the summary counts.
+        path = save_benchmark(
+            config.resolve_path(payload["output"]),
             result,
             metadata=config.metadata,
-            include_object=bool(artifact.get("include_object", False)),
-            overwrite=bool(artifact.get("overwrite", False)),
+            overwrite=_overwrite(config),
         )
-        outputs["artifact"] = str(artifact_path)
-    _write_result_tables(config, result, outputs)
-    _write_summary(config, summary, outputs)
+        outputs["benchmark"] = str(path)
     return WorkflowExecution(config, result, summary, outputs)
 
 
 def _run_predict(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
-    X, sample_ids = load_prediction_frame(config, as_mapping(payload["dataset"], "dataset"))
-    artifact = payload["artifact"]
-    if isinstance(artifact, Mapping):
-        artifact_path = config.resolve_path(_required(artifact, "path", "artifact"))
-    else:
-        artifact_path = config.resolve_path(str(artifact))
+    X, sample_ids = load_prediction_frame(config, payload["dataset"])
+    model_path, model = _load_model(config)
     result = predict(
-        artifact_path,
-        X=X,
-        feature_names=list(X.columns),
+        model,
+        X,
         sample_ids=sample_ids,
         positive_class=payload.get("positive_class"),
-        strict_environment=bool(payload.get("strict_environment", False)),
     )
-    summary = {
-        "workflow": "predict",
-        "task": result.task,
-        "n_samples": result.n_samples,
-    }
-    outputs: dict[str, str] = {}
-    output = _output_mapping(config)
-    if output and (output.get("path") or output.get("directory")):
-        target = (
-            config.resolve_path(output["path"])
-            if output.get("path")
-            else config.resolve_path(output["directory"]) / "predictions.csv"
-        )
-        target.parent.mkdir(parents=True, exist_ok=True)
-        _prediction_frame(result).write_csv(target)
-        outputs["predictions"] = str(target)
-    _write_summary(config, summary, outputs)
+    summary = _summary(config, result, model=str(model_path))
+    outputs = _write_output(config, summary, {"predictions": result.to_frame()})
     return WorkflowExecution(config, result, summary, outputs)
 
 
-def _validation_summary(result: ValidationResult) -> dict[str, Any]:
-    return {
-        "workflow": "validate",
-        "algorithm": result.algorithm,
-        "task": result.task,
-        "n_splits": result.n_splits,
-        "aggregate_metrics": dict(result.aggregate_metrics),
-        "total_fit_seconds": result.total_fit_seconds,
-    }
+def _summary(config: WorkflowConfig, result: Any, **extra: Any) -> dict[str, Any]:
+    """Return the ``summary.json`` envelope: ``workflow`` then ``result.to_dict()`` and ``extra``."""
+    return {"workflow": config.workflow, **result.to_dict(), **extra}
 
 
-def _write_result_tables(config: WorkflowConfig, result: Any, outputs: dict[str, str]) -> None:
-    output = _output_mapping(config)
-    if not output or not output.get("directory"):
-        return
-    directory = config.resolve_path(output["directory"])
+def _write_output(
+    config: WorkflowConfig,
+    summary: dict[str, Any],
+    tables: Mapping[str, pl.DataFrame] | None = None,
+) -> dict[str, str]:
+    """Write ``summary.json`` and ``<name>.csv`` tables into the ``output`` directory, if any."""
+    if "output" not in config.payload:
+        return {}
+    directory = config.resolve_path(config.payload["output"])
     directory.mkdir(parents=True, exist_ok=True)
-    if isinstance(result, ValidationResult):
-        rows = []
-        for fold in result.folds:
-            for metric, score in fold.evaluation.metrics.items():
-                rows.append({"split": fold.split_name, "metric": metric, "score": score})
-        path = directory / "metrics.csv"
-        records_frame(rows).write_csv(path)
-        outputs["metrics"] = str(path)
-        if result.oof_prediction is not None:
-            pred_path = directory / "predictions.csv"
-            _prediction_frame(result.oof_prediction).write_csv(pred_path)
-            outputs["predictions"] = str(pred_path)
-    elif isinstance(result, BenchmarkResult):
-        tables = {
-            "metrics": result.metrics_frame(),
-            "predictions": result.predictions_frame(),
-            "failures": result.failures_frame(),
-            "optimization_history": result.optimization_history_frame(),
-        }
-        for name, frame in tables.items():
-            path = directory / f"{name}.csv"
-            frame.write_csv(path)
-            outputs[name] = str(path)
+    outputs: dict[str, str] = {}
+    for name, frame in (tables or {}).items():
+        path = directory / f"{name}.csv"
+        frame.write_csv(path)
+        outputs[name] = str(path)
+    path = directory / "summary.json"
+    path.write_text(json.dumps(to_jsonable(summary), indent=2) + "\n", encoding="utf-8")
+    outputs["summary"] = str(path)
+    return outputs
 
 
-def _write_summary(config: WorkflowConfig, summary: dict[str, Any], outputs: dict[str, str]) -> None:
-    output = _output_mapping(config)
-    if not output:
+def _check_targets(config: WorkflowConfig) -> None:
+    """Fail before running when ``artifact``/``output`` exists and ``overwrite`` is false."""
+    if _overwrite(config):
         return
-    target = None
-    if output.get("summary"):
-        target = config.resolve_path(output["summary"])
-    elif output.get("directory"):
-        target = config.resolve_path(output["directory"]) / "summary.json"
-    if target is not None:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(to_jsonable(summary), indent=2) + "\n", encoding="utf-8")
-        outputs["summary"] = str(target)
+    for key in ("artifact", "output"):
+        if key in config.payload:
+            path = config.resolve_path(config.payload[key])
+            if path.exists():
+                raise ConfigurationError(
+                    f"'{key}' path already exists: {path}. Set 'overwrite: true' to replace it."
+                )
 
 
-def _prediction_frame(result: Any) -> pl.DataFrame:
-    sample_ids = list(result.sample_ids) if result.sample_ids is not None else list(range(result.n_samples))
-    frame: dict[str, Any] = {
-        "sample_id": sample_ids,
-        "prediction": result.predictions,
-    }
-    if result.probabilities is not None:
-        probabilities = np.asarray(result.probabilities)
-        if probabilities.ndim == 1:
-            frame["probability"] = probabilities
-        elif result.classes is not None:
-            for index, label in enumerate(result.classes):
-                frame[f"probability__{label}"] = probabilities[:, index]
-    if result.decision_scores is not None:
-        scores = np.asarray(result.decision_scores)
-        if scores.ndim == 1:
-            frame["decision_score"] = scores
-    return pl.DataFrame(frame)
+def _overwrite(config: WorkflowConfig) -> bool:
+    return bool(config.payload.get("overwrite", False))
 
 
-def _optional_mapping(value: Any, label: str) -> dict[str, Any] | None:
-    if value is None:
-        return None
-    return as_mapping(value, label)
+def _save_model(
+    config: WorkflowConfig,
+    result: Any,
+    dataset: DatasetBundle,
+    partition_plan: PartitionPlan | None = None,
+) -> str:
+    path = save_model(
+        config.resolve_path(config.payload["artifact"]),
+        result,
+        dataset=dataset,
+        partition_plan=partition_plan,
+        metadata=config.metadata,
+        overwrite=_overwrite(config),
+    )
+    return str(path)
 
 
-def _required(payload: Mapping[str, Any], key: str, label: str) -> Any:
-    if key not in payload:
-        raise ConfigurationError(f"'{label}' requires '{key}'.")
-    return payload[key]
+def _load_model(config: WorkflowConfig) -> tuple[Path, LoadedModelArtifact]:
+    path = config.resolve_path(config.payload["model"])
+    return path, load_model(path, strict_environment=config.payload.get("strict_environment", False))
 
 
-def _output_mapping(config: WorkflowConfig) -> dict[str, Any] | None:
-    return _optional_mapping(config.payload.get("output"), "output")
+def _extra_column_names(config: WorkflowConfig) -> list[str]:
+    partitioning = config.payload.get("partitioning", {})
+    names = list(partitioning.get("extra_columns", ()))
+    role_cols = (partitioning[key] for key in PARTITIONING_ROLE_COLUMNS if key in partitioning)
+    return names + [name for name in role_cols if name not in names]
+
+
+def _partition_plan(
+    config: WorkflowConfig,
+    extras: Mapping[str, list[Any]],
+) -> PartitionPlan | BioSievePartitionConfig:
+    payload = config.payload
+    if "partition_plan" in payload:
+        return build_partition_plan(config, payload["partition_plan"])
+    missing = set(_extra_column_names(config)) - set(extras)
+    if missing:
+        raise ConfigurationError(f"Dataset is missing partitioning.extra_columns: {sorted(missing)!r}.")
+    return build_partitioning(payload["partitioning"], extras)

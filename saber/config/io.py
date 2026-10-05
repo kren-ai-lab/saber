@@ -25,16 +25,11 @@ def load_config(source: str | Path | Mapping[str, Any] | WorkflowConfig) -> Work
         raise ConfigurationError(f"Configuration file does not exist: {path}.")
 
     suffix = path.suffix.lower()
+    if suffix not in {".json", ".yaml", ".yml"}:
+        raise ConfigurationError("Configuration files must be YAML or JSON.")
     try:
         text = path.read_text(encoding="utf-8")
-        if suffix == ".json":
-            payload = json.loads(text)
-        elif suffix in {".yaml", ".yml"}:
-            payload = yaml.safe_load(text)
-        else:
-            raise ConfigurationError("Configuration files must be YAML or JSON.")  # noqa: TRY301  # re-raised unchanged by the except clause below
-    except ConfigurationError:
-        raise
+        payload = json.loads(text) if suffix == ".json" else yaml.safe_load(text)
     except Exception as exc:
         raise ConfigurationError(f"Could not parse configuration '{path}': {exc}") from exc
 

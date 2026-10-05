@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any
 
 import numpy as np
@@ -70,12 +70,7 @@ class Integer:
 
     def to_dict(self) -> dict[str, Any]:
         """Return a serialization-friendly representation of this domain."""
-        return {
-            "type": "integer",
-            "low": self.low,
-            "high": self.high,
-            "step": self.step,
-        }
+        return {"type": "integer", **asdict(self)}
 
 
 @dataclass(frozen=True, slots=True)
@@ -173,11 +168,7 @@ class LogFloat:
 
     def to_dict(self) -> dict[str, Any]:
         """Return a serialization-friendly representation of this domain."""
-        return {
-            "type": "log_float",
-            "low": self.low,
-            "high": self.high,
-        }
+        return {"type": "log_float", **asdict(self)}
 
 
 ParameterDomain = Categorical | Integer | Float | LogFloat | list[Any] | tuple[Any, ...]
@@ -197,17 +188,13 @@ def _coerce_domain(value: ParameterDomain) -> Categorical | Integer | Float | Lo
 class SearchSpace:
     """Backend-agnostic hyperparameter search-space definition.
 
-    Plain lists remain fully supported for backward compatibility and are
-    interpreted as finite categorical domains.
+    Plain lists and tuples are interpreted as finite categorical domains.
     """
 
-    name: str
     parameters: dict[str, ParameterDomain]
 
     def __post_init__(self) -> None:
-        """Validate the space name and coerce/validate every parameter domain."""
-        if not self.name.strip():
-            raise ValueError("SearchSpace.name cannot be empty.")
+        """Validate and coerce every parameter domain."""
         self.parameters = dict(self.parameters)
         for name, domain in self.parameters.items():
             if not str(name).strip():
@@ -218,15 +205,11 @@ class SearchSpace:
         """Return a serialization-friendly representation of this search space."""
         serialized: dict[str, Any] = {}
         for name, domain in self.parameters.items():
-            if isinstance(domain, list):
-                # Preserve the established public representation for legacy
-                # finite spaces.
-                serialized[name] = list(domain)
-            elif isinstance(domain, tuple):
+            if isinstance(domain, (list, tuple)):
                 serialized[name] = list(domain)
             else:
                 serialized[name] = _coerce_domain(domain).to_dict()
-        return {"name": self.name, "parameters": serialized}
+        return {"parameters": serialized}
 
     def to_grid(self, *, prefix: str = "") -> dict[str, list[Any]]:
         """Translate the logical search space to sklearn grid domains."""

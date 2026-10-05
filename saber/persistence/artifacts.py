@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 
 from saber.core.prediction import PredictionResult, collect_model_outputs
-from saber.preprocessing import pipeline_input
+from saber.preprocessing.pipeline import pipeline_input
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -72,7 +72,7 @@ class LoadedModelArtifact:
         self.validate_features(X, feature_names=feature_names)
         return np.asarray(self.model.predict(pipeline_input(self.model, X)))
 
-    def predict_result(
+    def _predict_result(
         self,
         X: Any,
         *,
@@ -93,11 +93,7 @@ class LoadedModelArtifact:
             **outputs,
             positive_class=(self.positive_class if positive_class is None else positive_class),
             sample_ids=ids,
-            metadata={
-                "artifact_path": str(self.path),
-                "algorithm": self.algorithm,
-                "provider": self.provenance.get("provider"),
-            },
+            metadata={"algorithm": self.algorithm},
         )
 
 
