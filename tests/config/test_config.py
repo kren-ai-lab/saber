@@ -375,13 +375,11 @@ def test_all_empty_feature_column_is_typed_float64_and_workflow_runs(tmp_path):
     assert execution.result.model is not None
 
 
-def test_schema_version_1_0_is_rejected_with_migration_hint():
-    with pytest.raises(
-        ConfigurationError, match=r"'1\.0' is no longer supported.*'2\.0'.*docs/configuration\.md"
-    ):
+def test_unsupported_schema_version_is_rejected():
+    with pytest.raises(ConfigurationError, match=r"Unsupported config schema '2\.0'.*'1\.0'"):
         load_config(
             {
-                "schema_version": "1.0",
+                "schema_version": "2.0",
                 "workflow": "train",
                 "dataset": {"path": "data.csv", "target_col": "y"},
                 "algorithm": "ridge_regressor",

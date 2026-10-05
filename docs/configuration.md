@@ -8,7 +8,7 @@ name (`saber.train`, `saber.validate`, `saber.tune`, `saber.evaluate`, `saber.pr
 
 ## Conventions
 
-- `schema_version: "2.0"` and `workflow` come first. Schema `1.0` configs are rejected.
+- `schema_version: "1.0"` and `workflow` come first.
 - Keyword arguments of the Python function are top-level keys: `algorithm`, `model_params`,
   `preprocessing`, `metrics`, `evaluation_role`, `require_complete`, `positive_class`,
   `random_state`.
@@ -88,7 +88,7 @@ candidate's cross-validated scores for `tune`, and the scores on the evaluated d
 ## train
 
 ```yaml
-schema_version: "2.0"
+schema_version: "1.0"
 workflow: train
 dataset: {path: data/train.csv, target_col: label, sample_id_col: sample_id}
 algorithm: random_forest_classifier
@@ -106,7 +106,7 @@ metadata: {study: demo}
 ## validate
 
 ```yaml
-schema_version: "2.0"
+schema_version: "1.0"
 workflow: validate
 dataset: {path: data/train.csv, target_col: label, sample_id_col: sample_id}
 algorithm: logistic_regression
@@ -126,7 +126,7 @@ output: results/validate
 ## tune
 
 ```yaml
-schema_version: "2.0"
+schema_version: "1.0"
 workflow: tune
 dataset: {path: data/train.csv, target_col: label, sample_id_col: sample_id}
 algorithm: logistic_regression
@@ -153,7 +153,7 @@ Search-space domains are lists or typed mappings: `categorical` (`values`), `int
 ## evaluate
 
 ```yaml
-schema_version: "2.0"
+schema_version: "1.0"
 workflow: evaluate
 model: artifacts/model
 dataset: {path: data/test.csv, target_col: label, sample_id_col: sample_id}
@@ -166,7 +166,7 @@ output: results/evaluate
 ## predict
 
 ```yaml
-schema_version: "2.0"
+schema_version: "1.0"
 workflow: predict
 model: artifacts/model
 dataset: {path: data/new.parquet, sample_id_col: sample_id}
@@ -178,7 +178,7 @@ output: results/predict
 ## benchmark
 
 ```yaml
-schema_version: "2.0"
+schema_version: "1.0"
 workflow: benchmark
 datasets:                    # label -> dataset; one representation is a one-entry map
   descriptors: {path: data/descriptors.csv, target_col: label, sample_id_col: sample_id}

@@ -12,7 +12,7 @@ from saber.exceptions import ConfigurationError
 from saber.preprocessing import PreprocessingConfig
 from saber.tuning import TuningConfig
 
-CONFIG_SCHEMA_VERSION = "2.0"
+CONFIG_SCHEMA_VERSION = "1.0"
 
 _COMMON_KEYS = {"schema_version", "workflow", "metadata", "output", "overwrite"}
 _FIT_KEYS = {"dataset", "algorithm", "model_params", "preprocessing", "positive_class", "random_state"}
@@ -73,13 +73,6 @@ class WorkflowConfig:
         if workflow not in _ALLOWED_KEYS:
             raise ConfigurationError(
                 f"Unsupported workflow '{workflow}'. Supported: {sorted(_ALLOWED_KEYS)!r}."
-            )
-        if self.schema_version == "1.0":
-            raise ConfigurationError(
-                f"Config schema '1.0' is no longer supported; this saber build reads schema "
-                f"'{CONFIG_SCHEMA_VERSION}'. Migrate the config following docs/configuration.md "
-                "(for example 'partition' -> 'partition_plan', 'dataset.target' -> 'dataset.target_col', "
-                "'output' -> a directory string), then use schema_version: \"2.0\"."
             )
         if self.schema_version != CONFIG_SCHEMA_VERSION:
             raise ConfigurationError(

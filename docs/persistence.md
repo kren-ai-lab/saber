@@ -17,7 +17,7 @@ saber.save_model("artifacts/model", trained, dataset=dataset)
 `save_model(path, result, *, dataset, partition_plan=None, metadata=None,
 overwrite=False)` takes a `train` or `tune` result; the model, algorithm,
 parameters, feature schema and positive class come from it. The artifact schema
-version is `"2.0"`. A tuned artifact also carries `selection_scores.json` with
+version is `"1.0"`. A tuned artifact also carries `selection_scores.json` with
 the `refit_metric` and the selection scores of the best configuration. These are
 scores from model selection, not final performance.
 
