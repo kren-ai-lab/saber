@@ -4,6 +4,7 @@
 [![PyVersions](https://img.shields.io/pypi/pyversions/saberlib?style=flat-square)](https://github.com/kren-ai-lab/saber)
 [![Tests](https://img.shields.io/github/actions/workflow/status/kren-ai-lab/saber/tests.yml?style=flat-square)](https://github.com/kren-ai-lab/saber/actions/workflows/tests.yml)
 ![License](https://img.shields.io/github/license/kren-ai-lab/saber?style=flat-square)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.23165090-blue?style=flat-square)](https://doi.org/10.5281/zenodo.23165090)
 
 Saber is a Python library for classical supervised machine learning
 (classification and regression) on numerical tabular features. It trains,
