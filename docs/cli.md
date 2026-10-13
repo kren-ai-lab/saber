@@ -48,8 +48,8 @@ saber artifact verify artifacts/model
 | Code | Meaning |
 |---:|---|
 | `0` | success |
-| `2` | invalid configuration or CLI usage contract |
-| `3` | saber workflow/domain failure |
-| `4` | unexpected internal CLI failure |
+| `2` | invalid configuration or command-line usage |
+| `3` | the workflow failed (data, model or I/O error) |
+| `4` | unexpected internal error |
 
 Use `--json` for scripts; the default human-readable output may change.

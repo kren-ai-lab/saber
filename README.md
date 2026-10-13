@@ -7,13 +7,13 @@
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.23165090-blue?style=flat-square)](https://doi.org/10.5281/zenodo.23165090)
 
 Saber is a Python library for classical supervised machine learning
-(classification and regression) on numerical tabular features. It trains,
-validates, tunes, benchmarks and persists scikit-learn, XGBoost and LightGBM
-models, with preprocessing fitted inside each fold and every result tied back
-to its samples, partition and parameters.
+(classification and regression) on numerical tabular features. You give it a
+feature matrix and a target; it trains, validates, tunes, benchmarks and saves
+scikit-learn, XGBoost and LightGBM models. Preprocessing is fitted inside each
+fold, and every result records which samples, partition and parameters
+produced it.
 
-Saber doesn't compute features. Bring a descriptor table, an embedding or any
-numeric matrix, and Saber models it. Deep learning, AutoML, multilabel and
+Computing the features is up to you. Deep learning, AutoML, multilabel and
 multi-output problems are out of scope.
 
 ## Installation
@@ -36,8 +36,7 @@ pip install "saberlib[lightgbm]"   # LightGBM models
 pip install "saberlib[all]"
 ```
 
-For development setup with
-`uv`, see [DEVELOPMENT.md](DEVELOPMENT.md).
+For a development setup, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Validate a model
 
@@ -68,9 +67,10 @@ print(result.aggregate_metrics)
 ```
 
 `result.oof_prediction` holds the out-of-fold predictions, aligned by sample
-ID. `X` can be a NumPy array, a Polars DataFrame or a pandas DataFrame. Partitions
-refer to samples by ID, never by row position. If your data isn't split yet,
-let BioSieve generate the partitions:
+ID. `X` can be a NumPy array, a Polars DataFrame or a pandas DataFrame, and
+partitions refer to samples by ID rather than by row position. If your data
+isn't split yet, [BioSieve](https://pypi.org/project/biosieve/) can generate
+the partitions:
 
 ```python
 from saber import BioSievePartitionConfig
@@ -108,11 +108,13 @@ tuned = saber.tune(
 print(tuned.best_params)
 ```
 
-`saber.benchmark(...)` crosses representations, partitions, algorithms, seeds
-and tuned/untuned modes, and returns long-form Polars tables of metrics and
-per-sample predictions. `saber.train(...)` fits a final model, and
-`saber.save_model(path, result, dataset=dataset)` writes a `train` or `tune` result as a directory with a feature schema,
-provenance and checksums that `saber.load_model(...)` verifies before loading.
+`saber.benchmark(...)` runs every combination of the representations,
+partitions, algorithms, seeds and tuning modes you list, and returns long-form
+Polars tables with the metrics and per-sample predictions. `saber.train(...)`
+fits a final model. `saber.save_model(path, result, dataset=dataset)` writes a
+`train` or `tune` result to a directory together with its feature schema,
+provenance and checksums, and `saber.load_model(...)` checks those checksums
+before loading.
 See the [tuning](docs/tuning.md), [benchmarking](docs/benchmarking.md) and
 [persistence](docs/persistence.md) guides.
 
@@ -131,26 +133,25 @@ and [CLI](docs/cli.md) references.
 
 ## Design principles
 
-- Imputation and scaling are fitted inside each training fold, never on the
-  whole dataset.
-- Existing partitions are used exactly as given. New ones come from BioSieve;
-  Saber has no splitters of its own.
-- Tuned results are reported on a protected test set, not on the folds used to
-  pick the hyperparameters.
-- For binary problems the positive class is explicit, never inferred from a
-  probability column's position.
-- Saved models carry dataset and partition fingerprints and are checksum
-  verified before loading. They use joblib, so load them only from trusted
-  sources.
+- Imputation and scaling are fitted on each training fold only.
+- Partitions you provide are used exactly as given. When Saber has to create
+  them, it delegates to BioSieve.
+- A tuned model is scored on a held-out test set that played no part in
+  choosing its hyperparameters.
+- In binary problems you name the positive class; Saber maps it to the right
+  probability column using the fitted estimator's class order.
+- Saved models carry dataset and partition fingerprints, and their checksums
+  are verified before loading. They are serialized with joblib, so only load
+  models from sources you trust.
 
-Saber keeps the workflow honest, but it can't tell whether your partitions or
-metrics answer your scientific question, or catch leakage that happened
-upstream.
+These rules prevent the common leakage mistakes inside Saber. Whether your
+partitions and metrics fit your scientific question, and whether leakage crept
+in before the data reached Saber, is still your call.
 
 ## Documentation and examples
 
 The [documentation index](docs/README.md) links all the guides. There are also
-[13 example notebooks](examples/README.md) written in marimo. To open one:
+[13 marimo example notebooks](examples/README.md). To open one:
 
 ```bash
 uv sync --all-extras --group examples
@@ -159,6 +160,6 @@ uv run marimo edit examples/01_binary_classification.py
 
 ## Citing and license
 
-If you use Saber in published work, please cite it using
-[`CITATION.cff`](https://github.com/kren-ai-lab/saber/blob/main/CITATION.cff), or the "Cite this repository" button on
-GitHub. Saber is released under the [MIT license](https://github.com/kren-ai-lab/saber/blob/main/LICENSE).
+If you use Saber in published work, please cite it with
+[`CITATION.cff`](https://github.com/kren-ai-lab/saber/blob/main/CITATION.cff)
+or GitHub's "Cite this repository" button. Saber is released under the [MIT license](https://github.com/kren-ai-lab/saber/blob/main/LICENSE).

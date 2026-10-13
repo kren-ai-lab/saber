@@ -64,8 +64,8 @@ DataFrame with `load_partition_plan()` or `partition_plan_from_frame()`.
 
 ## Generating partitions with BioSieve
 
-When the data isn't split yet, Saber delegates to BioSieve
-(`saberlib[biosieve]`):
+When the data isn't split yet, Saber can generate partitions with
+[BioSieve](https://pypi.org/project/biosieve/) (`saberlib[biosieve]`):
 
 ```python
 from saber import BioSievePartitionConfig
@@ -82,6 +82,6 @@ result = saber.validate(dataset=dataset, algorithm="random_forest_classifier", p
 from the dataset are listed in `BioSievePartitionConfig.extra_columns`. The same
 applies to `partitions=` in `saber.benchmark`.
 
-The resulting plan keeps BioSieve's strategy, parameters and statistics. Saber
-has no splitters of its own and doesn't do redundancy reduction; if you need
-it, run it before building the `DatasetBundle`.
+The resulting plan keeps BioSieve's strategy, parameters and statistics. All
+splitting goes through BioSieve. If your data needs redundancy reduction, do it
+before building the `DatasetBundle`.

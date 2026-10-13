@@ -18,8 +18,9 @@ saber.save_model("artifacts/model", trained, dataset=dataset)
 overwrite=False)` takes a `train` or `tune` result; the model, algorithm,
 parameters, feature schema and positive class come from it. The artifact schema
 version is `"1.0"`. A tuned artifact also carries `selection_scores.json` with
-the `refit_metric` and the selection scores of the best configuration. These are
-scores from model selection, not final performance.
+the `refit_metric` and the selection scores of the best configuration. They
+come from model selection and are not an unbiased estimate of final
+performance.
 
 ## Load and predict
 
@@ -39,8 +40,8 @@ carries its feature names; NumPy input is only checked for width.
 checks the files and checksums (`verify=False` skips the check). It is also
 available as `saber artifact inspect|verify`.
 
-Checksums prove the files weren't altered, not that they're safe: joblib uses
-pickle, so load artifacts only from sources you trust.
+Checksums only show that the files haven't changed since they were saved.
+joblib uses pickle, so load artifacts only from sources you trust.
 
 ## Benchmarks
 

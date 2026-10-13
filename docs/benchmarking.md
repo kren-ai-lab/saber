@@ -57,8 +57,8 @@ per-run results:
 A failed run is a `runs_frame()` row with `status == "failed"` and its `error`;
 it doesn't stop the benchmark unless you set `fail_fast=True`.
 
-Saber doesn't plot; feed these tables to your plotting or reporting tool of
-choice.
+Saber has no plotting of its own. These tables are meant to be passed to
+whatever plotting or reporting tool you use.
 
 ## Examples
 

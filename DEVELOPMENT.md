@@ -1,8 +1,8 @@
-# Development Guide
+# Development guide
 
 ## Prerequisites
 
-- Python 3.11–3.14
+- Python 3.11 to 3.14
 - [uv](https://docs.astral.sh/uv/) (package manager)
 
 ## Dependencies
@@ -24,7 +24,7 @@ uv sync --all-extras
 uv sync --all-extras --group examples
 ```
 
-## Common Tasks
+## Common tasks
 
 ```bash
 uv run task format    # sort imports + ruff format
@@ -54,9 +54,7 @@ bash examples/run_ci_examples.sh                          # run them all, as CI 
 uv run marimo edit examples/01_binary_classification.py   # open one interactively
 ```
 
-## Project Structure
-
-The package uses a flat layout:
+## Project structure
 
 ```text
 saber/       # Flat package layout
@@ -76,8 +74,8 @@ Keep scientific calculations in `saber/` and plotting in `examples/`. The core
 must not import Matplotlib or Plotly. The Python API, config-driven execution,
 and CLI must agree for the same inputs and options.
 
-Polars is the tabular contract and NumPy is the boundary towards scikit-learn,
-XGBoost, and LightGBM estimators. When changing dataset loading or result
+Datasets and result tables are Polars; estimators (scikit-learn, XGBoost,
+LightGBM) only ever receive NumPy arrays. When changing dataset loading or result
 tables, preserve sample identity, dataset/partition fingerprints, and the
 public Polars result schemas.
 
@@ -92,8 +90,8 @@ iterating:
 | `tests/<package>/` | Public behavior of the corresponding package |
 | `tests/integration/` | Composition of workflows across packages |
 | `tests/robustness/` | Missing/constant data, degenerate folds, edge-case inputs |
-| `tests/examples/` | Static contracts of the example notebooks (execution runs in the examples workflow / `bash examples/run_ci_examples.sh`) |
-| `tests/datasets/test_fingerprint_golden.py` | Provenance contract: never update these hashes to make a change pass |
+| `tests/examples/` | Static checks of the example notebooks (they are executed by the examples CI workflow and `bash examples/run_ci_examples.sh`) |
+| `tests/datasets/test_fingerprint_golden.py` | Golden fingerprint hashes; don't update them just to make a change pass |
 
 For scientific changes, cover the relevant degenerate case as well as an
 estimable case. Verify sample counts/exclusions, statuses, nulls, schemas and

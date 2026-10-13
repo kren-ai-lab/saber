@@ -13,9 +13,10 @@ and `metadata`. Metrics are computed from it, and only the ones you request.
 | `roc_auc`, `pr_auc` | probabilities or decision scores |
 | `log_loss`, `brier_score` | probabilities |
 
-For binary problems the positive class is resolved through the model's class
-order, never by assuming column 1 of `predict_proba`. Pass `positive_class=`
-when the default (the last class in sorted order) isn't the one you mean.
+For binary problems Saber finds the positive class's probability column
+through the model's class order, so it works even when that class isn't
+column 1 of `predict_proba`. The default positive class is the last one in
+sorted order; pass `positive_class=` to pick another.
 
 For multiclass problems, `precision`, `recall` and `f1` use weighted averaging;
 `_macro`, `_micro` and `_weighted` variants (for example `f1_macro`) are also
