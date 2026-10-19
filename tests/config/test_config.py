@@ -723,3 +723,15 @@ def test_benchmark_tuning_block_takes_tuning_config_fields_only():
     with pytest.raises(ConfigurationError) as caught:
         load_config({**base, "benchmark": {"metadata": {}}})
     assert [path for path, _ in caught.value.issues] == ["benchmark.metadata"]
+
+
+def test_load_dataset_casts_numeric_ids_to_str(tmp_path):
+    (tmp_path / "data.csv").write_text("id,x,y\n1,0.5,0\n2,1.5,1\n", encoding="utf-8")
+    config = load_config(
+        {
+            "workflow": "train",
+            "dataset": {"path": str(tmp_path / "data.csv"), "target_col": "y"},
+            "algorithm": "ridge_regressor",
+        }
+    )
+    assert load_dataset(config, config.payload["dataset"])[0].sample_ids == ("1", "2")

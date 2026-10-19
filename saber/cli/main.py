@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import traceback
 from dataclasses import asdict
 from enum import StrEnum
 from pathlib import Path
@@ -210,6 +211,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return EXIT_WORKFLOW
     except Exception as exc:  # noqa: BLE001 - last-resort CLI boundary
         error_console.print(f"[bold red]Unexpected error[/bold red]\n{exc}")
+        traceback.print_exc()
         return EXIT_INTERNAL
     return EXIT_OK
 

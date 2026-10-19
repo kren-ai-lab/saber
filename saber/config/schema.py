@@ -386,13 +386,11 @@ def _nested_issues(workflow: str, payload: Mapping[str, Any]) -> list[tuple[str,
     if "evaluation_role" in payload:
         issues += _choice_issues(payload["evaluation_role"], "evaluation_role", get_args(EvaluationRole))
     issues += _typed_issues(payload.get("dataset"), "dataset", _DATASET_TYPES)
-    for label, item in (payload["datasets"] if isinstance(payload.get("datasets"), Mapping) else {}).items():
-        issues += _typed_issues(item, f"datasets.{label}", _DATASET_TYPES)
     issues += _typed_issues(payload.get("partition_plan"), "partition_plan", _PARTITION_FILE_TYPES)
-    for label, item in (
-        payload["partitions"] if isinstance(payload.get("partitions"), Mapping) else {}
-    ).items():
-        issues += _typed_issues(item, f"partitions.{label}", _PARTITION_FILE_TYPES)
+    for key, types in (("datasets", _DATASET_TYPES), ("partitions", _PARTITION_FILE_TYPES)):
+        group = payload.get(key)
+        for label, item in group.items() if isinstance(group, Mapping) else ():
+            issues += _typed_issues(item, f"{key}.{label}", types)
     partitioning = payload.get("partitioning")
     issues += _typed_issues(partitioning, "partitioning", _PARTITIONING_TYPES)
     if isinstance(partitioning, Mapping):

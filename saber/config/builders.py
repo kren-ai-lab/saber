@@ -90,7 +90,7 @@ def load_dataset(
     dataset = DatasetBundle(
         X=frame.select(feature_cols),
         y=frame[payload["target_col"]].to_numpy(),
-        sample_ids=frame[id_col].to_list(),
+        sample_ids=frame[id_col].cast(pl.String).to_list(),
         feature_names=feature_cols,
         groups=None if group_col is None else frame[group_col].to_list(),
         sample_weight=None if weight_col is None else frame[weight_col].to_numpy(),
@@ -104,7 +104,9 @@ def load_prediction_frame(
 ) -> tuple[pl.DataFrame, tuple[Any, ...] | None]:
     """Load features/sample IDs for prediction without requiring a target."""
     frame, feature_cols = read_dataset(config, payload)
-    return frame.select(feature_cols), tuple(frame[payload.get("sample_id_col", "id")].to_list())
+    return frame.select(feature_cols), tuple(
+        frame[payload.get("sample_id_col", "id")].cast(pl.String).to_list()
+    )
 
 
 def build_preprocessing(payload: Mapping[str, Any] | None) -> PreprocessingConfig:

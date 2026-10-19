@@ -11,6 +11,7 @@ All notable changes to Saber are recorded here. Versions follow
 - `dataset.sample_id_col` defaults to `id`, and the column must exist in the dataset: a missing id column is an error (exit 3), with no row-index fallback. The default id column of partition plans is `id` too (was `sample_id`), and prediction tables start with an `id` column (was `sample_id`).
 
 - The cross-validation workflow is `cross-validate` (was `validate`), both as `workflow:` in configs and as the Python function `saber.cross_validate` (was `saber.validate`), so it is not confused with `validate-config`.
+- Sample ids are always strings in prediction tables; `PredictionResult.to_frame()` warns when it has to generate ids, and the CLI prints the traceback on unexpected errors (exit 4).
 
 ### Added
 
