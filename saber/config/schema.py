@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, fields
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 from saber.benchmark import BenchmarkConfig
+from saber.benchmark.config import BenchmarkMode
 from saber.core.registry import ALGORITHMS
 from saber.exceptions import ConfigurationError
 from saber.preprocessing import PreprocessingConfig
 from saber.tuning import TuningConfig
+from saber.tuning.engine import OptimizerName
+from saber.validation.partitioning import EvaluationRole
 
 CONFIG_SCHEMA_VERSION = "1.0"
 
@@ -170,7 +173,118 @@ TUNING_KEYS = _field_names(TuningConfig)
 # The top-level ``metadata`` is the benchmark's metadata.
 BENCHMARK_KEYS = _field_names(BenchmarkConfig) - {"metadata"}
 _PATH_KEYS = ("output", "artifact", "model")
+_TYPE_CHECKS: dict[str, tuple[Callable[[Any], bool], str]] = {
+    "int": (lambda v: isinstance(v, int) and not isinstance(v, bool), "an integer"),
+    "number": (lambda v: isinstance(v, (int, float)) and not isinstance(v, bool), "a number"),
+    "bool": (lambda v: isinstance(v, bool), "true or false"),
+    "str": (lambda v: isinstance(v, str), "a string"),
+    "none": (lambda v: v is None, "null"),
+}
+# Value types per key, as ``|``-joined alternatives of _TYPE_CHECKS.
+_TOP_TYPES = {"random_state": "int|none"}
+_DATASET_TYPES = {
+    "target_col": "str",
+    "sample_id_col": "str",
+    "group_col": "str|none",
+    "sample_weight_col": "str|none",
+}
+_PARTITION_FILE_TYPES = {
+    "sample_id_col": "str",
+    "role_col": "str|none",
+    "split_col": "str|none",
+    "fold_col": "str|none",
+}
+_PARTITIONING_TYPES = {"strategy": "str", **dict.fromkeys(PARTITIONING_ROLE_COLUMNS, "str")}
+# Splitter parameters whose type is the same in every BioSieve strategy that has them; the rest
+# (and the strategy-specific ones) are checked by BioSieve when the partitions are generated.
+_PARTITIONING_PARAM_TYPES = {
+    **dict.fromkeys(("n_splits", "seed", "n_bins", "min_bin_count", "cov_mode", "threads"), "int"),
+    **dict.fromkeys(("test_size", "val_size", "min_seq_id", "coverage"), "number"),
+    **dict.fromkeys(
+        (
+            "shuffle",
+            "shuffle_ties",
+            "dropna",
+            "standardize",
+            "standardize_descriptors",
+            "auto_reduce_bins",
+            "report_bin_edges",
+            "cast_to_str",
+            "ascending",
+            "parse_datetime",
+            "keep_work",
+        ),
+        "bool",
+    ),
+}
+_PREPROCESSING_TYPES = {"imputation": "str|none", "scaler": "str|none", "fill_value": "number|str|none"}
+_TUNING_TYPES = {
+    "optimizer": "str",
+    "refit_metric": "str|none",
+    "refit": "bool",
+    "n_jobs": "int",
+    "n_iter": "int",
+    "n_trials": "int",
+    "timeout": "number|none",
+    "factor": "int",
+    "resource": "str",
+    "max_resources": "int|str",
+    "min_resources": "int|str",
+    "aggressive_elimination": "bool",
+    "error_score": "number",
+    "optuna_storage": "str|none",
+    "optuna_study_name": "str|none",
+    "optuna_load_if_exists": "bool",
+}
+_BENCHMARK_TYPES = {"include_baselines": "bool", "fail_fast": "bool"}
 _BOOL_KEYS = ("overwrite", "require_complete", "strict_environment")
+
+
+def _typed_issues(value: Any, label: str, types: Mapping[str, str]) -> list[tuple[str, str]]:
+    """Report the keys of mapping ``value`` whose type is not among the allowed ones."""
+    if not isinstance(value, Mapping):
+        return []
+    issues = []
+    for key, spec in types.items():
+        if key in value:
+            allowed = [_TYPE_CHECKS[name] for name in spec.split("|")]
+            if not any(test(value[key]) for test, _ in allowed):
+                issues.append(
+                    (
+                        f"{label}.{key}" if label else key,
+                        f"Must be {' or '.join(text for _, text in allowed)}.",
+                    )
+                )
+    return issues
+
+
+def _choice_issues(value: Any, path: str, choices: Sequence[str]) -> list[tuple[str, str]]:
+    ok = isinstance(value, str) and value in choices
+    return [] if ok else [(path, f"Must be one of {list(choices)!r}.")]
+
+
+def _tuning_type_issues(value: Any, label: str) -> list[tuple[str, str]]:
+    issues = _typed_issues(value, label, _TUNING_TYPES)
+    if isinstance(value, Mapping) and isinstance(value.get("optimizer"), str):
+        issues += _choice_issues(value["optimizer"], f"{label}.optimizer", get_args(OptimizerName))
+    return issues
+
+
+def _benchmark_issues(value: Any) -> list[tuple[str, str]]:
+    issues = _typed_issues(value, "benchmark", _BENCHMARK_TYPES)
+    if not isinstance(value, Mapping):
+        return issues
+    seeds, modes = value.get("seeds"), value.get("modes")
+    if "seeds" in value and not (
+        isinstance(seeds, (list, tuple))
+        and all(item is None or _TYPE_CHECKS["int"][0](item) for item in seeds)
+    ):
+        issues.append(("benchmark.seeds", "Must be a list of integers or null."))
+    if "modes" in value and not (
+        isinstance(modes, (list, tuple)) and all(item in get_args(BenchmarkMode) for item in modes)
+    ):
+        issues.append(("benchmark.modes", f"Must be a list of {list(get_args(BenchmarkMode))!r}."))
+    return issues + _tuning_type_issues(value.get("tuning"), "benchmark.tuning")
 
 
 def _nested_issues(workflow: str, payload: Mapping[str, Any]) -> list[tuple[str, str]]:
@@ -267,6 +381,23 @@ def _nested_issues(workflow: str, payload: Mapping[str, Any]) -> list[tuple[str,
         check("search_space", lambda: _non_empty_mapping(payload["search_space"], "search_space"))
     if "search_spaces" in payload:
         check("search_spaces", lambda: _validate_search_spaces(payload["search_spaces"]))
+
+    issues += _typed_issues(payload, "", _TOP_TYPES)
+    if "evaluation_role" in payload:
+        issues += _choice_issues(payload["evaluation_role"], "evaluation_role", get_args(EvaluationRole))
+    issues += _typed_issues(payload.get("dataset"), "dataset", _DATASET_TYPES)
+    issues += _typed_issues(payload.get("partition_plan"), "partition_plan", _PARTITION_FILE_TYPES)
+    for key, types in (("datasets", _DATASET_TYPES), ("partitions", _PARTITION_FILE_TYPES)):
+        group = payload.get(key)
+        for label, item in group.items() if isinstance(group, Mapping) else ():
+            issues += _typed_issues(item, f"{key}.{label}", types)
+    partitioning = payload.get("partitioning")
+    issues += _typed_issues(partitioning, "partitioning", _PARTITIONING_TYPES)
+    if isinstance(partitioning, Mapping):
+        issues += _typed_issues(partitioning.get("params"), "partitioning.params", _PARTITIONING_PARAM_TYPES)
+    issues += _typed_issues(payload.get("preprocessing"), "preprocessing", _PREPROCESSING_TYPES)
+    issues += _tuning_type_issues(payload.get("tuning"), "tuning")
+    issues += _benchmark_issues(payload.get("benchmark"))
     return issues
 
 

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import traceback
+from dataclasses import asdict
 from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
@@ -20,6 +22,7 @@ from saber.cli.render import (
     render_preflight,
 )
 from saber.config import load_config, run_config
+from saber.config import validate_config as check_config
 from saber.core.registry import ALGORITHMS, get_algorithm
 from saber.exceptions import ConfigurationError, SaberError
 from saber.persistence import inspect_artifact
@@ -117,12 +120,7 @@ def run(config: ConfigArg, dry_run: DryRunOpt = False, json_output: JsonOpt = Fa
 )
 def validate_config(config: ConfigArg, json_output: JsonOpt = False) -> None:
     """Report every config problem; exit 0 when valid, 2 otherwise."""
-    try:
-        load_config(config)
-    except ConfigurationError as exc:
-        issues = [{"path": path, "message": message} for path, message in exc.issues]
-    else:
-        issues = []
+    issues = [asdict(issue) for issue in check_config(config)]
     if json_output:
         typer.echo(json.dumps(issues, ensure_ascii=False))
     else:
@@ -213,6 +211,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return EXIT_WORKFLOW
     except Exception as exc:  # noqa: BLE001 - last-resort CLI boundary
         error_console.print(f"[bold red]Unexpected error[/bold red]\n{exc}")
+        traceback.print_exc()
         return EXIT_INTERNAL
     return EXIT_OK
 

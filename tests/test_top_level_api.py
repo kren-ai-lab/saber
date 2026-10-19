@@ -4,6 +4,7 @@ import saber
 
 EXPECTED = {
     "train", "cross_validate", "tune", "benchmark", "evaluate", "predict", "run_config",
+    "validate_config", "ConfigIssue",
     "save_model", "load_model", "save_benchmark", "load_benchmark", "inspect_artifact",
     "DatasetBundle", "PartitionPlan", "BioSievePartitionConfig", "PreprocessingConfig",
     "TuningConfig", "BenchmarkConfig", "SearchSpace", "Categorical", "Integer", "Float", "LogFloat",

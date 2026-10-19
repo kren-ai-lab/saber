@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import json
+import sys
 
 import pandas as pd
 import yaml
 from sklearn.datasets import make_classification
 
 from saber import train
-from saber.cli.main import EXIT_CONFIG, EXIT_OK, main
+from saber.cli.main import EXIT_CONFIG, EXIT_INTERNAL, EXIT_OK, main
 from saber.config import run_config
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.persistence import save_model
@@ -72,3 +73,12 @@ def test_cli_error_exit_codes(tmp_path):
     assert main(["run", str(bad)]) == EXIT_CONFIG
     assert main(["artifact", "verify", str(tmp_path / "missing")]) != EXIT_OK
     assert main(["models", "show", "no_such_model"]) != EXIT_OK
+
+
+def test_unexpected_error_prints_traceback_and_exits_4(monkeypatch, tmp_path, capfd):
+    def boom(_path):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(sys.modules["saber.cli.main"], "inspect_artifact", boom)
+    assert main(["artifact", "verify", str(tmp_path)]) == EXIT_INTERNAL
+    assert "Traceback" in capfd.readouterr().err

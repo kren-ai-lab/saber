@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -139,6 +140,14 @@ class ArtifactCompatibilityError(PersistenceError):
     """Raised when an artifact schema/environment is incompatible."""
 
 
+@dataclass(frozen=True, slots=True)
+class ConfigIssue:
+    """One config problem: a dotted ``path`` (empty for the config root) and a ``message``."""
+
+    path: str
+    message: str
+
+
 class ConfigurationError(SaberError, ValueError):
     """Raised when a declarative workflow configuration is invalid.
 
@@ -158,6 +167,7 @@ __all__ = [
     "ArtifactCompatibilityError",
     "ArtifactIntegrityError",
     "BenchmarkContractError",
+    "ConfigIssue",
     "ConfigurationError",
     "DatasetError",
     "DatasetFingerprintMismatchError",

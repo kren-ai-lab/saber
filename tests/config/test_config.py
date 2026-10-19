@@ -14,7 +14,7 @@ import saber
 from saber.config import CONFIG_SCHEMA_VERSION, dump_config, load_config, run_config
 from saber.config.builders import load_dataset
 from saber.datasets import DatasetBundle, PartitionPlan
-from saber.exceptions import ConfigurationError
+from saber.exceptions import ConfigurationError, DatasetError
 from saber.utils.tabular import read_table
 
 
@@ -649,7 +649,7 @@ def test_unsupported_dataset_suffix_is_rejected_for_labeled_and_unlabeled_data(t
                     **extra,
                 }
             )
-    with pytest.raises(ConfigurationError, match="does not exist"):
+    with pytest.raises(DatasetError, match="does not exist"):
         run_config({"workflow": "predict", "dataset": {"path": str(tmp_path / "none.csv")}, "model": "m"})
 
 
@@ -723,3 +723,15 @@ def test_benchmark_tuning_block_takes_tuning_config_fields_only():
     with pytest.raises(ConfigurationError) as caught:
         load_config({**base, "benchmark": {"metadata": {}}})
     assert [path for path, _ in caught.value.issues] == ["benchmark.metadata"]
+
+
+def test_load_dataset_casts_numeric_ids_to_str(tmp_path):
+    (tmp_path / "data.csv").write_text("id,x,y\n1,0.5,0\n2,1.5,1\n", encoding="utf-8")
+    config = load_config(
+        {
+            "workflow": "train",
+            "dataset": {"path": str(tmp_path / "data.csv"), "target_col": "y"},
+            "algorithm": "ridge_regressor",
+        }
+    )
+    assert load_dataset(config, config.payload["dataset"])[0].sample_ids == ("1", "2")

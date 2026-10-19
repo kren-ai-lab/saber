@@ -128,6 +128,15 @@ saber run study.yaml --json
 saber artifact verify artifacts/model
 ```
 
+Validate a config from Python, without reading any data:
+
+```python
+from saber import validate_config
+
+for issue in validate_config("experiment.yaml"):  # or a mapping
+    print(f"{issue.path}: {issue.message}")
+```
+
 Every workflow can be written as a YAML or JSON file and run from the CLI or
 with `saber.run_config("experiment.yaml")`. See the [configuration](docs/configuration.md)
 and [CLI](docs/cli.md) references.

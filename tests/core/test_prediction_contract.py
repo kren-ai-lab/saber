@@ -116,3 +116,10 @@ def test_prediction_frame_multiclass_and_regression_columns() -> None:
     frame = regression.to_frame(y_true=[1.0, 3.0])
     assert frame.columns == ["id", "y_true", "y_pred"]
     assert frame["id"].to_list() == [0, 1]
+
+
+def test_to_frame_warns_when_generating_ids() -> None:
+    result = PredictionResult(task="regression", predictions=np.array([1.5, 2.5]))
+    with pytest.warns(UserWarning, match="generated"):
+        frame = result.to_frame()
+    assert frame["id"].to_list() == [0, 1]

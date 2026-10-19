@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -151,7 +152,10 @@ class PredictionResult:
         are available, and ``decision_score`` (binary, oriented toward
         ``positive_class``) or ``decision_score__{class}`` (multiclass).
         """
-        sample_ids = self.sample_ids if self.sample_ids is not None else np.arange(self.n_samples)
+        sample_ids = self.sample_ids
+        if sample_ids is None:
+            warnings.warn("No sample ids provided; generated row-index ids.", stacklevel=2)
+            sample_ids = np.arange(self.n_samples)
         columns: dict[str, Any] = {"id": sample_ids}
         if y_true is not None:
             columns["y_true"] = y_true
