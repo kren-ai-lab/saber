@@ -16,10 +16,13 @@ All notable changes to Saber are recorded here. Versions follow
 
 - `saber validate-config CONFIG [--json]` validates a config without reading data and reports every problem it can collect with its dotted path (`ConfigurationError.issues` carries the same list). It follows the shared ecosystem CLI contract: exit `0` or `2`, and `--json` prints a JSON array of `{path, message}`.
 - `saber run` writes `<output>.provenance.json` next to the `output` directory and `<artifact>.provenance.json` next to the `artifact` directory (`provenance/1` of the shared ecosystem CLI contract).
+- `saber.validate_config(config)` and `saber.ConfigIssue`: the same check in Python. `config` is a mapping or a path to a YAML/JSON file; it returns a list of `ConfigIssue(path, message)` (empty when valid) and does not raise for config problems. The CLI command is a thin wrapper around it.
 - Dev dependency `jsonschema` and `tests/contract/`, which validate the CLI outputs against the contract schemas.
 
 ### Changed
 
+- Config validation (`validate-config`, `run --dry-run`) type-checks the keys whose type saber knows: `random_state`, the dataset and partition-file column names, `partitioning.strategy` and its column keys, the common `partitioning.params` (`n_splits`, `seed`, `test_size`, `val_size`, `shuffle`, ...), `preprocessing`, every `tuning` field (also `benchmark.tuning`), `benchmark.seeds`, `modes`, `include_baselines` and `fail_fast`, and the choices of `evaluation_role`, `tuning.optimizer` and `benchmark.modes`. A wrong type used to fail only when the run started. Algorithm hyperparameters (`model_params`) are still checked at run time.
+- A missing dataset file is a workflow failure (exit 3, `DatasetError`) instead of a config error (exit 2), like any other missing data input.
 - Unknown algorithm names are config errors (exit 2) reported by config validation, including `validate-config` and `run --dry-run`; they used to fail only when the run started.
 - A `TypeError` raised while running a workflow is now reported as an internal error (exit 4) instead of a workflow failure (exit 3).
 

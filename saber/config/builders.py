@@ -19,7 +19,7 @@ from saber.datasets import (
     PartitionPlan,
     load_partition_plan,
 )
-from saber.exceptions import ConfigurationError, DatasetValidationError
+from saber.exceptions import ConfigurationError, DatasetError, DatasetValidationError
 from saber.preprocessing import PreprocessingConfig
 from saber.tuning import TuningConfig
 from saber.utils.tabular import as_frame, read_table
@@ -44,7 +44,7 @@ def read_dataset(
     """
     path = config.resolve_path(payload["path"])
     if not path.exists():
-        raise ConfigurationError(f"Dataset file does not exist: {path}.")
+        raise DatasetError(f"Dataset file does not exist: {path}.")
     suffix = path.suffix.lower()
     if suffix not in _DATASET_FORMATS:
         raise ConfigurationError("Dataset files must be CSV, TSV, TXT (tab-separated) or Parquet.")

@@ -221,6 +221,10 @@ saber validate-config experiment.yaml --json
 It collects the problems it can find instead of stopping at the first one and exits `0` if the config is valid, `2` if not.
 Each problem is a `path: message` line on stderr, or with `--json` a JSON array of `{path, message}` objects on stdout (empty when valid).
 
+The same check is available in Python as `saber.validate_config(config)`, where `config` is a mapping or a path to a YAML/JSON file.
+It returns a list of `saber.ConfigIssue(path, message)` (empty when valid) and never raises for config problems: a missing or unparsable file is one issue with path `""`.
+Keys with a known type are type-checked (`random_state`, `tuning.*`, `benchmark.seeds`, `partitioning.params.n_splits`, ...); algorithm hyperparameters in `model_params` are checked when the run starts.
+
 ## Provenance sidecars
 
 `saber run` writes `<output>.provenance.json` next to the `output` directory, and `<artifact>.provenance.json` next to the `artifact` directory when one is written.

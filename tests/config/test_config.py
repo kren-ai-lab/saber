@@ -14,7 +14,7 @@ import saber
 from saber.config import CONFIG_SCHEMA_VERSION, dump_config, load_config, run_config
 from saber.config.builders import load_dataset
 from saber.datasets import DatasetBundle, PartitionPlan
-from saber.exceptions import ConfigurationError
+from saber.exceptions import ConfigurationError, DatasetError
 from saber.utils.tabular import read_table
 
 
@@ -649,7 +649,7 @@ def test_unsupported_dataset_suffix_is_rejected_for_labeled_and_unlabeled_data(t
                     **extra,
                 }
             )
-    with pytest.raises(ConfigurationError, match="does not exist"):
+    with pytest.raises(DatasetError, match="does not exist"):
         run_config({"workflow": "predict", "dataset": {"path": str(tmp_path / "none.csv")}, "model": "m"})
 
 

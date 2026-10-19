@@ -5,12 +5,15 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
 from saber.config.schema import WorkflowConfig, workflow_config_from_mapping
-from saber.exceptions import ConfigurationError
+from saber.exceptions import ConfigIssue, ConfigurationError
+
+if TYPE_CHECKING:
+    from os import PathLike
 
 
 def load_config(source: str | Path | Mapping[str, Any] | WorkflowConfig) -> WorkflowConfig:
@@ -36,6 +39,18 @@ def load_config(source: str | Path | Mapping[str, Any] | WorkflowConfig) -> Work
     if not isinstance(payload, Mapping):
         raise ConfigurationError("Configuration root must be a mapping/object.")
     return workflow_config_from_mapping(payload, source=path)
+
+
+def validate_config(config: str | PathLike[str] | Mapping[str, Any]) -> list[ConfigIssue]:
+    """Return every problem of a workflow config (mapping or YAML/JSON path); empty when valid.
+
+    Never raises for config problems and reads no data.
+    """
+    try:
+        load_config(config if isinstance(config, Mapping) else Path(config))
+    except ConfigurationError as exc:
+        return [ConfigIssue(path, message) for path, message in exc.issues]
+    return []
 
 
 def dump_config(

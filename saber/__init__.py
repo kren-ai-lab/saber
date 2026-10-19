@@ -3,7 +3,7 @@
 from saber._api import evaluate, predict, train
 from saber._version import __version__
 from saber.benchmark import BenchmarkConfig, BenchmarkResult, benchmark
-from saber.config import run_config
+from saber.config import run_config, validate_config
 from saber.core import (
     ALGORITHMS,
     Categorical,
@@ -16,7 +16,7 @@ from saber.core import (
 )
 from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
 from saber.evaluation import EvaluationResult
-from saber.exceptions import SaberError
+from saber.exceptions import ConfigIssue, SaberError
 from saber.persistence import (
     LoadedModelArtifact,
     inspect_artifact,
@@ -38,6 +38,8 @@ __all__ = [  # noqa: RUF022  # grouped by purpose, not alphabetical
     "evaluate",
     "predict",
     "run_config",
+    "validate_config",
+    "ConfigIssue",
     # Persistence
     "save_model",
     "load_model",
