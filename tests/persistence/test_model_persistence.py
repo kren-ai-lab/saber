@@ -103,6 +103,9 @@ def test_model_artifact_round_trip_preserves_predictions_and_probabilities(tmp_p
     result = predict(loaded, dataset.X, sample_ids=dataset.sample_ids)
     # A TrainResult artifact carries no metrics file; the training config records the inputs.
     assert not (artifact_path / "metrics.json").exists()
+    # `*.provenance.json` / `provenance.json` is reserved for the run-level sidecar.
+    assert (artifact_path / "training_provenance.json").exists()
+    assert not (artifact_path / "provenance.json").exists()
     training_config = json.loads((artifact_path / "training_config.json").read_text())
     assert training_config["random_state"] == 42
     assert training_config["preprocessing"] == "auto"

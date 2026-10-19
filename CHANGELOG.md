@@ -3,6 +3,12 @@
 All notable changes to Saber are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.2.0
+
+### Breaking changes
+
+- Model artifacts store their training provenance in `training_provenance.json` (was `provenance.json`). The `.provenance.json` suffix and the bare `provenance.json` name are reserved for the run-level provenance sidecar shared by the sibling CLIs. Artifacts saved by earlier versions still load and verify, because the loader reads file names from `manifest.json`.
+
 ## 0.1.1
 
 Publish archive on Zenodo.
