@@ -15,7 +15,7 @@ BenchmarkMode = Literal["untuned", "tuned"]
 class BenchmarkConfig:
     """Benchmark-specific controls of the algorithm x representation x partition matrix.
 
-    Workflow knobs shared with ``validate``/``tune`` (``metrics``,
+    Workflow knobs shared with ``cross_validate``/``tune`` (``metrics``,
     ``evaluation_role``, ...) are keyword arguments of :func:`benchmark`.
     Each seed in ``seeds`` is the ``random_state`` of one set of runs.
     """

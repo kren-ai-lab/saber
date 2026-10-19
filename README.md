@@ -56,7 +56,7 @@ plan = PartitionPlan.from_predefined_folds(
     dataset=dataset,
 )
 
-result = saber.validate(
+result = saber.cross_validate(
     dataset=dataset,
     algorithm="logistic_regression",
     partition_plan=plan,
@@ -75,7 +75,7 @@ the partitions:
 ```python
 from saber import BioSievePartitionConfig
 
-result = saber.validate(
+result = saber.cross_validate(
     dataset=dataset,
     algorithm="random_forest_classifier",
     partition_plan=BioSievePartitionConfig(

@@ -44,7 +44,7 @@ def test_config_relative_paths_do_not_depend_on_current_working_directory(tmp_pa
     _, _, data_path, part_path = _write_classification_case(case)
     config_path = case / "validate.yaml"
     config_path.write_text(
-        f"""schema_version: "1.0"\nworkflow: validate\ndataset:\n  path: {data_path.name}\n"""
+        f"""schema_version: "1.0"\nworkflow: cross-validate\ndataset:\n  path: {data_path.name}\n"""
         """  target_col: label\n  sample_id_col: sample_id\nalgorithm: logistic_regression\n"""
         """partition_plan:\n"""
         f"""  path: {part_path.name}\nmetrics: [accuracy]\n"""

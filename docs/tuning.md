@@ -1,7 +1,7 @@
 # Hyperparameter optimization
 
 `saber.tune(...)` searches over the whole preprocessing + estimator pipeline,
-using the same partitions and metrics as `saber.validate(...)`. Optimizers:
+using the same partitions and metrics as `saber.cross_validate(...)`. Optimizers:
 `grid`, `random`, `halving_grid`, `halving_random` and `optuna`
 (`saberlib[optuna]`).
 

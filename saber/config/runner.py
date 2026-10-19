@@ -29,7 +29,7 @@ from saber.persistence.environment import _TRACKED_PACKAGES
 from saber.tuning import tune
 from saber.utils.serialization import to_jsonable
 from saber.utils.tabular import records_frame
-from saber.validation import validate
+from saber.validation import cross_validate
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -62,7 +62,7 @@ def run_config(source: str | Path | Mapping[str, Any] | WorkflowConfig) -> Workf
     handler = {
         "train": _run_train,
         "evaluate": _run_evaluate,
-        "validate": _run_validate,
+        "cross-validate": _run_cross_validate,
         "tune": _run_tune,
         "benchmark": _run_benchmark,
         "predict": _run_predict,
@@ -120,7 +120,7 @@ def _evaluation_role(payload: Mapping[str, Any]) -> EvaluationRole:
 def _search_kwargs(
     config: WorkflowConfig, dataset: DatasetBundle, extras: Mapping[str, list[Any]]
 ) -> dict[str, Any]:
-    """Keyword arguments shared by the validate and tune workflows."""
+    """Keyword arguments shared by the cross-validate and tune workflows."""
     payload = config.payload
     return {
         "dataset": dataset,
@@ -135,11 +135,11 @@ def _search_kwargs(
     }
 
 
-def _run_validate(config: WorkflowConfig) -> WorkflowExecution:
+def _run_cross_validate(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
     dataset, extras = load_dataset(config, payload["dataset"], extra_columns=_extra_column_names(config))
     search = _search_kwargs(config, dataset, extras)
-    result = validate(
+    result = cross_validate(
         **search,
         metrics=payload.get("metrics"),
     )

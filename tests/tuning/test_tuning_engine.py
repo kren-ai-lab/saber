@@ -13,7 +13,7 @@ from saber.core.search_space import LogFloat, SearchSpace
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.exceptions import ValidationContractError
 from saber.tuning import TuningConfig, tune
-from saber.validation import validate
+from saber.validation import cross_validate
 
 
 def _classification_dataset(n: int = 60, *, sample_weight: bool = False):
@@ -234,7 +234,7 @@ def test_regression_loss_scores_are_reported_in_natural_direction(optimizer) -> 
         random_state=0,
     )
     # The selected candidate's own cross-validated RMSE: positive, lower is better.
-    selected = validate(
+    selected = cross_validate(
         dataset=dataset,
         algorithm="ridge_regressor",
         model_params=result.best_params,
@@ -266,7 +266,7 @@ def test_classification_scores_keep_their_sign() -> None:
         search_space=SearchSpace({"C": [0.01, 1.0]}),
         metrics=("mcc", "accuracy"),
     )
-    selected = validate(
+    selected = cross_validate(
         dataset=dataset,
         algorithm="logistic_regression",
         model_params=result.best_params,
@@ -355,7 +355,7 @@ def test_binary_tuning_scores_match_evaluation_of_the_positive_class(positive_cl
         positive_class=positive_class,
         metrics=metrics,
     )
-    validated = validate(
+    validated = cross_validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,

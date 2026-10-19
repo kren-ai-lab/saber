@@ -49,7 +49,7 @@ def test_yaml_validation_workflow_matches_direct_python_api(tmp_path):
         yaml.safe_dump(
             {
                 "schema_version": CONFIG_SCHEMA_VERSION,
-                "workflow": "validate",
+                "workflow": "cross-validate",
                 "dataset": {
                     "path": "data.csv",
                     "target_col": "label",
@@ -68,14 +68,14 @@ def test_yaml_validation_workflow_matches_direct_python_api(tmp_path):
     )
 
     execution = run_config(config_path)
-    direct = saber.validate(
+    direct = saber.cross_validate(
         dataset=bundle,
         algorithm="logistic_regression",
         partition_plan=plan,
         metrics=("accuracy", "balanced_accuracy"),
         random_state=42,
     )
-    assert execution.config.workflow == "validate"
+    assert execution.config.workflow == "cross-validate"
     assert execution.result.aggregate_metrics == pytest.approx(direct.aggregate_metrics)
     assert direct.oof_prediction is not None
     assert execution.result.oof_prediction.predictions.tolist() == direct.oof_prediction.predictions.tolist()
@@ -137,7 +137,7 @@ def test_validation_config_requires_partition_or_biosieve():
     ):
         load_config(
             {
-                "workflow": "validate",
+                "workflow": "cross-validate",
                 "dataset": {"path": "data.csv", "target_col": "y"},
                 "algorithm": "ridge_regressor",
             }
@@ -401,7 +401,7 @@ def _write_membership_partition(tmp_path, n_samples=60, *, holdout=None):
 
 def _validate_config(tmp_path, partition_plan, **extra):
     return {
-        "workflow": "validate",
+        "workflow": "cross-validate",
         "dataset": {"path": str(tmp_path / "data.csv"), "target_col": "label", "sample_id_col": "sample_id"},
         "algorithm": "logistic_regression",
         "partition_plan": partition_plan,
@@ -449,16 +449,16 @@ def test_partitioning_extra_columns_are_passed_to_biosieve_and_not_features(tmp_
 
     frame = _write_sequence_dataset(tmp_path / "data.csv")
     captured = {}
-    real_validate = runner.validate
+    real_validate = runner.cross_validate
 
     def spy(**kwargs):
         captured.update(kwargs)
         return real_validate(**kwargs)
 
-    monkeypatch.setattr(runner, "validate", spy)
+    monkeypatch.setattr(runner, "cross_validate", spy)
     execution = run_config(
         {
-            "workflow": "validate",
+            "workflow": "cross-validate",
             "dataset": {
                 "path": str(tmp_path / "data.csv"),
                 "target_col": "label",
@@ -484,16 +484,16 @@ def test_partitioning_role_columns_are_loaded_and_forwarded(tmp_path, monkeypatc
 
     frame = _write_sequence_dataset(tmp_path / "data.csv")
     captured = {}
-    real_validate = runner.validate
+    real_validate = runner.cross_validate
 
     def spy(**kwargs):
         captured.update(kwargs)
         return real_validate(**kwargs)
 
-    monkeypatch.setattr(runner, "validate", spy)
+    monkeypatch.setattr(runner, "cross_validate", spy)
     run_config(
         {
-            "workflow": "validate",
+            "workflow": "cross-validate",
             "dataset": {
                 "path": str(tmp_path / "data.csv"),
                 "target_col": "label",
@@ -517,7 +517,7 @@ def test_partitioning_role_columns_are_loaded_and_forwarded(tmp_path, monkeypatc
 def test_partitioning_extra_columns_must_exist_in_the_dataset(tmp_path):
     _write_sequence_dataset(tmp_path / "data.csv", with_sequence=False)
     config = {
-        "workflow": "validate",
+        "workflow": "cross-validate",
         "dataset": {"path": str(tmp_path / "data.csv"), "target_col": "label", "sample_id_col": "sample_id"},
         "algorithm": "logistic_regression",
         "partitioning": {"strategy": "random_kfold", "extra_columns": ["sequence"]},
@@ -663,7 +663,7 @@ def test_every_workflow_writes_fixed_file_names_into_output(tmp_path):
             "artifact": str(tmp_path / "model"),
             "partition_plan": folds,
         },
-        "validate": {"algorithm": "logistic_regression", "partition_plan": folds},
+        "cross-validate": {"algorithm": "logistic_regression", "partition_plan": folds},
         "tune": {
             "algorithm": "logistic_regression",
             "partition_plan": folds,
@@ -676,7 +676,7 @@ def test_every_workflow_writes_fixed_file_names_into_output(tmp_path):
     }
     expected = {
         "train": {"summary.json"},
-        "validate": {"summary.json", "metrics.csv", "predictions.csv"},
+        "cross-validate": {"summary.json", "metrics.csv", "predictions.csv"},
         "tune": {"summary.json", "optimization_history.csv"},
         "evaluate": {"summary.json", "metrics.csv"},
         "predict": {"summary.json", "predictions.csv"},

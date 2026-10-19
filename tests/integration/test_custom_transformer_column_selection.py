@@ -62,7 +62,7 @@ def test_train_validate_tune_predict_and_artifact_round_trip_with_named_column_s
     prediction = saber.predict(train_result, dataset)
     assert prediction.predictions.shape[0] == dataset.n_samples
 
-    validation_result = saber.validate(
+    validation_result = saber.cross_validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=_fold_plan(dataset),

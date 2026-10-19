@@ -41,7 +41,7 @@ def _():
     LIVE_BIOSIEVE = find_spec("biosieve") is not None
 
     from sklearn.datasets import make_classification
-    from saber import validate, DatasetBundle, PartitionPlan, BioSievePartitionConfig
+    from saber import cross_validate, DatasetBundle, PartitionPlan, BioSievePartitionConfig
 
     return (
         BioSievePartitionConfig,
@@ -53,7 +53,7 @@ def _():
         np,
         pl,
         plt,
-        validate,
+        cross_validate,
     )
 
 
@@ -66,7 +66,7 @@ def _(
     PartitionPlan,
     make_classification,
     np,
-    validate,
+    cross_validate,
 ):
     n_samples = 120 if DEMO_TEST else 300
     X, y = make_classification(
@@ -88,7 +88,7 @@ def _(
             dataset=dataset,
             metadata={"source": "demo_prepartitioned_fallback", "strategy": "round_robin_5fold"},
         )
-    result = validate(
+    result = cross_validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=partition,

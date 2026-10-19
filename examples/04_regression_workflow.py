@@ -39,7 +39,7 @@ def _():
     DEMO_TEST = os.getenv("SABER_DEMO_TEST") == "1"
 
     from sklearn.datasets import make_regression
-    from saber import validate, DatasetBundle, PartitionPlan
+    from saber import cross_validate, DatasetBundle, PartitionPlan
 
     return (
         DEMO_TEST,
@@ -49,7 +49,7 @@ def _():
         np,
         pl,
         plt,
-        validate,
+        cross_validate,
     )
 
 
@@ -70,9 +70,9 @@ def _(DEMO_TEST, DatasetBundle, PartitionPlan, make_regression, np):
 
 
 @app.cell
-def _(dataset, ids, pl, plan, validate, y):
+def _(dataset, ids, pl, plan, cross_validate, y):
     metrics = ("rmse", "mae", "median_ae", "r2", "explained_variance", "pearson", "spearman")
-    result = validate(
+    result = cross_validate(
         dataset=dataset, algorithm="ridge_regressor", partition_plan=plan, metrics=metrics, random_state=42
     )
     oof = result.oof_prediction

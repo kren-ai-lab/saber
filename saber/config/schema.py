@@ -22,7 +22,7 @@ _ALLOWED_KEYS = {
     "train": _COMMON_KEYS | _FIT_KEYS | {"partition_plan", "artifact"},
     "evaluate": _COMMON_KEYS | {"dataset", "model", "metrics", "positive_class", "strict_environment"},
     "predict": _COMMON_KEYS | {"dataset", "model", "positive_class", "strict_environment"},
-    "validate": _COMMON_KEYS | _CV_KEYS,
+    "cross-validate": _COMMON_KEYS | _CV_KEYS,
     "tune": _COMMON_KEYS | _CV_KEYS | {"tuning", "search_space", "artifact"},
     "benchmark": _COMMON_KEYS
     | {
@@ -45,13 +45,13 @@ _REQUIRED_KEYS = {
     "train": {"dataset", "algorithm"},
     "evaluate": {"dataset", "model"},
     "predict": {"dataset", "model"},
-    "validate": {"dataset", "algorithm"},
+    "cross-validate": {"dataset", "algorithm"},
     "tune": {"dataset", "algorithm", "tuning", "metrics"},
     "benchmark": {"datasets", "algorithms", "metrics"},
 }
-# ``partition_plan`` (validate/tune) and ``partitions`` (benchmark) are
+# ``partition_plan`` (cross-validate/tune) and ``partitions`` (benchmark) are
 # mutually exclusive with BioSieve ``partitioning``; exactly one is required.
-_PARTITION_SOURCE = {"validate": "partition_plan", "tune": "partition_plan", "benchmark": "partitions"}
+_PARTITION_SOURCE = {"cross-validate": "partition_plan", "tune": "partition_plan", "benchmark": "partitions"}
 
 
 def _field_names(config_cls: type) -> set[str]:

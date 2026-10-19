@@ -27,12 +27,12 @@ from saber.persistence import (
 )
 from saber.preprocessing import PreprocessingConfig
 from saber.tuning import OptimizationResult, TuningConfig, tune
-from saber.validation import ValidationResult, validate
+from saber.validation import ValidationResult, cross_validate
 
 __all__ = [  # noqa: RUF022  # grouped by purpose, not alphabetical
     # Workflows
     "train",
-    "validate",
+    "cross_validate",
     "tune",
     "benchmark",
     "evaluate",

@@ -33,7 +33,7 @@ def _workflow_files(tmp_path):
     )
     (tmp_path / "folds.json").write_text(json.dumps(plan.to_dict()), encoding="utf-8")
     config = {
-        "workflow": "validate",
+        "workflow": "cross-validate",
         "dataset": {"path": "data.csv", "target_col": "label", "sample_id_col": "sample_id"},
         "algorithm": "logistic_regression",
         "partition_plan": {"path": "folds.json"},
@@ -53,7 +53,7 @@ def test_cli_run_uses_same_config_runner(tmp_path):
     assert main(["run", str(path)]) == EXIT_OK
     summary = json.loads((tmp_path / "cli_results" / "summary.json").read_text())
     assert summary["metrics"] == direct.summary["metrics"]
-    assert summary["workflow"] == "validate"
+    assert summary["workflow"] == "cross-validate"
     assert summary["n_splits"] == 3
 
 
