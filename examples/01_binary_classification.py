@@ -47,7 +47,7 @@ def _():
         f1_score,
         recall_score,
     )
-    from saber import validate, DatasetBundle, PartitionPlan
+    from saber import cross_validate, DatasetBundle, PartitionPlan
 
     return (
         DEMO_TEST,
@@ -63,7 +63,7 @@ def _():
         precision_recall_curve,
         recall_score,
         roc_curve,
-        validate,
+        cross_validate,
     )
 
 
@@ -125,7 +125,7 @@ def _(mo):
 
 
 @app.cell
-def _(dataset, pl, plan, validate):
+def _(dataset, pl, plan, cross_validate):
     metrics = (
         "accuracy",
         "balanced_accuracy",
@@ -140,7 +140,7 @@ def _(dataset, pl, plan, validate):
         "log_loss",
         "brier_score",
     )
-    result = validate(
+    result = cross_validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,

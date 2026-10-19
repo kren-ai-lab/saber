@@ -140,7 +140,17 @@ class ArtifactCompatibilityError(PersistenceError):
 
 
 class ConfigurationError(SaberError, ValueError):
-    """Raised when a declarative workflow configuration is invalid."""
+    """Raised when a declarative workflow configuration is invalid.
+
+    ``issues`` lists every problem as ``(dotted_path, message)``; an empty path is the config root.
+    """
+
+    def __init__(
+        self, message: str, *, path: str = "", issues: Sequence[tuple[str, str]] | None = None
+    ) -> None:
+        """Initialize with one message at ``path``, or with several ``issues``."""
+        super().__init__(message)
+        self.issues: list[tuple[str, str]] = list(issues) if issues else [(path, message)]
 
 
 __all__ = [

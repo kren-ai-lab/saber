@@ -111,6 +111,26 @@ def run(config: ConfigArg, dry_run: DryRunOpt = False, json_output: JsonOpt = Fa
     render_execution(console, execution)
 
 
+@app.command(
+    "validate-config",
+    help="Validate a workflow config without reading any data (the checks of 'run --dry-run').",
+)
+def validate_config(config: ConfigArg, json_output: JsonOpt = False) -> None:
+    """Report every config problem; exit 0 when valid, 2 otherwise."""
+    try:
+        load_config(config)
+    except ConfigurationError as exc:
+        issues = [{"path": path, "message": message} for path, message in exc.issues]
+    else:
+        issues = []
+    if json_output:
+        typer.echo(json.dumps(issues, ensure_ascii=False))
+    else:
+        for item in issues:
+            typer.echo(f"{item['path']}: {item['message']}", err=True)
+    raise typer.Exit(EXIT_CONFIG if issues else EXIT_OK)
+
+
 @models_app.command("list", help="List available algorithms.")
 def models_list(
     task: TaskOpt = None, provider: ProviderOpt = None, tag: TagOpt = None, json_output: JsonOpt = False
@@ -188,7 +208,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except SaberError as exc:
         error_console.print(f"[bold red]saber workflow failed[/bold red]\n{exc}")
         return EXIT_WORKFLOW
-    except (OSError, ValueError, TypeError) as exc:
+    except (OSError, ValueError) as exc:
         error_console.print(f"[bold red]Error[/bold red]\n{exc}")
         return EXIT_WORKFLOW
     except Exception as exc:  # noqa: BLE001 - last-resort CLI boundary

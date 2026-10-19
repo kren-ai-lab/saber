@@ -26,7 +26,7 @@ def train(
 ) -> TrainResult:
     """Fit a final supervised model on all supplied samples.
 
-    This is a final-fit operation.  Model assessment belongs to ``validate`` or
+    This is a final-fit operation.  Model assessment belongs to ``cross_validate`` or
     ``benchmark``; hyperparameter selection belongs to ``tune``.  Persist the
     result with :func:`saber.save_model`.
     """

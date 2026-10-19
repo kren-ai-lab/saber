@@ -17,7 +17,7 @@ Start with the [quickstart](../README.md) to install Saber and validate a model.
 ## Python API help
 
 The workflow functions live in the package root: `saber.train`,
-`saber.validate`, `saber.evaluate`, `saber.tune`,
+`saber.cross_validate`, `saber.evaluate`, `saber.tune`,
 `saber.benchmark` and `saber.predict`, plus `save_model`, `load_model`
 and `run_config` (`load_config` lives in `saber.config`). Use Python help for the signatures and defaults
 of your installed version:
@@ -26,7 +26,7 @@ of your installed version:
 import saber
 from saber import DatasetBundle
 
-help(saber.validate)
+help(saber.cross_validate)
 help(DatasetBundle)
 ```
 

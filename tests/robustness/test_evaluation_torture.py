@@ -8,7 +8,7 @@ from saber.core.prediction import PredictionResult
 from saber.datasets import DatasetBundle, PartitionPlan, PartitionSplit
 from saber.evaluation import evaluate_prediction
 from saber.exceptions import PredictionContractError, ValidationContractError
-from saber.validation import validate
+from saber.validation import cross_validate
 
 
 def test_multiclass_prediction_is_not_misclassified_as_binary_when_fold_lacks_one_class():
@@ -134,7 +134,7 @@ def test_repeated_heldout_membership_disables_oof_instead_of_merging_predictions
         test_ids=tuple(ids[:5] + ids[20:25]),
     )
     plan = PartitionPlan(splits=(split_a, split_b, split_c), kind="cross_validation")
-    result = validate(
+    result = cross_validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,
@@ -153,7 +153,7 @@ def test_incomplete_external_plan_reports_partial_oof_coverage_when_allowed():
         test_ids=ids[15:20],
         dataset=dataset,
     )
-    result = validate(
+    result = cross_validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,
@@ -182,7 +182,7 @@ def test_multiclass_cv_with_string_labels_returns_complete_oof():
         fold_assignments=np.arange(75) % 3,
         dataset=dataset,
     )
-    result = validate(
+    result = cross_validate(
         dataset=dataset,
         algorithm="logistic_regression",
         partition_plan=plan,
@@ -201,7 +201,7 @@ def test_invalid_requested_evaluation_role_fails_before_fit():
     dataset = DatasetBundle(X=X, y=y, sample_ids=ids)
     plan = PartitionPlan.holdout(train_ids=ids[:18], test_ids=ids[18:])
     with pytest.raises(ValidationContractError, match="validation"):
-        validate(
+        cross_validate(
             dataset=dataset,
             algorithm="logistic_regression",
             partition_plan=plan,
@@ -221,7 +221,7 @@ def test_validation_rejects_training_fold_with_single_class_before_estimator_fit
         dataset=dataset,
     )
     with pytest.raises(ValidationContractError, match="at least two target classes"):
-        validate(
+        cross_validate(
             dataset=dataset,
             algorithm="logistic_regression",
             partition_plan=plan,

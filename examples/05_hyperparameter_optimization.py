@@ -39,7 +39,7 @@ def _():
     DEMO_TEST = os.getenv("SABER_DEMO_TEST") == "1"
 
     from sklearn.datasets import make_classification
-    from saber import tune, validate, SearchSpace, Categorical, DatasetBundle, PartitionPlan, TuningConfig
+    from saber import tune, cross_validate, SearchSpace, Categorical, DatasetBundle, PartitionPlan, TuningConfig
 
     return (
         Categorical,
@@ -53,7 +53,7 @@ def _():
         pl,
         plt,
         tune,
-        validate,
+        cross_validate,
     )
 
 
@@ -106,13 +106,13 @@ def _(Categorical, SearchSpace, TuningConfig, dataset, pl, plan, tune):
 
 
 @app.cell
-def _(PartitionPlan, dataset, opt, pl, test_ids, train_ids, val_ids, validate):
+def _(PartitionPlan, dataset, opt, pl, test_ids, train_ids, val_ids, cross_validate):
     # Baseline and tuned configurations are both evaluated only on the protected test.
     final_plan = PartitionPlan.holdout(
         train_ids=(*train_ids, *val_ids), test_ids=test_ids, dataset=dataset, name="protected_test"
     )
     final = {
-        name: validate(
+        name: cross_validate(
             dataset=dataset,
             algorithm="logistic_regression",
             partition_plan=final_plan,

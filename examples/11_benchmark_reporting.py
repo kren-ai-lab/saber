@@ -119,7 +119,7 @@ def _(metrics, pl, preds, runs):
     )
     # Sample-level audit: how often is each sample misclassified across runs?
     error_audit = (
-        preds.group_by("sample_id")
+        preds.group_by("id")
         .agg(
             error_rate=(pl.col("y_true") != pl.col("y_pred")).mean(),
             n_predictions=pl.len(),

@@ -48,7 +48,7 @@ OptimizerName = Literal[
 class TuningConfig:
     """Optimizer-specific tuning controls.
 
-    Workflow knobs shared with ``validate``/``benchmark`` (``metrics``,
+    Workflow knobs shared with ``cross_validate``/``benchmark`` (``metrics``,
     ``random_state``, ``positive_class``, ...) are keyword arguments of
     :func:`tune`.  ``refit_metric`` selects among those metrics and defaults
     to the first one.

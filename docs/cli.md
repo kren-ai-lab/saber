@@ -13,6 +13,8 @@ saber --version
 saber run experiment.yaml
 saber run experiment.yaml --dry-run
 saber run experiment.yaml --json
+saber validate-config experiment.yaml
+saber validate-config experiment.yaml --json
 ```
 
 ```text
@@ -20,9 +22,12 @@ saber run experiment.yaml --json
 --json      machine-readable summary
 ```
 
+`saber validate-config CONFIG` checks a config without reading any data and reports every problem it finds with its dotted path (`--json` prints a JSON array of `{path, message}`).
+It exits `0` if valid and `2` if not.
+
 `saber run CONFIG` does what `saber.run_config(CONFIG)` does. Results go to the config's `output`
 directory and a trained or tuned model to its `artifact` path; existing paths are refused unless the
-config sets `overwrite: true`. See [output files](configuration.md#output-files).
+config sets `overwrite: true`. Each of them gets a `<path>.provenance.json` sibling, see [provenance sidecars](configuration.md#provenance-sidecars). See [output files](configuration.md#output-files).
 
 ## Model discovery
 

@@ -145,14 +145,14 @@ class PredictionResult:
         )
 
     def to_frame(self, y_true: Any | None = None) -> pl.DataFrame:
-        """Return one row per sample: ``sample_id``, ``y_true`` (if given), ``y_pred``, then scores.
+        """Return one row per sample: ``id``, ``y_true`` (if given), ``y_pred``, then scores.
 
         Classification adds ``probability__{class}`` per class when probabilities
         are available, and ``decision_score`` (binary, oriented toward
         ``positive_class``) or ``decision_score__{class}`` (multiclass).
         """
         sample_ids = self.sample_ids if self.sample_ids is not None else np.arange(self.n_samples)
-        columns: dict[str, Any] = {"sample_id": sample_ids}
+        columns: dict[str, Any] = {"id": sample_ids}
         if y_true is not None:
             columns["y_true"] = y_true
         columns["y_pred"] = self.predictions

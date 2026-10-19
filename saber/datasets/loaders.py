@@ -30,7 +30,7 @@ _ROLE_ALIASES = {
 def partition_plan_from_frame(
     frame: Any,
     *,
-    sample_id_col: str = "sample_id",
+    sample_id_col: str = "id",
     role_col: str | None = "role",
     split_col: str | None = "split",
     fold_col: str | None = None,
@@ -42,8 +42,8 @@ def partition_plan_from_frame(
 
     Two normalized external layouts are supported:
 
-    1. membership layout: ``sample_id``, ``role`` and optional ``split``;
-    2. predefined-fold layout: ``sample_id`` and a caller-selected ``fold_col``.
+    1. membership layout: ``id``, ``role`` and optional ``split``;
+    2. predefined-fold layout: ``id`` and a caller-selected ``fold_col``.
 
     This is the BioSieve interoperability boundary: BioSieve only needs to
     export one of these tabular contracts; saber never imports BioSieve.
