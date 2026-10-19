@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
 from saber._api import evaluate, predict, train
+from saber._provenance import utc_now, write_provenance
+from saber._version import __version__
 from saber.benchmark import benchmark
 from saber.config.builders import (
     build_benchmark_config,
@@ -22,6 +25,7 @@ from saber.config.io import load_config
 from saber.config.schema import PARTITIONING_ROLE_COLUMNS
 from saber.exceptions import ConfigurationError
 from saber.persistence import load_model, save_benchmark, save_model
+from saber.persistence.environment import _TRACKED_PACKAGES
 from saber.tuning import tune
 from saber.utils.serialization import to_jsonable
 from saber.utils.tabular import records_frame
@@ -47,11 +51,13 @@ class WorkflowExecution:
     result: Any
     summary: dict[str, Any]
     outputs: dict[str, str] = field(default_factory=dict)
+    facts: dict[str, Any] = field(default_factory=dict)
 
 
 def run_config(source: str | Path | Mapping[str, Any] | WorkflowConfig) -> WorkflowExecution:
     """Run one YAML/JSON workflow (a config path, mapping or WorkflowConfig) through the public API."""
     config = load_config(source)
+    started = utc_now()
     _check_targets(config)
     handler = {
         "train": _run_train,
@@ -61,7 +67,9 @@ def run_config(source: str | Path | Mapping[str, Any] | WorkflowConfig) -> Workf
         "benchmark": _run_benchmark,
         "predict": _run_predict,
     }[config.workflow]
-    return handler(config)
+    execution = handler(config)
+    _write_provenance(execution, started)
+    return execution
 
 
 def _run_train(config: WorkflowConfig) -> WorkflowExecution:
@@ -76,13 +84,14 @@ def _run_train(config: WorkflowConfig) -> WorkflowExecution:
         positive_class=payload.get("positive_class"),
     )
     outputs: dict[str, str] = {}
+    partition_plan = None
     if "artifact" in payload:
         plan = payload.get("partition_plan")
         partition_plan = None if plan is None else build_partition_plan(config, plan)
         outputs["artifact"] = _save_model(config, result, dataset, partition_plan)
     summary = _summary(config, result)
     outputs |= _write_output(config, summary)
-    return WorkflowExecution(config, result, summary, outputs)
+    return WorkflowExecution(config, result, summary, outputs, _facts(dataset, partition_plan))
 
 
 def _run_evaluate(config: WorkflowConfig) -> WorkflowExecution:
@@ -98,7 +107,7 @@ def _run_evaluate(config: WorkflowConfig) -> WorkflowExecution:
     summary = _summary(config, result, model=str(model_path))
     metrics = records_frame([{"metric": name, "score": score} for name, score in result.metrics.items()])
     outputs = _write_output(config, summary, {"metrics": metrics})
-    return WorkflowExecution(config, result, summary, outputs)
+    return WorkflowExecution(config, result, summary, outputs, _facts(dataset))
 
 
 def _evaluation_role(payload: Mapping[str, Any]) -> EvaluationRole:
@@ -129,8 +138,9 @@ def _search_kwargs(
 def _run_validate(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
     dataset, extras = load_dataset(config, payload["dataset"], extra_columns=_extra_column_names(config))
+    search = _search_kwargs(config, dataset, extras)
     result = validate(
-        **_search_kwargs(config, dataset, extras),
+        **search,
         metrics=payload.get("metrics"),
     )
     tables = {"metrics": result.metrics_frame()}
@@ -141,14 +151,15 @@ def _run_validate(config: WorkflowConfig) -> WorkflowExecution:
         tables["predictions"] = oof.to_frame(y_true=[targets[sample_id] for sample_id in sample_ids])
     summary = _summary(config, result)
     outputs = _write_output(config, summary, tables)
-    return WorkflowExecution(config, result, summary, outputs)
+    return WorkflowExecution(config, result, summary, outputs, _facts(dataset, search["partition_plan"]))
 
 
 def _run_tune(config: WorkflowConfig) -> WorkflowExecution:
     payload = config.payload
     dataset, extras = load_dataset(config, payload["dataset"], extra_columns=_extra_column_names(config))
+    search = _search_kwargs(config, dataset, extras)
     result = tune(
-        **_search_kwargs(config, dataset, extras),
+        **search,
         config=build_tuning_config(payload["tuning"]),
         search_space=build_search_space(payload.get("search_space")),
         metrics=tuple(payload["metrics"]),
@@ -158,7 +169,7 @@ def _run_tune(config: WorkflowConfig) -> WorkflowExecution:
     if "artifact" in payload:
         outputs["artifact"] = _save_model(config, result, dataset)
     outputs |= _write_output(config, summary, {"optimization_history": result.history_frame()})
-    return WorkflowExecution(config, result, summary, outputs)
+    return WorkflowExecution(config, result, summary, outputs, _facts(dataset, search["partition_plan"]))
 
 
 def _run_benchmark(config: WorkflowConfig) -> WorkflowExecution:
@@ -211,7 +222,8 @@ def _run_benchmark(config: WorkflowConfig) -> WorkflowExecution:
             overwrite=_overwrite(config),
         )
         outputs["benchmark"] = str(path)
-    return WorkflowExecution(config, result, summary, outputs)
+    facts = {"dataset_fingerprints": {label: bundle.fingerprint for label, bundle in datasets.items()}}
+    return WorkflowExecution(config, result, summary, outputs, facts)
 
 
 def _run_predict(config: WorkflowConfig) -> WorkflowExecution:
@@ -227,6 +239,56 @@ def _run_predict(config: WorkflowConfig) -> WorkflowExecution:
     summary = _summary(config, result, model=str(model_path))
     outputs = _write_output(config, summary, {"predictions": result.to_frame()})
     return WorkflowExecution(config, result, summary, outputs)
+
+
+def _facts(dataset: DatasetBundle, plan: object = None) -> dict[str, Any]:
+    """Fingerprints saber already computes, recorded as provenance extensions."""
+    facts: dict[str, Any] = {"dataset_fingerprint": dataset.fingerprint}
+    if (partition := getattr(plan, "fingerprint", None)) is not None:
+        facts["partition_fingerprint"] = partition
+    return facts
+
+
+def _parameters(config: WorkflowConfig) -> dict[str, Any]:
+    """Return the normalized config without path fields (inputs and outputs are recorded separately)."""
+    parameters = copy.deepcopy(config.to_dict())
+    for key in ("output", "artifact", "model"):
+        parameters.pop(key, None)
+    for key in ("dataset", "partition_plan"):
+        parameters.get(key, {}).pop("path", None)
+    for key in ("datasets", "partitions"):
+        for item in parameters.get(key, {}).values():
+            item.pop("path", None)
+    return parameters
+
+
+def _input_paths(config: WorkflowConfig) -> list[Path]:
+    payload = config.payload
+    specs = [payload[key] for key in ("dataset", "partition_plan") if key in payload]
+    for key in ("datasets", "partitions"):
+        specs += list(payload.get(key, {}).values())
+    paths = [config.resolve_path(spec["path"]) for spec in specs]
+    return paths + ([config.resolve_path(payload["model"])] if "model" in payload else [])
+
+
+def _write_provenance(execution: WorkflowExecution, started: str) -> None:
+    """Write ``<output>.provenance.json`` and ``<artifact>.provenance.json`` beside what was written."""
+    config = execution.config
+    algorithm = config.payload.get("algorithm") or config.payload.get("algorithms")
+    extensions = {"workflow": config.workflow, "algorithm": algorithm, **execution.facts}
+    targets = [config.payload[key] for key in ("output", "artifact") if key in config.payload]
+    for target in targets:
+        write_provenance(
+            config.resolve_path(target),
+            tool="saber",
+            version=__version__,
+            command=config.workflow,
+            created_at=started,
+            parameters=_parameters(config),
+            inputs=_input_paths(config),
+            packages=_TRACKED_PACKAGES,
+            extensions=extensions,
+        )
 
 
 def _summary(config: WorkflowConfig, result: Any, **extra: Any) -> dict[str, Any]:

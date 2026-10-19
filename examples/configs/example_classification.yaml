@@ -4,7 +4,6 @@ workflow: validate
 dataset:
   path: data/classification.csv
   target_col: label
-  sample_id_col: sample_id
 
 algorithm: logistic_regression
 

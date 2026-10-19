@@ -94,7 +94,7 @@ def test_yaml_validation_workflow_matches_direct_python_api(tmp_path):
     assert metrics.filter(pl.col("level") == "fold").height == 2 * direct.n_splits
     predictions = read_table(tmp_path / "results" / "predictions.csv", separator=",")
     assert predictions.columns == [
-        "sample_id",
+        "id",
         "y_true",
         "y_pred",
         "probability__0",
@@ -119,7 +119,7 @@ def test_config_normalization_round_trip(tmp_path):
 
 
 def test_config_rejects_unknown_top_level_keys():
-    with pytest.raises(ConfigurationError, match="Unknown keys"):
+    with pytest.raises(ConfigurationError) as caught:
         load_config(
             {
                 "workflow": "train",
@@ -128,6 +128,7 @@ def test_config_rejects_unknown_top_level_keys():
                 "mystery": 1,
             }
         )
+    assert [path for path, _ in caught.value.issues] == ["mystery"]
 
 
 def test_validation_config_requires_partition_or_biosieve():
@@ -208,6 +209,7 @@ def test_predict_output_directory_writes_predictions(tmp_path):
     X, y = make_regression(n_samples=40, n_features=4, random_state=19)  # pyrefly: ignore[bad-unpacking]
     frame = pd.DataFrame(X, columns=["a", "b", "c", "d"])
     frame["target"] = y
+    frame.insert(0, "id", [f"r{i}" for i in range(40)])
     frame.to_csv(tmp_path / "r.csv", index=False)
     dataset = {"path": str(tmp_path / "r.csv"), "target_col": "target"}
     run_config(
@@ -275,7 +277,7 @@ def test_benchmark_yaml_runs_same_public_engine(tmp_path):
 
 
 def test_config_validate_rejects_unknown_nested_keys():
-    with pytest.raises(ConfigurationError, match="Unknown dataset keys"):
+    with pytest.raises(ConfigurationError) as caught:
         load_config(
             {
                 "workflow": "train",
@@ -283,6 +285,7 @@ def test_config_validate_rejects_unknown_nested_keys():
                 "algorithm": "ridge_regressor",
             }
         )
+    assert [path for path, _ in caught.value.issues] == ["dataset.magic"]
 
 
 def test_csv_and_tsv_dataset_loading_give_same_fingerprint(tmp_path):
@@ -548,7 +551,7 @@ def test_partitioning_reference_generates_partitions_from_the_named_dataset(tmp_
     assert captured["datasets"]["rep_b"].feature_names == ("f0", "f1", "f2", "f3")
     assert captured["partitions"].extra_columns == {"sequence": reference["sequence"].to_list()}
 
-    with pytest.raises(ConfigurationError, match="partitioning_reference 'rep_c' is not a 'datasets' label"):
+    with pytest.raises(ConfigurationError) as caught:
         load_config(
             {
                 "workflow": "benchmark",
@@ -559,6 +562,7 @@ def test_partitioning_reference_generates_partitions_from_the_named_dataset(tmp_
                 "metrics": ["accuracy"],
             }
         )
+    assert [path for path, _ in caught.value.issues] == ["partitioning_reference"]
 
 
 class _FakeBenchmark:
@@ -713,7 +717,9 @@ def test_benchmark_tuning_block_takes_tuning_config_fields_only():
         "partitions": {"cv": {"path": "folds.json"}},
         "metrics": ["rmse"],
     }
-    with pytest.raises(ConfigurationError, match=r"Unknown benchmark.tuning keys: \['metrics'\]"):
+    with pytest.raises(ConfigurationError) as caught:
         load_config({**base, "benchmark": {"modes": ["tuned"], "tuning": {"metrics": ["rmse"]}}})
-    with pytest.raises(ConfigurationError, match=r"Unknown benchmark keys: \['metadata'\]"):
+    assert [path for path, _ in caught.value.issues] == ["benchmark.tuning.metrics"]
+    with pytest.raises(ConfigurationError) as caught:
         load_config({**base, "benchmark": {"metadata": {}}})
+    assert [path for path, _ in caught.value.issues] == ["benchmark.metadata"]

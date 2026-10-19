@@ -29,7 +29,7 @@ name (`saber.train`, `saber.validate`, `saber.tune`, `saber.evaluate`, `saber.pr
 dataset:
   path: data/features.csv    # .csv, .tsv, .txt (tab-separated) or .parquet
   target_col: label          # required except for predict
-  sample_id_col: sample_id
+  sample_id_col: id          # default "id"; the column must exist (no row-index fallback)
   group_col: patient         # DatasetBundle.groups
   sample_weight_col: weight  # DatasetBundle.sample_weight
   feature_cols: [f0, f1, f2] # default: every other column
@@ -48,7 +48,7 @@ sample-weight and partitioning columns (`seq_col`, `cluster_col`, `date_col`,
 ```yaml
 partition_plan:
   path: partitions.csv       # .json (PartitionPlan.to_dict()), .csv or .tsv
-  sample_id_col: sample_id   # the keyword arguments of load_partition_plan
+  sample_id_col: id          # default "id"; the keyword arguments of load_partition_plan
   role_col: role             # membership layout: train / validation / test
   split_col: split
   # fold_col: fold           # or the predefined-fold layout
@@ -90,7 +90,7 @@ candidate's cross-validated scores for `tune`, and the scores on the evaluated d
 ```yaml
 schema_version: "1.0"
 workflow: train
-dataset: {path: data/train.csv, target_col: label, sample_id_col: sample_id}
+dataset: {path: data/train.csv, target_col: label}
 algorithm: random_forest_classifier
 model_params: {n_estimators: 300}
 preprocessing: {imputation: median, scaler: none}
@@ -108,7 +108,7 @@ metadata: {study: demo}
 ```yaml
 schema_version: "1.0"
 workflow: validate
-dataset: {path: data/train.csv, target_col: label, sample_id_col: sample_id}
+dataset: {path: data/train.csv, target_col: label}
 algorithm: logistic_regression
 model_params: {C: 0.5}
 preprocessing: {imputation: auto, scaler: auto}
@@ -128,7 +128,7 @@ output: results/validate
 ```yaml
 schema_version: "1.0"
 workflow: tune
-dataset: {path: data/train.csv, target_col: label, sample_id_col: sample_id}
+dataset: {path: data/train.csv, target_col: label}
 algorithm: logistic_regression
 partition_plan: {path: folds.json}
 tuning:
@@ -156,7 +156,7 @@ Search-space domains are lists or typed mappings: `categorical` (`values`), `int
 schema_version: "1.0"
 workflow: evaluate
 model: artifacts/model
-dataset: {path: data/test.csv, target_col: label, sample_id_col: sample_id}
+dataset: {path: data/test.csv, target_col: label}
 metrics: [mcc, roc_auc]
 positive_class: 1
 strict_environment: false    # passed to saber.load_model
@@ -169,7 +169,7 @@ output: results/evaluate
 schema_version: "1.0"
 workflow: predict
 model: artifacts/model
-dataset: {path: data/new.parquet, sample_id_col: sample_id}
+dataset: {path: data/new.parquet}
 positive_class: 1
 strict_environment: false
 output: results/predict
@@ -181,8 +181,8 @@ output: results/predict
 schema_version: "1.0"
 workflow: benchmark
 datasets:                    # label -> dataset; one representation is a one-entry map
-  descriptors: {path: data/descriptors.csv, target_col: label, sample_id_col: sample_id}
-  embeddings: {path: data/embeddings.parquet, target_col: label, sample_id_col: sample_id}
+  descriptors: {path: data/descriptors.csv, target_col: label}
+  embeddings: {path: data/embeddings.parquet, target_col: label}
 algorithms: [logistic_regression, random_forest_classifier]
 model_params:                # algorithm -> parameters, as in saber.benchmark
   random_forest_classifier: {n_estimators: 300}
@@ -213,8 +213,19 @@ partitions are generated from the first dataset.
 
 ```bash
 saber run experiment.yaml --dry-run
+saber validate-config experiment.yaml --json
 ```
 
 `--dry-run` validates the config and shows the plan without running anything.
+`saber validate-config` runs the same checks and reads no data.
+It collects the problems it can find instead of stopping at the first one and exits `0` if the config is valid, `2` if not.
+Each problem is a `path: message` line on stderr, or with `--json` a JSON array of `{path, message}` objects on stdout (empty when valid).
+It is not called `validate` because that is the name of a workflow.
+
+## Provenance sidecars
+
+`saber run` writes `<output>.provenance.json` next to the `output` directory, and `<artifact>.provenance.json` next to the `artifact` directory when one is written.
+They follow the shared ecosystem CLI contract (`provenance/1`): the normalized config without path fields as `parameters`, the dataset, partition plan and model files as `inputs`, and the workflow, algorithm and dataset/partition fingerprints as `extensions`.
+The artifact's own `training_provenance.json` is unchanged.
 
 Runnable files live in [`examples/configs/`](../examples/configs/).

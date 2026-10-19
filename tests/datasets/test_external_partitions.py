@@ -13,7 +13,7 @@ from saber.exceptions import PartitionValidationError
 def test_membership_frame_supports_external_biosieve_style_contract():
     frame = pd.DataFrame(
         {
-            "sample_id": ["a", "b", "c", "d", "a", "b", "c", "d"],
+            "id": ["a", "b", "c", "d", "a", "b", "c", "d"],
             "split": ["fold0"] * 4 + ["fold1"] * 4,
             "role": [
                 "validation",
@@ -59,7 +59,7 @@ def test_membership_frame_accepts_role_aliases_and_custom_columns():
 def test_fold_assignment_frame_is_supported_without_biosieve_dependency():
     frame = pd.DataFrame(
         {
-            "sample_id": ["a", "b", "c", "d"],
+            "id": ["a", "b", "c", "d"],
             "fold_id": [0, 0, 1, 1],
         }
     )
@@ -69,7 +69,7 @@ def test_fold_assignment_frame_is_supported_without_biosieve_dependency():
 
 
 def test_external_frame_rejects_unknown_roles():
-    frame = pd.DataFrame({"sample_id": ["a"], "role": ["mystery"]})
+    frame = pd.DataFrame({"id": ["a"], "role": ["mystery"]})
     with pytest.raises(PartitionValidationError, match="Unknown partition role"):
         partition_plan_from_frame(frame)
 
@@ -77,7 +77,7 @@ def test_external_frame_rejects_unknown_roles():
 def test_external_frame_rejects_conflicting_dataset_fingerprints():
     frame = pd.DataFrame(
         {
-            "sample_id": ["a", "b"],
+            "id": ["a", "b"],
             "role": ["train", "test"],
             "dataset_fingerprint": ["one", "two"],
         }
@@ -89,7 +89,7 @@ def test_external_frame_rejects_conflicting_dataset_fingerprints():
 def test_json_partition_plan_roundtrip(tmp_path):
     frame = pd.DataFrame(
         {
-            "sample_id": ["a", "b", "c"],
+            "id": ["a", "b", "c"],
             "role": ["train", "validation", "test"],
         }
     )
@@ -110,7 +110,7 @@ def test_membership_table_polars_and_pandas_give_same_plan(monkeypatch):
     monkeypatch.setattr(pl, "from_pandas", _raise)
 
     rows = {
-        "sample_id": ["a", "b", "c", "d"],
+        "id": ["a", "b", "c", "d"],
         "role": ["train", "train", "val", "test"],
         "split": ["s0", "s0", "s0", "s0"],
     }
@@ -122,8 +122,8 @@ def test_membership_table_polars_and_pandas_give_same_plan(monkeypatch):
 
 def test_csv_partition_plan_matches_frame(tmp_path):
     path = tmp_path / "plan.csv"
-    path.write_text("sample_id,fold\n1,0\n2,1\n3,0\n4,1\n", encoding="utf-8")
+    path.write_text("id,fold\n1,0\n2,1\n3,0\n4,1\n", encoding="utf-8")
     from_csv = load_partition_plan(path, fold_col="fold")
-    frame = pl.DataFrame({"sample_id": [1, 2, 3, 4], "fold": [0, 1, 0, 1]})
+    frame = pl.DataFrame({"id": [1, 2, 3, 4], "fold": [0, 1, 0, 1]})
     from_frame = load_partition_plan(frame, fold_col="fold")
     assert from_csv.fingerprint == from_frame.fingerprint

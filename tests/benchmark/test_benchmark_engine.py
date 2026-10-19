@@ -105,7 +105,7 @@ EXPECTED_PREDICTIONS_COLUMNS = [
     "parameters",
     "split",
     "evaluation_role",
-    "sample_id",
+    "id",
     "y_true",
     "y_pred",
     "probability__0",
@@ -164,7 +164,7 @@ def test_result_frames_are_polars_and_keep_their_columns() -> None:
     assert list(result.predictions_frame().columns) == EXPECTED_PREDICTIONS_COLUMNS
     assert list(result.runs_frame().columns) == EXPECTED_RUNS_COLUMNS
     assert list(result.optimization_history_frame().columns) == EXPECTED_OPTIMIZATION_HISTORY_COLUMNS
-    assert result.predictions_frame()["sample_id"].to_list() == EXPECTED_SAMPLE_ORDER
+    assert result.predictions_frame()["id"].to_list() == EXPECTED_SAMPLE_ORDER
 
 
 def test_benchmark_runs_algorithm_matrix_with_baseline_and_repeated_seeds() -> None:
@@ -332,10 +332,10 @@ def test_predictions_frame_retains_truth_predictions_and_probabilities() -> None
     )
     frame = result.predictions_frame()
     assert len(frame) == dataset.n_samples
-    assert {"sample_id", "y_true", "y_pred", "split", "run_id"} <= set(frame.columns)
+    assert {"id", "y_true", "y_pred", "split", "run_id"} <= set(frame.columns)
     assert any(column.startswith("probability__") for column in frame.columns)
     assert dataset.sample_ids is not None
-    assert set(frame["sample_id"]) == set(dataset.sample_ids)
+    assert set(frame["id"]) == set(dataset.sample_ids)
 
 
 def test_tuned_cv_is_rejected_without_destroying_untuned_result() -> None:

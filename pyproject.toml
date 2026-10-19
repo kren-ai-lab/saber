@@ -85,6 +85,7 @@ dev = [
     "prek",
     "pandas>=2.2.2",
     "pyarrow>=25.0.1",
+    "jsonschema>=4.26.0",
 ]
 examples = [
     "marimo>=0.24",

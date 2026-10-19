@@ -36,7 +36,7 @@ refit on train+validation first, so rows stay comparable.
 
 ```python
 result.runs_frame()
-result.metrics_frame()               # aggregate_metrics_frame() + fold_metrics_frame()
+result.metrics_frame()  # aggregate_metrics_frame() + fold_metrics_frame()
 result.predictions_frame()
 result.optimization_history_frame()
 ```
@@ -49,7 +49,7 @@ per-run results:
   `split`, `evaluation_role`, `metric`, `score`, `std`, `min`, `max`, `n`,
   `fit_seconds`) plus the run's `elapsed_seconds`.
 - `predictions_frame()`: `split`, `evaluation_role`, then
-  `PredictionResult.to_frame()` columns (`sample_id`, `y_true`, `y_pred`,
+  `PredictionResult.to_frame()` columns (`id`, `y_true`, `y_pred`,
   `probability__{class}`, `decision_score` or `decision_score__{class}`).
 - `optimization_history_frame()`: `OptimizationResult.history_frame()` columns,
   scores in their natural direction.

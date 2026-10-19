@@ -84,7 +84,7 @@ def test_yaml_train_artifact_predict_roundtrip(tmp_path):
     assert main(["run", str(predict_config)]) == EXIT_OK
     predictions = pd.read_csv(tmp_path / "out" / "predictions.csv")
     assert len(predictions) == 40
-    assert predictions["sample_id"].tolist() == ids
+    assert predictions["id"].tolist() == ids
 
 
 def test_regression_yaml_evaluate_artifact_roundtrip(tmp_path):

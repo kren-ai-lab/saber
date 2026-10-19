@@ -122,6 +122,7 @@ See the [tuning](docs/tuning.md), [benchmarking](docs/benchmarking.md) and
 
 ```bash
 saber models list --task classification
+saber validate-config experiment.yaml
 saber run experiment.yaml --dry-run
 saber run study.yaml --json
 saber artifact verify artifacts/model

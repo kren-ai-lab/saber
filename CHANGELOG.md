@@ -8,6 +8,18 @@ All notable changes to Saber are recorded here. Versions follow
 ### Breaking changes
 
 - Model artifacts store their training provenance in `training_provenance.json` (was `provenance.json`). The `.provenance.json` suffix and the bare `provenance.json` name are reserved for the run-level provenance sidecar shared by the sibling CLIs. Artifacts saved by earlier versions still load and verify, because the loader reads file names from `manifest.json`.
+- `dataset.sample_id_col` defaults to `id`, and the column must exist in the dataset: a missing id column is an error (exit 3), with no row-index fallback. The default id column of partition plans is `id` too (was `sample_id`), and prediction tables start with an `id` column (was `sample_id`).
+
+### Added
+
+- `saber validate-config CONFIG [--json]` validates a config without reading data and reports every problem it can collect with its dotted path (`ConfigurationError.issues` carries the same list). It follows the shared ecosystem CLI contract: exit `0` or `2`, and `--json` prints a JSON array of `{path, message}`.
+- `saber run` writes `<output>.provenance.json` next to the `output` directory and `<artifact>.provenance.json` next to the `artifact` directory (`provenance/1` of the shared ecosystem CLI contract).
+- Dev dependency `jsonschema` and `tests/contract/`, which validate the CLI outputs against the contract schemas.
+
+### Changed
+
+- Unknown algorithm names are config errors (exit 2) reported by config validation, including `validate-config` and `run --dry-run`; they used to fail only when the run started.
+- A `TypeError` raised while running a workflow is now reported as an internal error (exit 4) instead of a workflow failure (exit 3).
 
 ## 0.1.1
 
