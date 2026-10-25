@@ -48,7 +48,7 @@ calibration or error analysis without refitting.
 ## Result tables
 
 `PredictionResult.to_frame(y_true=None)` returns one row per sample:
-`sample_id`, `y_true` (when given), `y_pred`, `probability__{class}` per class
+`id`, `y_true` (when given), `y_pred`, `probability__{class}` per class
 (when the model has probabilities), and `decision_score` (binary, oriented
 toward the positive class) or `decision_score__{class}` (multiclass).
 

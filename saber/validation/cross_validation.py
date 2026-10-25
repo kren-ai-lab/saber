@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from saber.datasets.biosieve import BioSievePartitionConfig
 
 
-def validate(
+def cross_validate(
     *,
     dataset: DatasetBundle,
     algorithm: str,

@@ -23,7 +23,7 @@ def _(mo):
 def _(mo):
     mo.md(r"""
     ## Goal
-    A three-class problem with imbalanced classes goes through `validate`. The notebook reports a wide metric panel, OOF probabilities, a per-class report and fold stability. The plain names `f1`, `precision` and `recall` are weighted averages, and the panel also includes explicit macro and micro variants.
+    A three-class problem with imbalanced classes goes through `cross_validate`. The notebook reports a wide metric panel, OOF probabilities, a per-class report and fold stability. The plain names `f1`, `precision` and `recall` are weighted averages, and the panel also includes explicit macro and micro variants.
     """)
     return
 
@@ -40,7 +40,7 @@ def _():
 
     from sklearn.datasets import make_classification
     from sklearn.metrics import ConfusionMatrixDisplay, classification_report
-    from saber import validate, DatasetBundle, PartitionPlan
+    from saber import cross_validate, DatasetBundle, PartitionPlan
 
     return (
         ConfusionMatrixDisplay,
@@ -52,7 +52,7 @@ def _():
         np,
         pl,
         plt,
-        validate,
+        cross_validate,
     )
 
 
@@ -82,7 +82,7 @@ def _(DEMO_TEST, DatasetBundle, PartitionPlan, make_classification, np):
 
 
 @app.cell
-def _(DEMO_TEST, classification_report, dataset, pl, plan, validate, y):
+def _(DEMO_TEST, classification_report, dataset, pl, plan, cross_validate, y):
     metrics = (
         "accuracy",
         "balanced_accuracy",
@@ -96,7 +96,7 @@ def _(DEMO_TEST, classification_report, dataset, pl, plan, validate, y):
         "mcc",
         "log_loss",
     )
-    result = validate(
+    result = cross_validate(
         dataset=dataset,
         algorithm="random_forest_classifier",
         partition_plan=plan,

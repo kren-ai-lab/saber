@@ -4,7 +4,7 @@
 [![PyVersions](https://img.shields.io/pypi/pyversions/saberlib?style=flat-square)](https://github.com/kren-ai-lab/saber)
 [![Tests](https://img.shields.io/github/actions/workflow/status/kren-ai-lab/saber/tests.yml?style=flat-square)](https://github.com/kren-ai-lab/saber/actions/workflows/tests.yml)
 ![License](https://img.shields.io/github/license/kren-ai-lab/saber?style=flat-square)
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.23165090-blue?style=flat-square)](https://doi.org/10.5281/zenodo.23165090)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.23165089-blue?style=flat-square)](https://doi.org/10.5281/zenodo.23165089)
 
 Saber is a Python library for classical supervised machine learning
 (classification and regression) on numerical tabular features. You give it a
@@ -56,7 +56,7 @@ plan = PartitionPlan.from_predefined_folds(
     dataset=dataset,
 )
 
-result = saber.validate(
+result = saber.cross_validate(
     dataset=dataset,
     algorithm="logistic_regression",
     partition_plan=plan,
@@ -75,7 +75,7 @@ the partitions:
 ```python
 from saber import BioSievePartitionConfig
 
-result = saber.validate(
+result = saber.cross_validate(
     dataset=dataset,
     algorithm="random_forest_classifier",
     partition_plan=BioSievePartitionConfig(
@@ -122,9 +122,19 @@ See the [tuning](docs/tuning.md), [benchmarking](docs/benchmarking.md) and
 
 ```bash
 saber models list --task classification
+saber validate-config experiment.yaml
 saber run experiment.yaml --dry-run
 saber run study.yaml --json
 saber artifact verify artifacts/model
+```
+
+Validate a config from Python, without reading any data:
+
+```python
+from saber import validate_config
+
+for issue in validate_config("experiment.yaml"):  # or a mapping
+    print(f"{issue.path}: {issue.message}")
 ```
 
 Every workflow can be written as a YAML or JSON file and run from the CLI or

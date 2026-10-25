@@ -19,7 +19,7 @@ from saber.datasets import (
     PartitionPlan,
     load_partition_plan,
 )
-from saber.exceptions import ConfigurationError
+from saber.exceptions import ConfigurationError, DatasetError, DatasetValidationError
 from saber.preprocessing import PreprocessingConfig
 from saber.tuning import TuningConfig
 from saber.utils.tabular import as_frame, read_table
@@ -39,12 +39,12 @@ def read_dataset(
 ) -> tuple[pl.DataFrame, list[str]]:
     """Read one dataset file and return it with its resolved feature columns.
 
-    Target, sample-id, group, sample-weight and (when present) ``extra_columns``
+    Target, sample-id (default ``id``), group, sample-weight and (when present) ``extra_columns``
     columns are never features unless ``feature_cols`` names them explicitly.
     """
     path = config.resolve_path(payload["path"])
     if not path.exists():
-        raise ConfigurationError(f"Dataset file does not exist: {path}.")
+        raise DatasetError(f"Dataset file does not exist: {path}.")
     suffix = path.suffix.lower()
     if suffix not in _DATASET_FORMATS:
         raise ConfigurationError("Dataset files must be CSV, TSV, TXT (tab-separated) or Parquet.")
@@ -54,8 +54,9 @@ def read_dataset(
     else:
         frame = read_table(path, separator=payload.get("sep", default_separator))
 
-    roles = ("target_col", "sample_id_col", "group_col", "sample_weight_col")
-    role_cols = {payload[key] for key in roles if payload.get(key) is not None}
+    id_col = payload.get("sample_id_col", "id")
+    roles = ("target_col", "group_col", "sample_weight_col")
+    role_cols = {id_col} | {payload[key] for key in roles if payload.get(key) is not None}
     features = payload.get("feature_cols")
     feature_cols = (
         [column for column in frame.columns if column not in role_cols | set(extra_columns)]
@@ -64,6 +65,11 @@ def read_dataset(
     )
     if not feature_cols:
         raise ConfigurationError("Dataset configuration resolves to zero feature columns.")
+    if id_col not in frame.columns:
+        raise DatasetValidationError(
+            f"dataset.sample_id_col: column '{id_col}' not found in {path.name}; "
+            "set 'sample_id_col' to the id column."
+        )
     missing = (set(feature_cols) | role_cols) - set(frame.columns)
     if missing:
         raise ConfigurationError(f"Dataset {path.name} is missing configured columns: {sorted(missing)!r}.")
@@ -78,13 +84,13 @@ def load_dataset(
 ) -> tuple[DatasetBundle, dict[str, list[Any]]]:
     """Load a labeled dataset plus the ``extra_columns`` it contains as aligned lists."""
     frame, feature_cols = read_dataset(config, payload, extra_columns=extra_columns)
-    id_col = payload.get("sample_id_col")
+    id_col = payload.get("sample_id_col", "id")
     group_col = payload.get("group_col")
     weight_col = payload.get("sample_weight_col")
     dataset = DatasetBundle(
         X=frame.select(feature_cols),
         y=frame[payload["target_col"]].to_numpy(),
-        sample_ids=None if id_col is None else frame[id_col].to_list(),
+        sample_ids=frame[id_col].cast(pl.String).to_list(),
         feature_names=feature_cols,
         groups=None if group_col is None else frame[group_col].to_list(),
         sample_weight=None if weight_col is None else frame[weight_col].to_numpy(),
@@ -98,9 +104,9 @@ def load_prediction_frame(
 ) -> tuple[pl.DataFrame, tuple[Any, ...] | None]:
     """Load features/sample IDs for prediction without requiring a target."""
     frame, feature_cols = read_dataset(config, payload)
-    id_col = payload.get("sample_id_col")
-    sample_ids = None if id_col is None else tuple(frame[id_col].to_list())
-    return frame.select(feature_cols), sample_ids
+    return frame.select(feature_cols), tuple(
+        frame[payload.get("sample_id_col", "id")].cast(pl.String).to_list()
+    )
 
 
 def build_preprocessing(payload: Mapping[str, Any] | None) -> PreprocessingConfig:

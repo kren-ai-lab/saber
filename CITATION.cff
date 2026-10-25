@@ -3,10 +3,10 @@ message: "If you use Saber in your research, please cite it as below."
 title: "Saber: Reproducible Classical Supervised Machine Learning for Prepared Numerical Representations"
 abstract: "Reproducible classical supervised machine learning (classification and regression) for prepared numerical tabular representations."
 type: software
-version: 0.1.1
 license: MIT
+doi: 10.5281/zenodo.23165089
 authors:
-  - family-names: Álvarez Saravia
+  - family-names: Alvarez Saravia
     given-names: Diego
     affiliation: "Universidad de Magallanes"
     orcid: "https://orcid.org/0000-0003-0753-274X"
@@ -26,3 +26,7 @@ keywords:
   - hyperparameter-optimization
   - reproducibility
   - scientific-software
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.23165089
+    description: "Concept DOI (all versions)"

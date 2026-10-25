@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, fields
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 from saber.benchmark import BenchmarkConfig
+from saber.benchmark.config import BenchmarkMode
+from saber.core.registry import ALGORITHMS
 from saber.exceptions import ConfigurationError
 from saber.preprocessing import PreprocessingConfig
 from saber.tuning import TuningConfig
+from saber.tuning.engine import OptimizerName
+from saber.validation.partitioning import EvaluationRole
 
 CONFIG_SCHEMA_VERSION = "1.0"
 
@@ -21,7 +25,7 @@ _ALLOWED_KEYS = {
     "train": _COMMON_KEYS | _FIT_KEYS | {"partition_plan", "artifact"},
     "evaluate": _COMMON_KEYS | {"dataset", "model", "metrics", "positive_class", "strict_environment"},
     "predict": _COMMON_KEYS | {"dataset", "model", "positive_class", "strict_environment"},
-    "validate": _COMMON_KEYS | _CV_KEYS,
+    "cross-validate": _COMMON_KEYS | _CV_KEYS,
     "tune": _COMMON_KEYS | _CV_KEYS | {"tuning", "search_space", "artifact"},
     "benchmark": _COMMON_KEYS
     | {
@@ -44,13 +48,13 @@ _REQUIRED_KEYS = {
     "train": {"dataset", "algorithm"},
     "evaluate": {"dataset", "model"},
     "predict": {"dataset", "model"},
-    "validate": {"dataset", "algorithm"},
+    "cross-validate": {"dataset", "algorithm"},
     "tune": {"dataset", "algorithm", "tuning", "metrics"},
     "benchmark": {"datasets", "algorithms", "metrics"},
 }
-# ``partition_plan`` (validate/tune) and ``partitions`` (benchmark) are
+# ``partition_plan`` (cross-validate/tune) and ``partitions`` (benchmark) are
 # mutually exclusive with BioSieve ``partitioning``; exactly one is required.
-_PARTITION_SOURCE = {"validate": "partition_plan", "tune": "partition_plan", "benchmark": "partitions"}
+_PARTITION_SOURCE = {"cross-validate": "partition_plan", "tune": "partition_plan", "benchmark": "partitions"}
 
 
 def _field_names(config_cls: type) -> set[str]:
@@ -108,21 +112,19 @@ class WorkflowConfig:
         return result
 
     def _validate(self) -> None:
-        keys = set(self.payload) | {"workflow", "schema_version"}
-        unknown = keys - _ALLOWED_KEYS[self.workflow]
-        if unknown:
-            raise ConfigurationError(f"Unknown keys for workflow '{self.workflow}': {sorted(unknown)!r}.")
-        missing = _REQUIRED_KEYS[self.workflow] - set(self.payload)
-        if missing:
-            raise ConfigurationError(
-                f"Workflow '{self.workflow}' is missing required keys: {sorted(missing)!r}."
-            )
+        unknown = sorted((set(self.payload) | {"workflow", "schema_version"}) - _ALLOWED_KEYS[self.workflow])
+        missing = sorted(_REQUIRED_KEYS[self.workflow] - set(self.payload))
+        issues = [(key, f"Unknown key for workflow '{self.workflow}'.") for key in unknown]
+        issues += [(key, f"Required by workflow '{self.workflow}'.") for key in missing]
         source = _PARTITION_SOURCE.get(self.workflow)
         if source is not None and (source in self.payload) == ("partitioning" in self.payload):
-            raise ConfigurationError(
-                f"Workflow '{self.workflow}' requires exactly one of '{source}' or 'partitioning'."
+            issues.append(
+                ("", f"Workflow '{self.workflow}' requires exactly one of '{source}' or 'partitioning'.")
             )
-        _validate_nested(self.workflow, self.payload)
+        issues += _nested_issues(self.workflow, self.payload)
+        if issues:
+            message = "\n".join(f"{path or '<config>'}: {text}" for path, text in issues)
+            raise ConfigurationError(message, issues=issues)
 
 
 def workflow_config_from_mapping(
@@ -171,114 +173,315 @@ TUNING_KEYS = _field_names(TuningConfig)
 # The top-level ``metadata`` is the benchmark's metadata.
 BENCHMARK_KEYS = _field_names(BenchmarkConfig) - {"metadata"}
 _PATH_KEYS = ("output", "artifact", "model")
+_TYPE_CHECKS: dict[str, tuple[Callable[[Any], bool], str]] = {
+    "int": (lambda v: isinstance(v, int) and not isinstance(v, bool), "an integer"),
+    "number": (lambda v: isinstance(v, (int, float)) and not isinstance(v, bool), "a number"),
+    "bool": (lambda v: isinstance(v, bool), "true or false"),
+    "str": (lambda v: isinstance(v, str), "a string"),
+    "none": (lambda v: v is None, "null"),
+}
+# Value types per key, as ``|``-joined alternatives of _TYPE_CHECKS.
+_TOP_TYPES = {"random_state": "int|none"}
+_DATASET_TYPES = {
+    "target_col": "str",
+    "sample_id_col": "str",
+    "group_col": "str|none",
+    "sample_weight_col": "str|none",
+}
+_PARTITION_FILE_TYPES = {
+    "sample_id_col": "str",
+    "role_col": "str|none",
+    "split_col": "str|none",
+    "fold_col": "str|none",
+}
+_PARTITIONING_TYPES = {"strategy": "str", **dict.fromkeys(PARTITIONING_ROLE_COLUMNS, "str")}
+# Splitter parameters whose type is the same in every BioSieve strategy that has them; the rest
+# (and the strategy-specific ones) are checked by BioSieve when the partitions are generated.
+_PARTITIONING_PARAM_TYPES = {
+    **dict.fromkeys(("n_splits", "seed", "n_bins", "min_bin_count", "cov_mode", "threads"), "int"),
+    **dict.fromkeys(("test_size", "val_size", "min_seq_id", "coverage"), "number"),
+    **dict.fromkeys(
+        (
+            "shuffle",
+            "shuffle_ties",
+            "dropna",
+            "standardize",
+            "standardize_descriptors",
+            "auto_reduce_bins",
+            "report_bin_edges",
+            "cast_to_str",
+            "ascending",
+            "parse_datetime",
+            "keep_work",
+        ),
+        "bool",
+    ),
+}
+_PREPROCESSING_TYPES = {"imputation": "str|none", "scaler": "str|none", "fill_value": "number|str|none"}
+_TUNING_TYPES = {
+    "optimizer": "str",
+    "refit_metric": "str|none",
+    "refit": "bool",
+    "n_jobs": "int",
+    "n_iter": "int",
+    "n_trials": "int",
+    "timeout": "number|none",
+    "factor": "int",
+    "resource": "str",
+    "max_resources": "int|str",
+    "min_resources": "int|str",
+    "aggressive_elimination": "bool",
+    "error_score": "number",
+    "optuna_storage": "str|none",
+    "optuna_study_name": "str|none",
+    "optuna_load_if_exists": "bool",
+}
+_BENCHMARK_TYPES = {"include_baselines": "bool", "fail_fast": "bool"}
 _BOOL_KEYS = ("overwrite", "require_complete", "strict_environment")
 
 
-def _validate_nested(workflow: str, payload: Mapping[str, Any]) -> None:
-    for key in _PATH_KEYS:
-        if key in payload and (not isinstance(payload[key], (str, Path)) or not str(payload[key])):
-            raise ConfigurationError(f"'{key}' must be a path string.")
-    for key in _BOOL_KEYS:
-        if key in payload and not isinstance(payload[key], bool):
-            raise ConfigurationError(f"'{key}' must be true or false.")
+def _typed_issues(value: Any, label: str, types: Mapping[str, str]) -> list[tuple[str, str]]:
+    """Report the keys of mapping ``value`` whose type is not among the allowed ones."""
+    if not isinstance(value, Mapping):
+        return []
+    issues = []
+    for key, spec in types.items():
+        if key in value:
+            allowed = [_TYPE_CHECKS[name] for name in spec.split("|")]
+            if not any(test(value[key]) for test, _ in allowed):
+                issues.append(
+                    (
+                        f"{label}.{key}" if label else key,
+                        f"Must be {' or '.join(text for _, text in allowed)}.",
+                    )
+                )
+    return issues
+
+
+def _choice_issues(value: Any, path: str, choices: Sequence[str]) -> list[tuple[str, str]]:
+    ok = isinstance(value, str) and value in choices
+    return [] if ok else [(path, f"Must be one of {list(choices)!r}.")]
+
+
+def _tuning_type_issues(value: Any, label: str) -> list[tuple[str, str]]:
+    issues = _typed_issues(value, label, _TUNING_TYPES)
+    if isinstance(value, Mapping) and isinstance(value.get("optimizer"), str):
+        issues += _choice_issues(value["optimizer"], f"{label}.optimizer", get_args(OptimizerName))
+    return issues
+
+
+def _benchmark_issues(value: Any) -> list[tuple[str, str]]:
+    issues = _typed_issues(value, "benchmark", _BENCHMARK_TYPES)
+    if not isinstance(value, Mapping):
+        return issues
+    seeds, modes = value.get("seeds"), value.get("modes")
+    if "seeds" in value and not (
+        isinstance(seeds, (list, tuple))
+        and all(item is None or _TYPE_CHECKS["int"][0](item) for item in seeds)
+    ):
+        issues.append(("benchmark.seeds", "Must be a list of integers or null."))
+    if "modes" in value and not (
+        isinstance(modes, (list, tuple)) and all(item in get_args(BenchmarkMode) for item in modes)
+    ):
+        issues.append(("benchmark.modes", f"Must be a list of {list(get_args(BenchmarkMode))!r}."))
+    return issues + _tuning_type_issues(value.get("tuning"), "benchmark.tuning")
+
+
+def _nested_issues(workflow: str, payload: Mapping[str, Any]) -> list[tuple[str, str]]:
+    """Collect every problem below the top-level keys; each check reports at most its first problem."""
+    issues: list[tuple[str, str]] = []
+
+    def check(path: str, fn: Callable[[], object]) -> None:
+        try:
+            fn()
+        except ConfigurationError as exc:
+            issues.extend(exc.issues if exc.issues[0][0] else [(path, str(exc))])
+
+    issues += [
+        (key, "Must be a path string.")
+        for key in _PATH_KEYS
+        if key in payload and (not isinstance(payload[key], (str, Path)) or not str(payload[key]))
+    ]
+    issues += [
+        (key, "Must be true or false.")
+        for key in _BOOL_KEYS
+        if key in payload and not isinstance(payload[key], bool)
+    ]
 
     if "dataset" in payload:
-        _validate_dataset(payload["dataset"], "dataset", labeled=workflow != "predict")
+        check(
+            "dataset", lambda: _validate_dataset(payload["dataset"], "dataset", labeled=workflow != "predict")
+        )
     if "datasets" in payload:
-        datasets = as_mapping(payload["datasets"], "datasets")
-        if not datasets:
-            raise ConfigurationError("'datasets' cannot be empty.")
-        for label, item in datasets.items():
-            _validate_dataset(item, f"datasets.{label}", labeled=True)
+        check("datasets", lambda: _non_empty_mapping(payload["datasets"], "datasets"))
+        for label, item in (payload["datasets"] if isinstance(payload["datasets"], Mapping) else {}).items():
+            check(
+                f"datasets.{label}",
+                lambda item=item, label=label: _validate_dataset(item, f"datasets.{label}", labeled=True),
+            )
     if "partitioning_reference" in payload:
         if "partitioning" not in payload:
-            raise ConfigurationError("'partitioning_reference' requires 'partitioning'.")
-        if str(payload["partitioning_reference"]) not in {str(label) for label in payload["datasets"]}:
-            raise ConfigurationError(
-                f"partitioning_reference '{payload['partitioning_reference']}' is not a 'datasets' label."
+            issues.append(("partitioning_reference", "Requires 'partitioning'."))
+        elif str(payload["partitioning_reference"]) not in {
+            str(label) for label in payload.get("datasets", ())
+        }:
+            issues.append(
+                (
+                    "partitioning_reference",
+                    f"'{payload['partitioning_reference']}' is not a 'datasets' label.",
+                )
             )
 
     if "partition_plan" in payload:
-        _validate_partition_file(payload["partition_plan"], "partition_plan")
+        check("partition_plan", lambda: _validate_partition_file(payload["partition_plan"], "partition_plan"))
         if workflow == "train" and "artifact" not in payload:
-            raise ConfigurationError("Train 'partition_plan' is artifact provenance; it requires 'artifact'.")
+            issues.append(
+                ("artifact", "Train 'partition_plan' is artifact provenance; it requires 'artifact'.")
+            )
     if "partitions" in payload:
-        partitions = as_mapping(payload["partitions"], "partitions")
-        if not partitions:
-            raise ConfigurationError("'partitions' cannot be empty.")
-        for label, item in partitions.items():
-            _validate_partition_file(item, f"partitions.{label}")
+        check("partitions", lambda: _non_empty_mapping(payload["partitions"], "partitions"))
+        for label, item in (
+            payload["partitions"] if isinstance(payload["partitions"], Mapping) else {}
+        ).items():
+            check(
+                f"partitions.{label}",
+                lambda item=item, label=label: _validate_partition_file(item, f"partitions.{label}"),
+            )
     if "partitioning" in payload:
-        partitioning = validate_mapping_keys(payload["partitioning"], PARTITIONING_KEYS, "partitioning")
-        if "strategy" not in partitioning:
-            raise ConfigurationError("'partitioning.strategy' is required.")
-        as_mapping(partitioning.get("params", {}), "partitioning.params")
-        _names(partitioning.get("extra_columns", []), "partitioning.extra_columns")
+        check("partitioning", lambda: _validate_partitioning(payload["partitioning"]))
 
     if "preprocessing" in payload:
-        validate_mapping_keys(payload["preprocessing"], PREPROCESSING_KEYS, "preprocessing")
+        check(
+            "preprocessing",
+            lambda: validate_mapping_keys(payload["preprocessing"], PREPROCESSING_KEYS, "preprocessing"),
+        )
     if "tuning" in payload:
-        tuning = validate_mapping_keys(payload["tuning"], TUNING_KEYS, "tuning")
-        if "artifact" in payload and tuning.get("refit") is False:
-            raise ConfigurationError("'artifact' needs a refitted model; remove 'tuning.refit: false'.")
+        check("tuning", lambda: _validate_tuning(payload))
     if "benchmark" in payload:
-        benchmark = validate_mapping_keys(payload["benchmark"], BENCHMARK_KEYS, "benchmark")
-        if benchmark.get("tuning") is not None:
-            validate_mapping_keys(benchmark["tuning"], TUNING_KEYS, "benchmark.tuning")
+        check("benchmark", lambda: _validate_benchmark(payload["benchmark"]))
 
     for key in ("metrics", "algorithms"):
-        if key in payload and not _names(payload[key], key):
-            raise ConfigurationError(f"'{key}' must contain at least one entry.")
+        if key in payload:
+            check(key, lambda key=key: _names(payload[key], key))
+            if isinstance(payload[key], (list, tuple)) and not payload[key]:
+                issues.append((key, "Must contain at least one entry."))
+
+    named = [("algorithm", payload.get("algorithm"))]
+    if isinstance(payload.get("algorithms"), (list, tuple)):
+        named += [(f"algorithms[{i}]", name) for i, name in enumerate(payload["algorithms"])]
+    issues.extend(
+        (path, f"Unknown algorithm {name!r}; see 'saber models list'.")
+        for path, name in named
+        if isinstance(name, str) and name not in ALGORITHMS
+    )
 
     if "model_params" in payload:
-        model_params = as_mapping(payload["model_params"], "model_params")
-        if workflow == "benchmark":
-            for algorithm, params in model_params.items():
-                as_mapping(params, f"model_params.{algorithm}")
-    if "search_space" in payload and not as_mapping(payload["search_space"], "search_space"):
-        raise ConfigurationError("'search_space' cannot be empty.")
+        check("model_params", lambda: _validate_model_params(workflow, payload["model_params"]))
+    if "search_space" in payload:
+        check("search_space", lambda: _non_empty_mapping(payload["search_space"], "search_space"))
     if "search_spaces" in payload:
-        search_spaces = as_mapping(payload["search_spaces"], "search_spaces")
-        for label, item in search_spaces.items():
-            if not as_mapping(item, f"search_spaces.{label}"):
-                raise ConfigurationError(f"'search_spaces.{label}' cannot be empty.")
+        check("search_spaces", lambda: _validate_search_spaces(payload["search_spaces"]))
+
+    issues += _typed_issues(payload, "", _TOP_TYPES)
+    if "evaluation_role" in payload:
+        issues += _choice_issues(payload["evaluation_role"], "evaluation_role", get_args(EvaluationRole))
+    issues += _typed_issues(payload.get("dataset"), "dataset", _DATASET_TYPES)
+    issues += _typed_issues(payload.get("partition_plan"), "partition_plan", _PARTITION_FILE_TYPES)
+    for key, types in (("datasets", _DATASET_TYPES), ("partitions", _PARTITION_FILE_TYPES)):
+        group = payload.get(key)
+        for label, item in group.items() if isinstance(group, Mapping) else ():
+            issues += _typed_issues(item, f"{key}.{label}", types)
+    partitioning = payload.get("partitioning")
+    issues += _typed_issues(partitioning, "partitioning", _PARTITIONING_TYPES)
+    if isinstance(partitioning, Mapping):
+        issues += _typed_issues(partitioning.get("params"), "partitioning.params", _PARTITIONING_PARAM_TYPES)
+    issues += _typed_issues(payload.get("preprocessing"), "preprocessing", _PREPROCESSING_TYPES)
+    issues += _tuning_type_issues(payload.get("tuning"), "tuning")
+    issues += _benchmark_issues(payload.get("benchmark"))
+    return issues
+
+
+def _validate_partitioning(value: Any) -> None:
+    partitioning = validate_mapping_keys(value, PARTITIONING_KEYS, "partitioning")
+    if "strategy" not in partitioning:
+        raise ConfigurationError("'partitioning.strategy' is required.", path="partitioning.strategy")
+    as_mapping(partitioning.get("params", {}), "partitioning.params")
+    _names(partitioning.get("extra_columns", []), "partitioning.extra_columns")
+
+
+def _validate_tuning(payload: Mapping[str, Any]) -> None:
+    tuning = validate_mapping_keys(payload["tuning"], TUNING_KEYS, "tuning")
+    if "artifact" in payload and tuning.get("refit") is False:
+        raise ConfigurationError(
+            "'artifact' needs a refitted model; remove 'tuning.refit: false'.", path="tuning.refit"
+        )
+
+
+def _validate_benchmark(value: Any) -> None:
+    benchmark = validate_mapping_keys(value, BENCHMARK_KEYS, "benchmark")
+    if benchmark.get("tuning") is not None:
+        validate_mapping_keys(benchmark["tuning"], TUNING_KEYS, "benchmark.tuning")
+
+
+def _validate_model_params(workflow: str, value: Any) -> None:
+    model_params = as_mapping(value, "model_params")
+    if workflow == "benchmark":
+        for algorithm, params in model_params.items():
+            as_mapping(params, f"model_params.{algorithm}")
+
+
+def _non_empty_mapping(value: Any, label: str) -> None:
+    if not as_mapping(value, label):
+        raise ConfigurationError(f"'{label}' cannot be empty.", path=label)
+
+
+def _validate_search_spaces(value: Any) -> None:
+    for label, item in as_mapping(value, "search_spaces").items():
+        _non_empty_mapping(item, f"search_spaces.{label}")
 
 
 def _validate_dataset(value: Any, label: str, *, labeled: bool) -> None:
     dataset = validate_mapping_keys(value, DATASET_KEYS, label)
     if "path" not in dataset:
-        raise ConfigurationError(f"'{label}.path' is required.")
+        raise ConfigurationError(f"'{label}.path' is required.", path=f"{label}.path")
     if labeled and "target_col" not in dataset:
-        raise ConfigurationError(f"'{label}.target_col' is required for labeled workflows.")
+        raise ConfigurationError(
+            f"'{label}.target_col' is required for labeled workflows.", path=f"{label}.target_col"
+        )
     if "feature_cols" in dataset:
         _names(dataset["feature_cols"], f"{label}.feature_cols")
     sep = dataset.get("sep")
     if sep is not None and (not isinstance(sep, str) or len(sep) != 1):
-        raise ConfigurationError(f"'{label}.sep' must be a single character; received {sep!r}.")
+        raise ConfigurationError(
+            f"'{label}.sep' must be a single character; received {sep!r}.", path=f"{label}.sep"
+        )
 
 
 def _validate_partition_file(value: Any, label: str) -> None:
     if "path" not in validate_mapping_keys(value, PARTITION_KEYS, label):
-        raise ConfigurationError(f"'{label}.path' is required.")
+        raise ConfigurationError(f"'{label}.path' is required.", path=f"{label}.path")
 
 
 def _names(value: Any, label: str) -> list[str]:
     if not isinstance(value, (list, tuple)) or not all(isinstance(item, str) for item in value):
-        raise ConfigurationError(f"'{label}' must be a list of names.")
+        raise ConfigurationError(f"'{label}' must be a list of names.", path=label)
     return list(value)
 
 
 def validate_mapping_keys(value: Any, allowed: set[str], label: str) -> dict[str, Any]:
     """Return ``value`` as a dict after rejecting keys outside ``allowed``."""
     mapping = as_mapping(value, label)
-    unknown = set(mapping) - allowed
+    unknown = sorted(set(mapping) - allowed)
     if unknown:
-        raise ConfigurationError(f"Unknown {label} keys: {sorted(unknown)!r}.")
+        raise ConfigurationError(
+            f"Unknown {label} keys: {unknown!r}.",
+            issues=[(f"{label}.{key}", "Unknown key.") for key in unknown],
+        )
     return mapping
 
 
 def as_mapping(value: Any, label: str) -> dict[str, Any]:
     """Return ``value`` as a dict, or raise ConfigurationError if it is not a mapping."""
     if not isinstance(value, Mapping):
-        raise ConfigurationError(f"'{label}' must be a mapping.")
+        raise ConfigurationError(f"'{label}' must be a mapping.", path=label)
     return dict(value)

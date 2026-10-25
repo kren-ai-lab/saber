@@ -3,6 +3,30 @@
 All notable changes to Saber are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.2.0
+
+### Breaking changes
+
+- Model artifacts store their training provenance in `training_provenance.json` (was `provenance.json`). The `.provenance.json` suffix and the bare `provenance.json` name are reserved for the run-level provenance sidecar shared by the sibling CLIs. Artifacts saved by earlier versions still load and verify, because the loader reads file names from `manifest.json`.
+- `dataset.sample_id_col` defaults to `id`, and the column must exist in the dataset: a missing id column is an error (exit 3), with no row-index fallback. The default id column of partition plans is `id` too (was `sample_id`), and prediction tables start with an `id` column (was `sample_id`).
+
+- The cross-validation workflow is `cross-validate` (was `validate`), both as `workflow:` in configs and as the Python function `saber.cross_validate` (was `saber.validate`), so it is not confused with `validate-config`.
+- Sample ids are always strings in prediction tables; `PredictionResult.to_frame()` warns when it has to generate ids, and the CLI prints the traceback on unexpected errors (exit 4).
+
+### Added
+
+- `saber validate-config CONFIG [--json]` validates a config without reading data and reports every problem it can collect with its dotted path (`ConfigurationError.issues` carries the same list). It follows the shared ecosystem CLI contract: exit `0` or `2`, and `--json` prints a JSON array of `{path, message}`.
+- `saber run` writes `<output>.provenance.json` next to the `output` directory and `<artifact>.provenance.json` next to the `artifact` directory (`provenance/1` of the shared ecosystem CLI contract).
+- `saber.validate_config(config)` and `saber.ConfigIssue`: the same check in Python. `config` is a mapping or a path to a YAML/JSON file; it returns a list of `ConfigIssue(path, message)` (empty when valid) and does not raise for config problems. The CLI command is a thin wrapper around it.
+- Dev dependency `jsonschema` and `tests/contract/`, which validate the CLI outputs against the contract schemas.
+
+### Changed
+
+- Config validation (`validate-config`, `run --dry-run`) type-checks the keys whose type saber knows: `random_state`, the dataset and partition-file column names, `partitioning.strategy` and its column keys, the common `partitioning.params` (`n_splits`, `seed`, `test_size`, `val_size`, `shuffle`, ...), `preprocessing`, every `tuning` field (also `benchmark.tuning`), `benchmark.seeds`, `modes`, `include_baselines` and `fail_fast`, and the choices of `evaluation_role`, `tuning.optimizer` and `benchmark.modes`. A wrong type used to fail only when the run started. Algorithm hyperparameters (`model_params`) are still checked at run time.
+- A missing dataset file is a workflow failure (exit 3, `DatasetError`) instead of a config error (exit 2), like any other missing data input.
+- Unknown algorithm names are config errors (exit 2) reported by config validation, including `validate-config` and `run --dry-run`; they used to fail only when the run started.
+- A `TypeError` raised while running a workflow is now reported as an internal error (exit 4) instead of a workflow failure (exit 3).
+
 ## 0.1.1
 
 Publish archive on Zenodo.

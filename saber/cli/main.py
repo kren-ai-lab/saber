@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import traceback
+from dataclasses import asdict
 from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
@@ -20,6 +22,7 @@ from saber.cli.render import (
     render_preflight,
 )
 from saber.config import load_config, run_config
+from saber.config import validate_config as check_config
 from saber.core.registry import ALGORITHMS, get_algorithm
 from saber.exceptions import ConfigurationError, SaberError
 from saber.persistence import inspect_artifact
@@ -111,6 +114,21 @@ def run(config: ConfigArg, dry_run: DryRunOpt = False, json_output: JsonOpt = Fa
     render_execution(console, execution)
 
 
+@app.command(
+    "validate-config",
+    help="Validate a workflow config without reading any data (the checks of 'run --dry-run').",
+)
+def validate_config(config: ConfigArg, json_output: JsonOpt = False) -> None:
+    """Report every config problem; exit 0 when valid, 2 otherwise."""
+    issues = [asdict(issue) for issue in check_config(config)]
+    if json_output:
+        typer.echo(json.dumps(issues, ensure_ascii=False))
+    else:
+        for item in issues:
+            typer.echo(f"{item['path']}: {item['message']}", err=True)
+    raise typer.Exit(EXIT_CONFIG if issues else EXIT_OK)
+
+
 @models_app.command("list", help="List available algorithms.")
 def models_list(
     task: TaskOpt = None, provider: ProviderOpt = None, tag: TagOpt = None, json_output: JsonOpt = False
@@ -188,11 +206,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     except SaberError as exc:
         error_console.print(f"[bold red]saber workflow failed[/bold red]\n{exc}")
         return EXIT_WORKFLOW
-    except (OSError, ValueError, TypeError) as exc:
+    except (OSError, ValueError) as exc:
         error_console.print(f"[bold red]Error[/bold red]\n{exc}")
         return EXIT_WORKFLOW
     except Exception as exc:  # noqa: BLE001 - last-resort CLI boundary
         error_console.print(f"[bold red]Unexpected error[/bold red]\n{exc}")
+        traceback.print_exc()
         return EXIT_INTERNAL
     return EXIT_OK
 

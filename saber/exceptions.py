@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -139,8 +140,26 @@ class ArtifactCompatibilityError(PersistenceError):
     """Raised when an artifact schema/environment is incompatible."""
 
 
+@dataclass(frozen=True, slots=True)
+class ConfigIssue:
+    """One config problem: a dotted ``path`` (empty for the config root) and a ``message``."""
+
+    path: str
+    message: str
+
+
 class ConfigurationError(SaberError, ValueError):
-    """Raised when a declarative workflow configuration is invalid."""
+    """Raised when a declarative workflow configuration is invalid.
+
+    ``issues`` lists every problem as ``(dotted_path, message)``; an empty path is the config root.
+    """
+
+    def __init__(
+        self, message: str, *, path: str = "", issues: Sequence[tuple[str, str]] | None = None
+    ) -> None:
+        """Initialize with one message at ``path``, or with several ``issues``."""
+        super().__init__(message)
+        self.issues: list[tuple[str, str]] = list(issues) if issues else [(path, message)]
 
 
 __all__ = [
@@ -148,6 +167,7 @@ __all__ = [
     "ArtifactCompatibilityError",
     "ArtifactIntegrityError",
     "BenchmarkContractError",
+    "ConfigIssue",
     "ConfigurationError",
     "DatasetError",
     "DatasetFingerprintMismatchError",

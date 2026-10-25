@@ -128,7 +128,7 @@ def _write_model_artifact(
             "manifest": "manifest.json",
             "environment": "environment.json",
             "feature_schema": "feature_schema.json",
-            "provenance": "provenance.json",
+            "provenance": "training_provenance.json",
             "parameters": "parameters.json",
             "training_config": "training_config.json",
         }

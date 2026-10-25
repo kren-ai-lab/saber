@@ -49,7 +49,7 @@ def _validate_config(tmp_path: Path) -> Path:
     folds.write_text(json.dumps(plan.to_dict()), encoding="utf-8")
 
     config = {
-        "workflow": "validate",
+        "workflow": "cross-validate",
         "dataset": {"path": "data.csv", "target_col": "label", "sample_id_col": "sample_id"},
         "algorithm": "logistic_regression",
         "partition_plan": {"path": "folds.json"},
@@ -135,7 +135,7 @@ def test_workflow_json_mode_is_machine_readable(tmp_path, capsys):
     output = capsys.readouterr().out
     payload = json.loads(output)
     assert payload["status"] == "ok"
-    assert payload["summary"]["workflow"] == "validate"
+    assert payload["summary"]["workflow"] == "cross-validate"
     assert payload["summary"]["algorithm"] == "logistic_regression"
     assert payload["summary"]["n_splits"] == 3
     assert "metrics" in payload["outputs"]

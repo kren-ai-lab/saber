@@ -17,7 +17,7 @@ from saber.datasets import BioSievePartitionConfig, DatasetBundle, PartitionPlan
 from saber.exceptions import BenchmarkContractError
 from saber.tuning import tune
 from saber.utils.tabular import python_scalar
-from saber.validation import validate
+from saber.validation import cross_validate
 from saber.validation.partitioning import resolve_partition_plan
 
 if TYPE_CHECKING:
@@ -251,7 +251,7 @@ def _run_one(
                 evaluation_plan = bound_plan
                 evaluation_role = options.evaluation_role
 
-            validation = validate(
+            validation = cross_validate(
                 dataset=dataset,
                 algorithm=algorithm,
                 model_params=model_params,
@@ -330,7 +330,7 @@ def _run_tuned(
         random_state=seed,
     )
     final_params = {**model_params, **optimization.best_params}
-    validation = validate(
+    validation = cross_validate(
         dataset=dataset,
         algorithm=algorithm,
         model_params=final_params,

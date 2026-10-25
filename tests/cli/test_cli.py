@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import json
+import sys
 
 import pandas as pd
 import yaml
 from sklearn.datasets import make_classification
 
 from saber import train
-from saber.cli.main import EXIT_CONFIG, EXIT_OK, main
+from saber.cli.main import EXIT_CONFIG, EXIT_INTERNAL, EXIT_OK, main
 from saber.config import run_config
 from saber.datasets import DatasetBundle, PartitionPlan
 from saber.persistence import save_model
@@ -33,7 +34,7 @@ def _workflow_files(tmp_path):
     )
     (tmp_path / "folds.json").write_text(json.dumps(plan.to_dict()), encoding="utf-8")
     config = {
-        "workflow": "validate",
+        "workflow": "cross-validate",
         "dataset": {"path": "data.csv", "target_col": "label", "sample_id_col": "sample_id"},
         "algorithm": "logistic_regression",
         "partition_plan": {"path": "folds.json"},
@@ -53,7 +54,7 @@ def test_cli_run_uses_same_config_runner(tmp_path):
     assert main(["run", str(path)]) == EXIT_OK
     summary = json.loads((tmp_path / "cli_results" / "summary.json").read_text())
     assert summary["metrics"] == direct.summary["metrics"]
-    assert summary["workflow"] == "validate"
+    assert summary["workflow"] == "cross-validate"
     assert summary["n_splits"] == 3
 
 
@@ -72,3 +73,12 @@ def test_cli_error_exit_codes(tmp_path):
     assert main(["run", str(bad)]) == EXIT_CONFIG
     assert main(["artifact", "verify", str(tmp_path / "missing")]) != EXIT_OK
     assert main(["models", "show", "no_such_model"]) != EXIT_OK
+
+
+def test_unexpected_error_prints_traceback_and_exits_4(monkeypatch, tmp_path, capfd):
+    def boom(_path):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(sys.modules["saber.cli.main"], "inspect_artifact", boom)
+    assert main(["artifact", "verify", str(tmp_path)]) == EXIT_INTERNAL
+    assert "Traceback" in capfd.readouterr().err

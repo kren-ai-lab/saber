@@ -4,7 +4,6 @@ workflow: tune
 dataset:
   path: data/regression.csv
   target_col: target
-  sample_id_col: sample_id
 
 algorithm: ridge_regressor
 
