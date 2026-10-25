@@ -19,7 +19,7 @@ from saber.datasets import (
     PartitionPlan,
     load_partition_plan,
 )
-from saber.exceptions import ConfigurationError, DatasetValidationError
+from saber.exceptions import ConfigurationError, DatasetError, DatasetValidationError
 from saber.preprocessing import PreprocessingConfig
 from saber.tuning import TuningConfig
 from saber.utils.tabular import as_frame, read_table
@@ -44,7 +44,7 @@ def read_dataset(
     """
     path = config.resolve_path(payload["path"])
     if not path.exists():
-        raise ConfigurationError(f"Dataset file does not exist: {path}.")
+        raise DatasetError(f"Dataset file does not exist: {path}.")
     suffix = path.suffix.lower()
     if suffix not in _DATASET_FORMATS:
         raise ConfigurationError("Dataset files must be CSV, TSV, TXT (tab-separated) or Parquet.")
@@ -90,7 +90,7 @@ def load_dataset(
     dataset = DatasetBundle(
         X=frame.select(feature_cols),
         y=frame[payload["target_col"]].to_numpy(),
-        sample_ids=frame[id_col].to_list(),
+        sample_ids=frame[id_col].cast(pl.String).to_list(),
         feature_names=feature_cols,
         groups=None if group_col is None else frame[group_col].to_list(),
         sample_weight=None if weight_col is None else frame[weight_col].to_numpy(),
@@ -104,7 +104,9 @@ def load_prediction_frame(
 ) -> tuple[pl.DataFrame, tuple[Any, ...] | None]:
     """Load features/sample IDs for prediction without requiring a target."""
     frame, feature_cols = read_dataset(config, payload)
-    return frame.select(feature_cols), tuple(frame[payload.get("sample_id_col", "id")].to_list())
+    return frame.select(feature_cols), tuple(
+        frame[payload.get("sample_id_col", "id")].cast(pl.String).to_list()
+    )
 
 
 def build_preprocessing(payload: Mapping[str, Any] | None) -> PreprocessingConfig:
